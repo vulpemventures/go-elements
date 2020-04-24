@@ -12,7 +12,7 @@ type Address struct {
 // Base58 type defines the structure of an address legacy or wrapped segwit
 type Base58 struct {
 	Version byte
-	Hash []byte
+	Data []byte
 }
 
 // Bech32 defines the structure of an address native segwit
@@ -29,7 +29,7 @@ type Blech32 struct {
 	Data []byte 
 }
 
-// FromBase58 decodes a string into a Base58 data structure
+// FromBase58 decodes a string that was base58 encoded and verifies the checksum.
 func FromBase58(address string) (*Base58, error) {
 	decoded, version, err := base58.CheckDecode(address)
 	if err != nil {
@@ -44,4 +44,10 @@ func FromBase58(address string) (*Base58, error) {
 	}
 
 	return &Base58{version,decoded}, nil
+}
+
+// ToBase58 prepends a version byte and appends a four byte checksum.
+func ToBase58(b *Base58) string {
+	encoded := base58.CheckEncode(b.Data, b.Version)
+	return encoded
 }

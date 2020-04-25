@@ -28,7 +28,7 @@ type Network struct {
 var Liquid = Network{
 	Name: "liquid",
 	Bech32: "ex",
-	Blech32: "el",
+	Blech32: "lq",
 	HDPublicKey: [4]byte{0x04, 0x88, 0xb2, 0x1e},
 	HDPrivateKey: [4]byte{0x04, 0x88, 0xad, 0xe4},
 	PubKeyHash: 57,

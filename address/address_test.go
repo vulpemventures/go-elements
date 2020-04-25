@@ -9,8 +9,7 @@ import (
 const (
 	base58address = "XFKcLWJmPuToz62uc2sgCBUddmH6yopoxE"
 	base58hexdata = "2b919bfc040faed8de5469dfa0241a3c1e5681be"
-	bech32hexdata = "e6a10b7bd8aeb56444c5734ea682cd2f1ad692c4"
-	bech32address = "ert1qu6ssk77c466kg3x9wd82dqkd9udddykyfykm9k"
+	bech32address = "ert1qlg343tpldc4wvjxn3jdq2qs35r8j5yd5kjfrrt"
 )
 
 func TestFromBase58(t *testing.T) {
@@ -43,13 +42,17 @@ func TestBech32(t *testing.T) {
 		t.Errorf("TestFromBech32: bech32 decoding error")
 	}
 	if bech32.Prefix != "ert" {
-		t.Errorf("TestBech32: wrong prefix")
+		t.Errorf("TestFromBech32: wrong prefix")
 	}
-	if len(bech32.Data) != 33 {
-		t.Errorf("TestBech32: data size mismatch")
+	if bech32.Version != 0 {
+		t.Errorf("TestFromBech32: wrong version")
 	}
-	data, _ := hex.DecodeString(bech32hexdata)
-	payload := &address.Bech32{"ert", data}
-	addr, _ := address.ToBech32(payload)
-	println(addr)
+	if len(bech32.Data) != 33 && len(bech32.Data) != 20 {
+		t.Errorf("TestFromBech32: data size mismatch")
+	}
+	bc32, _ := address.ToBech32(&address.Bech32{bech32.Prefix, bech32.Version, bech32.Data})
+	if bc32 != bech32address {
+		t.Errorf("TestToBech32: wrong anddress")
+	}
+
 }

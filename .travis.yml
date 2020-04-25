@@ -6,5 +6,5 @@ go:
   - tip
 
 script:
-  - ./.travis.gofmt.sh
-  - go test -v -race $(go list ./...)
+  - bash ./.travis.gofmt
+  - go test -v ./...

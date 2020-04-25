@@ -10,7 +10,6 @@ type Unknown struct {
 	Value []byte
 }
 
-
 // Pset define partially signed Elements transaction
 type Pset struct {
 	UnsignedTx []byte

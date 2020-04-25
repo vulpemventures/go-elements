@@ -1,0 +1,10 @@
+language: go
+
+sudo: false
+
+go:
+  - tip
+
+script:
+  - if [ -n "$(gofmt -l .)" ]; then echo "Go code is not formatted"; exit 1; fi
+  - go test -v ./...

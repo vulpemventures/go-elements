@@ -1,4 +1,4 @@
-package main
+package network
 
 // Network type represents prefixes for each network 
 // https://en.bitcoin.it/wiki/List_of_address_prefixes

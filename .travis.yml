@@ -6,5 +6,5 @@ go:
   - tip
 
 script:
-  - bash ./.travis.gofmt
+  - if [ -n "$(gofmt -l .)" ]; then echo "Go code is not formatted"; exit 1; fi
   - go test -v ./...

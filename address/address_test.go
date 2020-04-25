@@ -1,9 +1,9 @@
 package address_test
 
 import (
-	"testing"
 	"encoding/hex"
 	"github.com/vulpemventures/go-elements/address"
+	"testing"
 )
 
 const (
@@ -25,7 +25,7 @@ func TestFromBase58(t *testing.T) {
 	if len(base58.Data) != 20 {
 		t.Errorf("TestFromBase58: data size mismatch")
 	}
-} 
+}
 
 func TestToBase58(t *testing.T) {
 	data, _ := hex.DecodeString(base58hexdata)

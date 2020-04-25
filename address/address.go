@@ -2,34 +2,34 @@ package address
 
 import (
 	"errors"
-	"strings"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/btcsuite/btcutil/bech32"
-	
+	"strings"
 )
 
-// Address defines the address as string 
+// Address defines the address as string
 type Address struct {
 	address string
 }
+
 // Base58 type defines the structure of an address legacy or wrapped segwit
 type Base58 struct {
 	Version byte
-	Data []byte
+	Data    []byte
 }
 
 // Bech32 defines the structure of an address native segwit
 type Bech32 struct {
-	Prefix string
+	Prefix  string
 	Version byte
-	Data []byte 
+	Data    []byte
 }
 
 // Blech32 defines the structure of a confidential address native segwit
 type Blech32 struct {
-	Version byte
+	Version   byte
 	PublicKey []byte
-	Data []byte 
+	Data      []byte
 }
 
 // FromBase58 decodes a string that was base58 encoded and verifies the checksum.
@@ -46,7 +46,7 @@ func FromBase58(address string) (*Base58, error) {
 		return nil, errors.New(address + " is too long")
 	}
 
-	return &Base58{version,decoded}, nil
+	return &Base58{version, decoded}, nil
 }
 
 // ToBase58 prepends a version byte and appends a four byte checksum.
@@ -55,13 +55,12 @@ func ToBase58(b *Base58) string {
 	return encoded
 }
 
-
 // FromBech32 decodes a bech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
 func FromBech32(address string) (*Bech32, error) {
 	// Bech32 encoded segwit addresses start with a human-readable part
 	// (hrp) followed by '1'. For Liquid mainnet the hrp is "ex", and for
-	// testnet it is "ert". 
+	// testnet it is "ert".
 	oneIndex := strings.LastIndexByte(address, '1')
 	if oneIndex <= 1 {
 		return nil, errors.New("Invalid Sewgit address")
@@ -127,7 +126,6 @@ func ToBech32(bc *Bech32) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 
 	return bech, nil
 }

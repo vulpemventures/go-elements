@@ -1,4 +1,4 @@
-package utils
+package transaction
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestBufferWriterAndReader(t *testing.T) {
+func TestSerializerAndDeserializer(t *testing.T) {
 	t.Run("WriteReadUint8", testWriteReadUint8)
 	t.Run("WriteReadUint32", testWriteReadUint32)
 	t.Run("WriteReadUint64", testWriteReadUint64)
@@ -20,7 +20,7 @@ func TestBufferWriterAndReader(t *testing.T) {
 
 func testWriteReadUint8(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewBufferWriter(buf)
+	bw, err := NewSerializer(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func testWriteReadUint8(t *testing.T) {
 		}
 	}
 
-	br := NewBufferReader(bw.buffer)
+	br := NewDeserializer(bw.buffer)
 	for _, expected := range tests.expected {
 		res, err := br.ReadUint8()
 		if err != nil {
@@ -54,7 +54,7 @@ func testWriteReadUint8(t *testing.T) {
 
 func testWriteReadUint32(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewBufferWriter(buf)
+	bw, err := NewSerializer(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func testWriteReadUint32(t *testing.T) {
 		}
 	}
 
-	br := NewBufferReader(bw.buffer)
+	br := NewDeserializer(bw.buffer)
 	for _, expected := range tests.expected {
 		res, err := br.ReadUint32()
 		if err != nil {
@@ -98,7 +98,7 @@ func testWriteReadUint32(t *testing.T) {
 
 func testWriteReadUint64(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewBufferWriter(buf)
+	bw, err := NewSerializer(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func testWriteReadUint64(t *testing.T) {
 		}
 	}
 
-	br := NewBufferReader(bw.buffer)
+	br := NewDeserializer(bw.buffer)
 	for _, expected := range tests.expected {
 		res, err := br.ReadUint64()
 		if err != nil {
@@ -142,7 +142,7 @@ func testWriteReadUint64(t *testing.T) {
 
 func testWriteReadVarInt(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewBufferWriter(buf)
+	bw, err := NewSerializer(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func testWriteReadVarInt(t *testing.T) {
 		}
 	}
 
-	br := NewBufferReader(bw.buffer)
+	br := NewDeserializer(bw.buffer)
 	for _, expected := range tests.expected {
 		res, err := br.ReadVarInt()
 		if err != nil {
@@ -206,7 +206,7 @@ func testWriteReadVarInt(t *testing.T) {
 
 func testWriteReadSlice(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewBufferWriter(buf)
+	bw, err := NewSerializer(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func testWriteReadSlice(t *testing.T) {
 		}
 	}
 
-	br := NewBufferReader(bw.buffer)
+	br := NewDeserializer(bw.buffer)
 	for _, v := range tests.in {
 		res, err := br.ReadSlice(uint(len(v)))
 		if err != nil {
@@ -243,7 +243,7 @@ func testWriteReadSlice(t *testing.T) {
 
 func testWriteReadVarSlice(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewBufferWriter(buf)
+	bw, err := NewSerializer(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func testWriteReadVarSlice(t *testing.T) {
 		}
 	}
 
-	br := NewBufferReader(bw.buffer)
+	br := NewDeserializer(bw.buffer)
 	for _, v := range tests.in {
 		res, err := br.ReadVarSlice()
 		if err != nil {
@@ -287,7 +287,7 @@ func testWriteReadVarSlice(t *testing.T) {
 
 func testWriteReadVector(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewBufferWriter(buf)
+	bw, err := NewSerializer(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func testWriteReadVector(t *testing.T) {
 		}
 	}
 
-	br := NewBufferReader(bw.buffer)
+	br := NewDeserializer(bw.buffer)
 	for _, v := range tests.in {
 		res, err := br.ReadVector()
 		if err != nil {

@@ -49,10 +49,9 @@ func testAddInput(t *testing.T) {
 
 	tx := &Transaction{}
 	hash, _ := hex.DecodeString(hashStr)
-	err := tx.AddInput(hash, index)
-	if err != nil {
-		t.Fatal(err)
-	}
+	txIn := NewTxInput(hash, index)
+	tx.AddInput(txIn)
+
 	input := tx.Inputs[0]
 	if !reflect.DeepEqual(input.Hash, hash) {
 		t.Fatalf("Got %x, expected %s", input.Hash, hashStr)
@@ -72,10 +71,8 @@ func testAddOutput(t *testing.T) {
 
 	tx := &Transaction{}
 	asset, _ := hex.DecodeString(assetStr)
-	err := tx.AddOutput(asset, value, script)
-	if err != nil {
-		t.Fatal(err)
-	}
+	txOut := NewTxOutput(asset, value, script)
+	tx.AddOutput(txOut)
 	output := tx.Outputs[0]
 	if !reflect.DeepEqual(output.Asset, asset) {
 		t.Fatalf("Got %x, expected %s", output.Asset, assetStr)

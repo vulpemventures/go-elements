@@ -44,6 +44,9 @@ type TxInput struct {
 // NewTxInput returns a new input with given hash and index and a default max
 // sequence number.
 func NewTxInput(hash []byte, index uint32) *TxInput {
+	if index != MinusOne {
+		index &= OutpointIndexMask
+	}
 	return &TxInput{
 		hash,
 		index,
@@ -284,33 +287,13 @@ func NewTxFromString(str string) (*Transaction, error) {
 
 // AddInput creates an input with the given hash and index and adds it
 // to the transaction.
-func (tx *Transaction) AddInput(hash []byte, index uint32) error {
-	// TODO:
-	// err := checkInputData(hash, index)
-	// if err != nil {
-	// 	return err
-	// }
-
-	if index != MinusOne {
-		index &= OutpointIndexMask
-	}
-
-	ti := NewTxInput(hash, index)
+func (tx *Transaction) AddInput(ti *TxInput) {
 	tx.Inputs = append(tx.Inputs, ti)
-	return nil
 }
 
-// AddOutput creates an output with the given asset, value and script and adds it
-// to the transaction.
-func (tx *Transaction) AddOutput(asset, value, script []byte) error {
-	// TODO:
-	// err := checkOutputData(asset, value, script)
-	// if err != nil {
-	// 	return err
-	// }
-	to := NewTxOutput(asset, value, script)
+// AddOutput adds an output to the transaction.
+func (tx *Transaction) AddOutput(to *TxOutput) {
 	tx.Outputs = append(tx.Outputs, to)
-	return nil
 }
 
 // HasWitness returns wether the transaction contains witness data

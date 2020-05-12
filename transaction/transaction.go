@@ -350,6 +350,81 @@ func (tx *Transaction) VirtualSize() int {
 	return (tx.Weight() + WitnessScaleFactor - 1) / WitnessScaleFactor
 }
 
+// Copy creates a deep copy of a transaction so that the original does not get
+// modified when the copy is manipulated.
+func (tx *Transaction) Copy() *Transaction {
+	newTx := Transaction{
+		Version:  tx.Version,
+		Flag:     tx.Flag,
+		Inputs:   make([]*TxInput, 0, len(tx.Inputs)),
+		Outputs:  make([]*TxOutput, 0, len(tx.Outputs)),
+		Locktime: tx.Locktime,
+	}
+	copyBytes := func(src []byte) []byte {
+		dst := make([]byte, len(src))
+		copy(dst, src)
+		return dst
+	}
+
+	for _, input := range tx.Inputs {
+		hash := copyBytes(input.Hash)
+		script := copyBytes(input.Script)
+		newInput := TxInput{
+			hash,
+			input.Index,
+			input.Sequence,
+			script,
+			nil,
+			input.IsPegin,
+			nil,
+			nil,
+			nil,
+			nil,
+		}
+		if len(input.Witness) != 0 {
+			newInput.Witness = make([][]byte, len(input.Witness))
+			for i, wit := range input.Witness {
+				newInput.Witness[i] = copyBytes(wit)
+			}
+		}
+		if len(input.PeginWitness) != 0 {
+			newInput.PeginWitness = make([][]byte, len(input.PeginWitness))
+			for _, pwit := range input.PeginWitness {
+				newInput.PeginWitness = append(newInput.PeginWitness, copyBytes(pwit))
+			}
+		}
+		if len(input.IssuanceRangeProof) != 0 {
+			newInput.IssuanceRangeProof = copyBytes(input.IssuanceRangeProof)
+		}
+		if len(input.InflationRangeProof) != 0 {
+			newInput.InflationRangeProof = copyBytes(input.InflationRangeProof)
+		}
+		if input.Issuance != nil {
+			newInput.Issuance.AssetAmount = copyBytes(input.Issuance.AssetAmount)
+			newInput.Issuance.AssetEntropy = copyBytes(input.Issuance.AssetEntropy)
+			newInput.Issuance.AssetBlindingNonce = copyBytes(input.Issuance.AssetBlindingNonce)
+			newInput.Issuance.TokenAmount = copyBytes(input.Issuance.TokenAmount)
+		}
+		newTx.Inputs = append(newTx.Inputs, &newInput)
+	}
+
+	for _, output := range tx.Outputs {
+		asset := copyBytes(output.Asset)
+		value := copyBytes(output.Value)
+		nonce := copyBytes(output.Nonce)
+		script := copyBytes(output.Script)
+		surjectionProof := copyBytes(output.SurjectionProof)
+		rangeProof := copyBytes(output.RangeProof)
+
+		newOutput := TxOutput{
+			asset, value, script, nonce, rangeProof, surjectionProof,
+		}
+		newTx.Outputs = append(newTx.Outputs, &newOutput)
+	}
+
+	return &newTx
+}
+
 // SerializeSize returns the number of bytes it would take to serialize the
 // the transaction.
 func (tx *Transaction) SerializeSize(allowWitness, forSignature bool) int {

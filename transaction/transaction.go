@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	WitnessScaleFactor   = 4
 	DefaultSequence      = 0xffffffff
 	MinusOne             = 4294967295
 	OutpointIndexMask    = 0x3fffffff
@@ -335,6 +336,18 @@ func (tx *Transaction) WitnessHash() chainhash.Hash {
 		return chainhash.DoubleHashH(buf.Bytes())
 	}
 	return tx.TxHash()
+}
+
+// Weight returns the total weight in bytes of the transaction
+func (tx *Transaction) Weight() int {
+	base := tx.SerializeSize(false, false)
+	total := tx.SerializeSize(true, false)
+	return base*(WitnessScaleFactor-1) + total
+}
+
+// VirtualSize returns the total weight of a transaction excluding witnesses
+func (tx *Transaction) VirtualSize() int {
+	return (tx.Weight() + WitnessScaleFactor - 1) / WitnessScaleFactor
 }
 
 // SerializeSize returns the number of bytes it would take to serialize the

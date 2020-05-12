@@ -274,9 +274,9 @@ func NewTxFromBuffer(buf *bytes.Buffer) (*Transaction, error) {
 	return &Transaction{int32(version), int32(flag), locktime, inputs, outputs}, nil
 }
 
-// NewTxFromString deserializes the given transaction in hex format and returns
+// NewTxFromHex deserializes the given transaction in hex format and returns
 // an instance of *Transaction.
-func NewTxFromString(str string) (*Transaction, error) {
+func NewTxFromHex(str string) (*Transaction, error) {
 	b, err := hex.DecodeString(str)
 	if err != nil {
 		return nil, err

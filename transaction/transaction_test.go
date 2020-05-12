@@ -29,7 +29,7 @@ func testRoundTrip(t *testing.T) {
 	}
 
 	for _, str := range tests.hex {
-		tx, err := NewTxFromString(str)
+		tx, err := NewTxFromHex(str)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,7 +112,7 @@ func testTxHash(t *testing.T) {
 	}
 
 	for i, str := range tests.hex {
-		tx, err := NewTxFromString(str)
+		tx, err := NewTxFromHex(str)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func testSize(t *testing.T) {
 	}
 
 	for i, str := range tests.hex {
-		tx, err := NewTxFromString(str)
+		tx, err := NewTxFromHex(str)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -168,7 +168,7 @@ func testCopy(t *testing.T) {
 	}
 
 	for _, str := range tests.hex {
-		tx, err := NewTxFromString(str)
+		tx, err := NewTxFromHex(str)
 		if err != nil {
 			t.Fatal(err)
 		}

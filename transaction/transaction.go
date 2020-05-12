@@ -321,8 +321,8 @@ func (tx *Transaction) HasWitness() bool {
 // TxHash generates the Hash for the transaction.
 func (tx *Transaction) TxHash() chainhash.Hash {
 	// Encode the transaction and calculate double sha256 on the result.
-	buf := bytes.NewBuffer(make([]byte, 0))
-	return chainhash.DoubleHashH(buf.Bytes())
+	buf, _ := tx.serialize(nil, false, true, false)
+	return chainhash.DoubleHashH(buf)
 }
 
 // WitnessHash generates the hash of the transaction serialized according to
@@ -332,8 +332,8 @@ func (tx *Transaction) TxHash() chainhash.Hash {
 // is the same as its txid.
 func (tx *Transaction) WitnessHash() chainhash.Hash {
 	if tx.HasWitness() {
-		buf := bytes.NewBuffer(make([]byte, 0))
-		return chainhash.DoubleHashH(buf.Bytes())
+		buf, _ := tx.serialize(nil, true, true, false)
+		return chainhash.DoubleHashH(buf)
 	}
 	return tx.TxHash()
 }

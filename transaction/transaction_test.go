@@ -33,7 +33,7 @@ func testRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := tx.String()
+		res, err := tx.ToHex()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -173,8 +173,8 @@ func testCopy(t *testing.T) {
 			t.Fatal(err)
 		}
 		newTx := tx.Copy()
-		txHex, _ := tx.String()
-		newTxHex, _ := newTx.String()
+		txHex, _ := tx.ToHex()
+		newTxHex, _ := newTx.ToHex()
 		if txHex != newTxHex {
 			fmt.Println(txHex)
 			fmt.Println(newTxHex)

@@ -434,8 +434,8 @@ func (tx *Transaction) Serialize() ([]byte, error) {
 	return tx.serialize(nil, true, false, false)
 }
 
-// String returns the serializarion of the transaction in hex enncoding format.
-func (tx *Transaction) String() (string, error) {
+// ToHex returns the serializarion of the transaction in hex enncoding format.
+func (tx *Transaction) ToHex() (string, error) {
 	bytes, err := tx.Serialize()
 	if err != nil {
 		return "", err

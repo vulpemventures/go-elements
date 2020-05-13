@@ -15,6 +15,8 @@ type Payment struct {
 	PublicKey   *btcec.PublicKey
 	Hash        []byte
 	BlindingKey *btcec.PublicKey
+	Redeem      *Payment
+	Script      []byte
 }
 
 //target mail duty exit light void budget zone senior tag rude wisdom
@@ -25,7 +27,7 @@ type Payment struct {
 func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) Payment {
 	publicKeyBytes := pubkey.SerializeCompressed()
 	hash := hash160(publicKeyBytes)[:ripemd160.Size]
-	return Payment{network, pubkey, hash, nil}
+	return Payment{network, pubkey, hash, nil, nil, nil}
 }
 
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address

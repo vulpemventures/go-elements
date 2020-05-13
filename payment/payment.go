@@ -49,6 +49,13 @@ func (p *Payment) WitnessPubKeyHash() string {
 	return addr
 }
 
+// ScriptHash is a method of the Payment struct to derive a base58 p2sh address
+func (p *Payment) ScriptHash() string {
+	payload := &address.Base58{p.Network.ScriptHash, p.Hash}
+	addr := address.ToBase58(payload)
+	return addr
+}
+
 // Calculate the hash of hasher over buf.
 func calcHash(buf []byte, hasher hash.Hash) []byte {
 	hasher.Write(buf)

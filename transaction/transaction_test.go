@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"encoding/hex"
-	"fmt"
 	"reflect"
 	"testing"
 )
@@ -176,8 +175,6 @@ func testCopy(t *testing.T) {
 		txHex, _ := tx.ToHex()
 		newTxHex, _ := newTx.ToHex()
 		if txHex != newTxHex {
-			fmt.Println(txHex)
-			fmt.Println(newTxHex)
 			t.Fatal("Should have value equality")
 		}
 		if newTx == tx {

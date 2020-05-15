@@ -9,6 +9,10 @@ import (
 	"hash"
 )
 
+const (
+	Op0 = 0x00
+)
+
 // Payment defines the structure that holds the information different addresses
 type Payment struct {
 	Network     *network.Network
@@ -27,7 +31,9 @@ type Payment struct {
 func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) Payment {
 	publicKeyBytes := pubkey.SerializeCompressed()
 	hash := hash160(publicKeyBytes)[:ripemd160.Size]
-	return Payment{network, pubkey, hash, nil, nil, nil}
+	script := make([]byte, 0)
+	script = append([]byte{Op0}, hash...)
+	return Payment{network, pubkey, hash, nil, nil, script}
 }
 
 // FromPayment creates a Payment struct from a another Payment

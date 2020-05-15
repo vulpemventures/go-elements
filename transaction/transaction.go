@@ -17,6 +17,7 @@ const (
 
 	advancedTransactionFlag   = uint8(0x01)
 	advancedTransactionMarker = uint8(0x00)
+	defaultTxInOutAlloc       = 15
 )
 
 //TxIssuance defines the type for Issuance field in TxInput
@@ -283,6 +284,18 @@ func NewTxFromHex(str string) (*Transaction, error) {
 	}
 	buf := bytes.NewBuffer(b)
 	return NewTxFromBuffer(buf)
+}
+
+// NewTx returns a new elements tx message. The return instance has no
+// transaction inputs or outputs. Also, the lock time is set to zero
+// to indicate the transaction is valid immediately as opposed to some time in
+// future.
+func NewTx(version int32) *Transaction {
+	return &Transaction{
+		Version: version,
+		Inputs:  make([]*TxInput, 0, defaultTxInOutAlloc),
+		Outputs: make([]*TxOutput, 0, defaultTxInOutAlloc),
+	}
 }
 
 // AddInput creates an input with the given hash and index and adds it

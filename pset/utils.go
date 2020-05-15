@@ -18,12 +18,15 @@ package pset
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"io"
 	"sort"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -93,7 +96,7 @@ func extractKeyOrderFromScript(script []byte, expectedPubkeys [][]byte,
 	// If this isn't a proper finalized multi-sig script, then we can't
 	// proceed.
 	if !checkIsMultiSigScript(expectedPubkeys, sigs, script) {
-		return nil, ErrUnsupportedScriptType
+		return nil, psbt.ErrUnsupportedScriptType
 	}
 
 	// Arrange the pubkeys and sigs into a slice of format:
@@ -235,7 +238,7 @@ func getKey(r io.Reader) (int, []byte, error) {
 	// here:
 	count, err := wire.ReadVarInt(r, 0)
 	if err != nil {
-		return -1, nil, ErrInvalidPsbtFormat
+		return -1, nil, psbt.ErrInvalidPsbtFormat
 	}
 	if count == 0 {
 		// A separator indicates end of key-value pair list.
@@ -243,8 +246,8 @@ func getKey(r io.Reader) (int, []byte, error) {
 	}
 
 	// Check that we don't attempt to decode a dangerously large key.
-	if count > MaxPsbtKeyLength {
-		return -1, nil, ErrInvalidKeydata
+	if count > psbt.MaxPsbtKeyLength {
+		return -1, nil, psbt.ErrInvalidKeydata
 	}
 
 	// Next, we ready out the designated number of bytes, which may include
@@ -265,12 +268,30 @@ func getKey(r io.Reader) (int, []byte, error) {
 	// Otherwise, we return the key, along with any data that it may
 	// contain.
 	return keyType, keyTypeAndData[1:], nil
+}
 
+// readBip32Derivation deserializes a byte slice containing chunks of 4 byte
+// little endian encodings of uint32 values, the first of which is the
+// masterkeyfingerprint and the remainder of which are the derivation path.
+func readBip32Derivation(path []byte) (uint32, []uint32, error) {
+
+	if len(path)%4 != 0 || len(path)/4-1 < 1 {
+		return 0, nil, psbt.ErrInvalidPsbtFormat
+	}
+
+	masterKeyInt := binary.LittleEndian.Uint32(path[:4])
+
+	var paths []uint32
+	for i := 4; i < len(path); i += 4 {
+		paths = append(paths, binary.LittleEndian.Uint32(path[i:i+4]))
+	}
+
+	return masterKeyInt, paths, nil
 }
 
 func readTxOut(txout []byte) (*transaction.TxOutput, error) {
 	if len(txout) < 45 {
-		return nil, ErrInvalidPsbtFormat
+		return nil, psbt.ErrInvalidPsbtFormat
 	}
 	d := transaction.NewDeserializer(bytes.NewBuffer(txout))
 	asset, err := d.ReadElementsAsset()
@@ -319,4 +340,34 @@ func writeTxOut(txout *transaction.TxOutput) ([]byte, error) {
 	}
 	// TODO: write confidential fields
 	return s.Bytes(), nil
+}
+
+// validatePubkey checks if pubKey is *any* valid pubKey serialization in a
+// Bitcoin context (compressed/uncomp. OK).
+func validatePubkey(pubKey []byte) bool {
+	_, err := btcec.ParsePubKey(pubKey, btcec.S256())
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+// validateSignature checks that the passed byte slice is a valid DER-encoded
+// ECDSA signature, including the sighash flag.  It does *not* of course
+// validate the signature against any message or public key.
+func validateSignature(sig []byte) bool {
+	_, err := btcec.ParseDERSignature(sig, btcec.S256())
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+// checkValid checks that both the pbukey and sig are valid. See the methods
+// (PartialSig, validatePubkey, validateSignature) for more details.
+//
+// TODO(waxwing): update for Schnorr will be needed here if/when that
+// activates.
+func checkValid(ps psbt.PartialSig) bool {
+	return validatePubkey(ps.PubKey) && validateSignature(ps.Signature)
 }

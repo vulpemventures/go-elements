@@ -19,10 +19,10 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"io"
 
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -35,81 +35,6 @@ var (
 	psbtMagic = [psbtMagicLength]byte{0x70,
 		0x73, 0x65, 0x74, 0xff, // = "pset" + 0xff sep
 	}
-)
-
-// MaxPsbtValueLength is the size of the largest transaction serialization
-// that could be passed in a NonWitnessUtxo field. This is definitely
-//less than 4M.
-const MaxPsbtValueLength = 4000000
-
-// MaxPsbtKeyLength is the length of the largest key that we'll successfully
-// deserialize from the wire. Anything more will return ErrInvalidKeydata.
-const MaxPsbtKeyLength = 10000
-
-var (
-	// ErrInvalidPsbtFormat is a generic error for any situation in which a
-	// provided Psbt serialization does not conform to the rules of BIP174.
-	ErrInvalidPsbtFormat = errors.New("Invalid PSBT serialization format")
-
-	// ErrDuplicateKey indicates that a passed Psbt serialization is invalid
-	// due to having the same key repeated in the same key-value pair.
-	ErrDuplicateKey = errors.New("Invalid Psbt due to duplicate key")
-
-	// ErrInvalidKeydata indicates that a key-value pair in the PSBT
-	// serialization contains data in the key which is not valid.
-	ErrInvalidKeydata = errors.New("Invalid key data")
-
-	// ErrInvalidMagicBytes indicates that a passed Psbt serialization is invalid
-	// due to having incorrect magic bytes.
-	ErrInvalidMagicBytes = errors.New("Invalid Psbt due to incorrect magic bytes")
-
-	// ErrInvalidRawTxSigned indicates that the raw serialized transaction in the
-	// global section of the passed Psbt serialization is invalid because it
-	// contains scriptSigs/witnesses (i.e. is fully or partially signed), which
-	// is not allowed by BIP174.
-	ErrInvalidRawTxSigned = errors.New("Invalid Psbt, raw transaction must " +
-		"be unsigned.")
-
-	// ErrInvalidPrevOutNonWitnessTransaction indicates that the transaction
-	// hash (i.e. SHA256^2) of the fully serialized previous transaction
-	// provided in the NonWitnessUtxo key-value field doesn't match the prevout
-	// hash in the UnsignedTx field in the PSBT itself.
-	ErrInvalidPrevOutNonWitnessTransaction = errors.New("Prevout hash does " +
-		"not match the provided non-witness utxo serialization")
-
-	// ErrInvalidSignatureForInput indicates that the signature the user is
-	// trying to append to the PSBT is invalid, either because it does
-	// not correspond to the previous transaction hash, or redeem script,
-	// or witness script.
-	// NOTE this does not include ECDSA signature checking.
-	ErrInvalidSignatureForInput = errors.New("Signature does not correspond " +
-		"to this input")
-
-	// ErrInputAlreadyFinalized indicates that the PSBT passed to a Finalizer
-	// already contains the finalized scriptSig or witness.
-	ErrInputAlreadyFinalized = errors.New("Cannot finalize PSBT, finalized " +
-		"scriptSig or scriptWitnes already exists")
-
-	// ErrIncompletePSBT indicates that the Extractor object
-	// was unable to successfully extract the passed Psbt struct because
-	// it is not complete
-	ErrIncompletePSBT = errors.New("PSBT cannot be extracted as it is " +
-		"incomplete")
-
-	// ErrNotFinalizable indicates that the PSBT struct does not have
-	// sufficient data (e.g. signatures) for finalization
-	ErrNotFinalizable = errors.New("PSBT is not finalizable")
-
-	// ErrInvalidSigHashFlags indicates that a signature added to the PSBT
-	// uses Sighash flags that are not in accordance with the requirement
-	// according to the entry in PsbtInSighashType, or otherwise not the
-	// default value (SIGHASH_ALL)
-	ErrInvalidSigHashFlags = errors.New("Invalid Sighash Flags")
-
-	// ErrUnsupportedScriptType indicates that the redeem script or
-	// scriptwitness given is not supported by this codebase, or is otherwise
-	// not valid.
-	ErrUnsupportedScriptType = errors.New("Unsupported script type")
 )
 
 // Unknown is a struct encapsulating a key-value pair for which the key type is
@@ -171,7 +96,7 @@ func deserialize(r io.Reader) (*Pset, error) {
 		return nil, err
 	}
 	if magic != psbtMagic {
-		return nil, ErrInvalidMagicBytes
+		return nil, psbt.ErrInvalidMagicBytes
 	}
 
 	// Next we parse the GLOBAL section.  There is currently only 1 known
@@ -182,13 +107,13 @@ func deserialize(r io.Reader) (*Pset, error) {
 		return nil, err
 	}
 	if GlobalType(keyint) != UnsignedTxType || keydata != nil {
-		return nil, ErrInvalidPsbtFormat
+		return nil, psbt.ErrInvalidPsbtFormat
 	}
 
 	// Now that we've verified the global type is present, we'll decode it
 	// into a proper unsigned transaction, and validate it.
 	value, err := wire.ReadVarBytes(
-		r, 0, MaxPsbtValueLength, "PSET value",
+		r, 0, psbt.MaxPsbtValueLength, "PSET value",
 	)
 	if err != nil {
 		return nil, err
@@ -199,7 +124,7 @@ func deserialize(r io.Reader) (*Pset, error) {
 		return nil, err
 	}
 	if !validateUnsignedTX(msgTx) {
-		return nil, ErrInvalidRawTxSigned
+		return nil, psbt.ErrInvalidRawTxSigned
 	}
 
 	// Next we parse any unknowns that may be present, making sure that we
@@ -208,14 +133,14 @@ func deserialize(r io.Reader) (*Pset, error) {
 	for {
 		keyint, keydata, err := getKey(r)
 		if err != nil {
-			return nil, ErrInvalidPsbtFormat
+			return nil, psbt.ErrInvalidPsbtFormat
 		}
 		if keyint == -1 {
 			break
 		}
 
 		value, err := wire.ReadVarBytes(
-			r, 0, MaxPsbtValueLength, "PSET value",
+			r, 0, psbt.MaxPsbtValueLength, "PSET value",
 		)
 		if err != nil {
 			return nil, err
@@ -276,7 +201,7 @@ func deserialize(r io.Reader) (*Pset, error) {
 // only the global section is non-empty) using the passed unsigned transaction.
 func NewPsetFromUnsignedTx(tx *transaction.Transaction) (*Pset, error) {
 	if !validateUnsignedTX(tx) {
-		return nil, ErrInvalidRawTxSigned
+		return nil, psbt.ErrInvalidRawTxSigned
 	}
 
 	inSlice := make([]PInput, len(tx.Inputs))
@@ -354,12 +279,12 @@ func (p *Pset) IsComplete() bool {
 func (p *Pset) SanityCheck() error {
 
 	if !validateUnsignedTX(p.UnsignedTx) {
-		return ErrInvalidRawTxSigned
+		return psbt.ErrInvalidRawTxSigned
 	}
 
 	for _, tin := range p.Inputs {
 		if !tin.IsSane() {
-			return ErrInvalidPsbtFormat
+			return psbt.ErrInvalidPsbtFormat
 		}
 	}
 

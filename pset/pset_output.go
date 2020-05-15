@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil/psbt"
 )
 
 // POutput is a struct encapsulating all the data that can be attached
@@ -29,14 +30,14 @@ import (
 type POutput struct {
 	RedeemScript    []byte
 	WitnessScript   []byte
-	Bip32Derivation []*Bip32Derivation
+	Bip32Derivation []*psbt.Bip32Derivation
 }
 
 // NewPsbtOutput creates an instance of PsbtOutput; the three parameters
 // redeemScript, witnessScript and Bip32Derivation are all allowed to be
 // `nil`.
 func NewPsbtOutput(redeemScript []byte, witnessScript []byte,
-	bip32Derivation []*Bip32Derivation) *POutput {
+	bip32Derivation []*psbt.Bip32Derivation) *POutput {
 	return &POutput{
 		RedeemScript:    redeemScript,
 		WitnessScript:   witnessScript,
@@ -57,7 +58,7 @@ func (po *POutput) deserialize(r io.Reader) error {
 		}
 
 		value, err := wire.ReadVarBytes(
-			r, 0, MaxPsbtValueLength, "PSET value",
+			r, 0, psbt.MaxPsbtValueLength, "PSET value",
 		)
 		if err != nil {
 			return err
@@ -67,25 +68,25 @@ func (po *POutput) deserialize(r io.Reader) error {
 
 		case RedeemScriptOutputType:
 			if po.RedeemScript != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 			po.RedeemScript = value
 
 		case WitnessScriptOutputType:
 			if po.WitnessScript != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 			po.WitnessScript = value
 
 		case Bip32DerivationOutputType:
 			if !validatePubkey(keydata) {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 			master, derivationPath, err := readBip32Derivation(value)
 			if err != nil {
@@ -95,12 +96,12 @@ func (po *POutput) deserialize(r io.Reader) error {
 			// Duplicate keys are not allowed
 			for _, x := range po.Bip32Derivation {
 				if bytes.Equal(x.PubKey, keydata) {
-					return ErrDuplicateKey
+					return psbt.ErrDuplicateKey
 				}
 			}
 
 			po.Bip32Derivation = append(po.Bip32Derivation,
-				&Bip32Derivation{
+				&psbt.Bip32Derivation{
 					PubKey:               keydata,
 					MasterKeyFingerprint: master,
 					Bip32Path:            derivationPath,
@@ -109,7 +110,7 @@ func (po *POutput) deserialize(r io.Reader) error {
 
 		default:
 			// Unknown type is allowed for inputs but not outputs.
-			return ErrInvalidPsbtFormat
+			return psbt.ErrInvalidPsbtFormat
 		}
 	}
 
@@ -136,13 +137,13 @@ func (po *POutput) serialize(w io.Writer) error {
 		}
 	}
 
-	sort.Sort(Bip32Sorter(po.Bip32Derivation))
+	sort.Sort(psbt.Bip32Sorter(po.Bip32Derivation))
 	for _, kd := range po.Bip32Derivation {
 		err := serializeKVPairWithType(
 			w,
 			uint8(Bip32DerivationOutputType),
 			kd.PubKey,
-			SerializeBIP32Derivation(
+			psbt.SerializeBIP32Derivation(
 				kd.MasterKeyFingerprint,
 				kd.Bip32Path,
 			),

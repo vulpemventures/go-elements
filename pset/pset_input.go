@@ -24,6 +24,7 @@ import (
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -32,11 +33,11 @@ import (
 type PInput struct {
 	NonWitnessUtxo     *transaction.Transaction
 	WitnessUtxo        *transaction.TxOutput
-	PartialSigs        []*PartialSig
+	PartialSigs        []*psbt.PartialSig
 	SighashType        txscript.SigHashType
 	RedeemScript       []byte
 	WitnessScript      []byte
-	Bip32Derivation    []*Bip32Derivation
+	Bip32Derivation    []*psbt.Bip32Derivation
 	FinalScriptSig     []byte
 	FinalScriptWitness []byte
 	Unknowns           []*Unknown
@@ -54,11 +55,11 @@ func NewPsbtInput(nonWitnessUtxo *transaction.Transaction,
 	return &PInput{
 		NonWitnessUtxo:     nonWitnessUtxo,
 		WitnessUtxo:        witnessUtxo,
-		PartialSigs:        []*PartialSig{},
+		PartialSigs:        []*psbt.PartialSig{},
 		SighashType:        0,
 		RedeemScript:       nil,
 		WitnessScript:      nil,
-		Bip32Derivation:    []*Bip32Derivation{},
+		Bip32Derivation:    []*psbt.Bip32Derivation{},
 		FinalScriptSig:     nil,
 		FinalScriptWitness: nil,
 		Unknowns:           nil,
@@ -95,7 +96,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			break
 		}
 		value, err := wire.ReadVarBytes(
-			r, 0, MaxPsbtValueLength, "PSET value",
+			r, 0, psbt.MaxPsbtValueLength, "PSET value",
 		)
 		if err != nil {
 			return err
@@ -105,10 +106,10 @@ func (pi *PInput) deserialize(r io.Reader) error {
 
 		case NonWitnessUtxoType:
 			if pi.NonWitnessUtxo != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 
 			tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(value))
@@ -119,10 +120,10 @@ func (pi *PInput) deserialize(r io.Reader) error {
 
 		case WitnessUtxoType:
 			if pi.WitnessUtxo != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 			txout, err := readTxOut(value)
 			if err != nil {
@@ -131,19 +132,19 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			pi.WitnessUtxo = txout
 
 		case PartialSigType:
-			newPartialSig := PartialSig{
+			newPartialSig := psbt.PartialSig{
 				PubKey:    keydata,
 				Signature: value,
 			}
 
-			if !newPartialSig.checkValid() {
-				return ErrInvalidPsbtFormat
+			if !checkValid(newPartialSig) {
+				return psbt.ErrInvalidPsbtFormat
 			}
 
 			// Duplicate keys are not allowed
 			for _, x := range pi.PartialSigs {
 				if bytes.Equal(x.PubKey, newPartialSig.PubKey) {
-					return ErrDuplicateKey
+					return psbt.ErrDuplicateKey
 				}
 			}
 
@@ -151,16 +152,16 @@ func (pi *PInput) deserialize(r io.Reader) error {
 
 		case SighashType:
 			if pi.SighashType != 0 {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 
 			// Bounds check on value here since the sighash type must be a
 			// 32-bit unsigned integer.
 			if len(value) != 4 {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 
 			shtype := txscript.SigHashType(
@@ -170,25 +171,25 @@ func (pi *PInput) deserialize(r io.Reader) error {
 
 		case RedeemScriptInputType:
 			if pi.RedeemScript != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 			pi.RedeemScript = value
 
 		case WitnessScriptInputType:
 			if pi.WitnessScript != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 			pi.WitnessScript = value
 
 		case Bip32DerivationInputType:
 			if !validatePubkey(keydata) {
-				return ErrInvalidPsbtFormat
+				return psbt.ErrInvalidPsbtFormat
 			}
 			master, derivationPath, err := readBip32Derivation(value)
 			if err != nil {
@@ -198,13 +199,13 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			// Duplicate keys are not allowed
 			for _, x := range pi.Bip32Derivation {
 				if bytes.Equal(x.PubKey, keydata) {
-					return ErrDuplicateKey
+					return psbt.ErrDuplicateKey
 				}
 			}
 
 			pi.Bip32Derivation = append(
 				pi.Bip32Derivation,
-				&Bip32Derivation{
+				&psbt.Bip32Derivation{
 					PubKey:               keydata,
 					MasterKeyFingerprint: master,
 					Bip32Path:            derivationPath,
@@ -213,20 +214,20 @@ func (pi *PInput) deserialize(r io.Reader) error {
 
 		case FinalScriptSigType:
 			if pi.FinalScriptSig != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 
 			pi.FinalScriptSig = value
 
 		case FinalScriptWitnessType:
 			if pi.FinalScriptWitness != nil {
-				return ErrDuplicateKey
+				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return ErrInvalidKeydata
+				return psbt.ErrInvalidKeydata
 			}
 
 			pi.FinalScriptWitness = value
@@ -244,7 +245,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			for _, x := range pi.Unknowns {
 				if bytes.Equal(x.Key, newUnknown.Key) &&
 					bytes.Equal(x.Value, newUnknown.Value) {
-					return ErrDuplicateKey
+					return psbt.ErrDuplicateKey
 				}
 			}
 
@@ -259,7 +260,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 func (pi *PInput) serialize(w io.Writer) error {
 
 	if !pi.IsSane() {
-		return ErrInvalidPsbtFormat
+		return psbt.ErrInvalidPsbtFormat
 	}
 
 	if pi.NonWitnessUtxo != nil {
@@ -286,7 +287,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 	}
 
 	if pi.FinalScriptSig == nil && pi.FinalScriptWitness == nil {
-		sort.Sort(PartialSigSorter(pi.PartialSigs))
+		sort.Sort(psbt.PartialSigSorter(pi.PartialSigs))
 		for _, ps := range pi.PartialSigs {
 			err := serializeKVPairWithType(
 				w,
@@ -332,12 +333,12 @@ func (pi *PInput) serialize(w io.Writer) error {
 			}
 		}
 
-		sort.Sort(Bip32Sorter(pi.Bip32Derivation))
+		sort.Sort(psbt.Bip32Sorter(pi.Bip32Derivation))
 		for _, kd := range pi.Bip32Derivation {
 			err := serializeKVPairWithType(
 				w,
 				uint8(Bip32DerivationInputType), kd.PubKey,
-				SerializeBIP32Derivation(
+				psbt.SerializeBIP32Derivation(
 					kd.MasterKeyFingerprint, kd.Bip32Path,
 				),
 			)

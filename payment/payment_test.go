@@ -2,7 +2,6 @@ package payment_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
@@ -35,7 +34,6 @@ func TestScriptHash(t *testing.T) {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
 	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest)
 	pay := payment.FromPayment(&p2wpkh)
-	fmt.Println(pay.ScriptHash())
 	if pay.ScriptHash() != "XToMocNywBYNSiXUe5xvoa2naAps9Ek1hq" {
 		t.Errorf("TestScriptHash: error when encoding script hash")
 	}

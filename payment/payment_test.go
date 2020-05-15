@@ -2,6 +2,7 @@ package payment_test
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
@@ -27,5 +28,15 @@ func TestSegwitAddress(t *testing.T) {
 	pay := payment.FromPublicKey(publicKey, &network.Regtest)
 	if pay.WitnessPubKeyHash() != "ert1qlg343tpldc4wvjxn3jdq2qs35r8j5yd5kjfrrt" {
 		t.Errorf("TestSegwitAddress: error when encoding segwit")
+	}
+}
+
+func TestScriptHash(t *testing.T) {
+	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
+	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest)
+	pay := payment.FromPayment(&p2wpkh)
+	fmt.Println(pay.ScriptHash())
+	if pay.ScriptHash() != "XToMocNywBYNSiXUe5xvoa2naAps9Ek1hq" {
+		t.Errorf("TestScriptHash: error when encoding script hash")
 	}
 }

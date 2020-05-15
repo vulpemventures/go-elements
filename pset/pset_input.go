@@ -43,13 +43,13 @@ type PInput struct {
 	Unknowns           []*Unknown
 }
 
-// NewPsbtInput creates an instance of PsbtInput given either a nonWitnessUtxo
+// NewPsetInput creates an instance of PsbtInput given either a nonWitnessUtxo
 // or a witnessUtxo.
 //
 // NOTE: Only one of the two arguments should be specified, with the other
 // being `nil`; otherwise the created PsbtInput object will fail IsSane()
 // checks and will not be usable.
-func NewPsbtInput(nonWitnessUtxo *transaction.Transaction,
+func NewPsetInput(nonWitnessUtxo *transaction.Transaction,
 	witnessUtxo *transaction.TxOutput) *PInput {
 
 	return &PInput{

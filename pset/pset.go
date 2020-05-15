@@ -75,14 +75,6 @@ func validateUnsignedTX(tx *transaction.Transaction) bool {
 	return true
 }
 
-// isFinalized considers this input finalized if it contains at least one of
-// the FinalScriptSig or FinalScriptWitness are filled (which only occurs in a
-// successful call to Finalize*).
-func isFinalized(p *Pset, inIndex int) bool {
-	input := p.Inputs[inIndex]
-	return input.FinalScriptSig != nil || input.FinalScriptWitness != nil
-}
-
 // deserialize returns a new instance of a Pset struct created by reading
 // from a byte slice. If the format is invalid, an error is returned.
 //

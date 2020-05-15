@@ -33,8 +33,8 @@ func TestSegwitAddress(t *testing.T) {
 func TestScriptHash(t *testing.T) {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
 	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest)
-	pay := payment.FromPayment(&p2wpkh)
-	if pay.ScriptHash() != "XToMocNywBYNSiXUe5xvoa2naAps9Ek1hq" {
+	pay := payment.FromPayment(p2wpkh)
+	if pay.ScriptHash() != "XaRRfutUccvLf6FR86UXMhbMqECgEiaPvF" {
 		t.Errorf("TestScriptHash: error when encoding script hash")
 	}
 }

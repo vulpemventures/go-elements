@@ -106,7 +106,7 @@ func deserialize(r io.Reader) (*Pset, error) {
 	if err != nil {
 		return nil, err
 	}
-	if GlobalType(keyint) != UnsignedTxType || keydata != nil {
+	if psbt.GlobalType(keyint) != psbt.UnsignedTxType || keydata != nil {
 		return nil, psbt.ErrInvalidPsbtFormat
 	}
 
@@ -313,7 +313,7 @@ func (p *Pset) serialize() ([]byte, error) {
 	// Now that we have the serialized transaction, we'll write it out to
 	// the proper global type.
 	err = serializeKVPairWithType(
-		buffer, uint8(UnsignedTxType), nil, serializedTx,
+		buffer, uint8(psbt.UnsignedTxType), nil, serializedTx,
 	)
 	if err != nil {
 		return nil, err

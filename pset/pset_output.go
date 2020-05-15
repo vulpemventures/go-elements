@@ -64,9 +64,9 @@ func (po *POutput) deserialize(r io.Reader) error {
 			return err
 		}
 
-		switch OutputType(keyint) {
+		switch psbt.OutputType(keyint) {
 
-		case RedeemScriptOutputType:
+		case psbt.RedeemScriptOutputType:
 			if po.RedeemScript != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -75,7 +75,7 @@ func (po *POutput) deserialize(r io.Reader) error {
 			}
 			po.RedeemScript = value
 
-		case WitnessScriptOutputType:
+		case psbt.WitnessScriptOutputType:
 			if po.WitnessScript != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -84,7 +84,7 @@ func (po *POutput) deserialize(r io.Reader) error {
 			}
 			po.WitnessScript = value
 
-		case Bip32DerivationOutputType:
+		case psbt.Bip32DerivationOutputType:
 			if !validatePubkey(keydata) {
 				return psbt.ErrInvalidKeydata
 			}
@@ -122,7 +122,7 @@ func (po *POutput) deserialize(r io.Reader) error {
 func (po *POutput) serialize(w io.Writer) error {
 	if po.RedeemScript != nil {
 		err := serializeKVPairWithType(
-			w, uint8(RedeemScriptOutputType), nil, po.RedeemScript,
+			w, uint8(psbt.RedeemScriptOutputType), nil, po.RedeemScript,
 		)
 		if err != nil {
 			return err
@@ -130,7 +130,7 @@ func (po *POutput) serialize(w io.Writer) error {
 	}
 	if po.WitnessScript != nil {
 		err := serializeKVPairWithType(
-			w, uint8(WitnessScriptOutputType), nil, po.WitnessScript,
+			w, uint8(psbt.WitnessScriptOutputType), nil, po.WitnessScript,
 		)
 		if err != nil {
 			return err
@@ -141,7 +141,7 @@ func (po *POutput) serialize(w io.Writer) error {
 	for _, kd := range po.Bip32Derivation {
 		err := serializeKVPairWithType(
 			w,
-			uint8(Bip32DerivationOutputType),
+			uint8(psbt.Bip32DerivationOutputType),
 			kd.PubKey,
 			psbt.SerializeBIP32Derivation(
 				kd.MasterKeyFingerprint,

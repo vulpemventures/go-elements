@@ -102,9 +102,9 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			return err
 		}
 
-		switch InputType(keyint) {
+		switch psbt.InputType(keyint) {
 
-		case NonWitnessUtxoType:
+		case psbt.NonWitnessUtxoType:
 			if pi.NonWitnessUtxo != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -118,7 +118,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			}
 			pi.NonWitnessUtxo = tx
 
-		case WitnessUtxoType:
+		case psbt.WitnessUtxoType:
 			if pi.WitnessUtxo != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -131,7 +131,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			}
 			pi.WitnessUtxo = txout
 
-		case PartialSigType:
+		case psbt.PartialSigType:
 			newPartialSig := psbt.PartialSig{
 				PubKey:    keydata,
 				Signature: value,
@@ -150,7 +150,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 
 			pi.PartialSigs = append(pi.PartialSigs, &newPartialSig)
 
-		case SighashType:
+		case psbt.SighashType:
 			if pi.SighashType != 0 {
 				return psbt.ErrDuplicateKey
 			}
@@ -169,7 +169,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			)
 			pi.SighashType = shtype
 
-		case RedeemScriptInputType:
+		case psbt.RedeemScriptInputType:
 			if pi.RedeemScript != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -178,7 +178,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			}
 			pi.RedeemScript = value
 
-		case WitnessScriptInputType:
+		case psbt.WitnessScriptInputType:
 			if pi.WitnessScript != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -187,7 +187,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 			}
 			pi.WitnessScript = value
 
-		case Bip32DerivationInputType:
+		case psbt.Bip32DerivationInputType:
 			if !validatePubkey(keydata) {
 				return psbt.ErrInvalidPsbtFormat
 			}
@@ -212,7 +212,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				},
 			)
 
-		case FinalScriptSigType:
+		case psbt.FinalScriptSigType:
 			if pi.FinalScriptSig != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -222,7 +222,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 
 			pi.FinalScriptSig = value
 
-		case FinalScriptWitnessType:
+		case psbt.FinalScriptWitnessType:
 			if pi.FinalScriptWitness != nil {
 				return psbt.ErrDuplicateKey
 			}
@@ -269,7 +269,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 			return err
 		}
 
-		err = serializeKVPairWithType(w, uint8(NonWitnessUtxoType), nil, buf)
+		err = serializeKVPairWithType(w, uint8(psbt.NonWitnessUtxoType), nil, buf)
 		if err != nil {
 			return err
 		}
@@ -280,7 +280,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 			return err
 		}
 
-		err = serializeKVPairWithType(w, uint8(WitnessUtxoType), nil, buf)
+		err = serializeKVPairWithType(w, uint8(psbt.WitnessUtxoType), nil, buf)
 		if err != nil {
 			return err
 		}
@@ -291,7 +291,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 		for _, ps := range pi.PartialSigs {
 			err := serializeKVPairWithType(
 				w,
-				uint8(PartialSigType), ps.PubKey,
+				uint8(psbt.PartialSigType), ps.PubKey,
 				ps.Signature,
 			)
 			if err != nil {
@@ -306,7 +306,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 			)
 
 			err := serializeKVPairWithType(
-				w, uint8(SighashType), nil, shtBytes[:],
+				w, uint8(psbt.SighashType), nil, shtBytes[:],
 			)
 			if err != nil {
 				return err
@@ -315,7 +315,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 
 		if pi.RedeemScript != nil {
 			err := serializeKVPairWithType(
-				w, uint8(RedeemScriptInputType), nil,
+				w, uint8(psbt.RedeemScriptInputType), nil,
 				pi.RedeemScript,
 			)
 			if err != nil {
@@ -325,7 +325,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 
 		if pi.WitnessScript != nil {
 			err := serializeKVPairWithType(
-				w, uint8(WitnessScriptInputType), nil,
+				w, uint8(psbt.WitnessScriptInputType), nil,
 				pi.WitnessScript,
 			)
 			if err != nil {
@@ -337,7 +337,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 		for _, kd := range pi.Bip32Derivation {
 			err := serializeKVPairWithType(
 				w,
-				uint8(Bip32DerivationInputType), kd.PubKey,
+				uint8(psbt.Bip32DerivationInputType), kd.PubKey,
 				psbt.SerializeBIP32Derivation(
 					kd.MasterKeyFingerprint, kd.Bip32Path,
 				),
@@ -350,7 +350,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 
 	if pi.FinalScriptSig != nil {
 		err := serializeKVPairWithType(
-			w, uint8(FinalScriptSigType), nil, pi.FinalScriptSig,
+			w, uint8(psbt.FinalScriptSigType), nil, pi.FinalScriptSig,
 		)
 		if err != nil {
 			return err
@@ -359,7 +359,7 @@ func (pi *PInput) serialize(w io.Writer) error {
 
 	if pi.FinalScriptWitness != nil {
 		err := serializeKVPairWithType(
-			w, uint8(FinalScriptWitnessType), nil, pi.FinalScriptWitness,
+			w, uint8(psbt.FinalScriptWitnessType), nil, pi.FinalScriptWitness,
 		)
 		if err != nil {
 			return err

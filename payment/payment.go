@@ -32,7 +32,7 @@ func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) Payment {
 
 // FromPayment creates a Payment struct from a another Payment
 func FromPayment(payment *Payment, network *network.Network) Payment {
-	buf := payment.Hash
+	buf := payment.Script
 	hash := hash160(buf)
 	return Payment{network, payment.PublicKey, hash, nil, nil, nil}
 }

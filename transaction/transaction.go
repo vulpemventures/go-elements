@@ -513,7 +513,7 @@ func (tx *Transaction) serialize(buf *bytes.Buffer, allowWitness, zeroFlag, forS
 	// Inputs
 	s.WriteVarInt(uint64(len(tx.Inputs)))
 	for _, txIn := range tx.Inputs {
-		s.WriteSlice(txIn.Hash[:])
+		s.WriteSlice(txIn.Hash)
 		index := txIn.Index
 		issuance := txIn.Issuance
 		if !zeroFlag {

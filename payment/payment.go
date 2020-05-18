@@ -38,10 +38,8 @@ func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) *Payment {
 
 // FromPayment creates a Payment struct from a another Payment
 func FromPayment(payment *Payment) *Payment {
-	buf := payment.Script
-	hash := hash160(buf)
-	redeem := &Payment{payment.Network, payment.PublicKey, hash, nil, nil, nil}
-	return &Payment{nil, nil, nil, nil, redeem, nil}
+	redeem := &Payment{payment.Network, payment.PublicKey, payment.Hash, nil, nil, nil}
+	return &Payment{payment.Network, nil, payment.Hash, nil, redeem, nil}
 }
 
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address

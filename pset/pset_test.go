@@ -236,11 +236,10 @@ func TestFinalizer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for inIndex := range p.Inputs {
-			err := Finalize(p, inIndex)
-			if err != nil {
-				t.Fatal(err)
-			}
+
+		err = FinalizeAll(p)
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		base64Res, err := p.ToBase64()

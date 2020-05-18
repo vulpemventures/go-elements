@@ -171,6 +171,18 @@ func MaybeFinalizeAll(p *Pset) error {
 	return nil
 }
 
+// FinalizeAll finalizes all inputs of a partial elements transaction by
+// calling the Finalize function for every partial input
+func FinalizeAll(p *Pset) error {
+	for inIndex := range p.Inputs {
+		err := Finalize(p, inIndex)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Finalize assumes that the provided pset.Pset struct has all partial
 // signatures and redeem scripts/witness scripts already prepared for the
 // specified input, and so removes all temporary data and replaces them with

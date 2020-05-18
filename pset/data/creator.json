@@ -1,0 +1,87 @@
+[
+  {
+    "inputs": [
+      {
+        "hash": "9d64f0343e264f9992aa024185319b349586ec4cbbfcedcda5a05678ab10e580",
+        "index": 0
+      }
+    ],
+    "outputs": [
+      {
+        "value": 50000000,
+        "script": "76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      },
+      {
+        "value": 49999100,
+        "script": "76a914659bedb5d3d3c7ab12d7f85323c3a1b6c060efbe88ac",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      },
+      {
+        "value": 500,
+        "script": "",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      }
+    ],
+    "expectedBase64": "cHNldP8BAOoCAAAAAAGA5RCreFagpc3t/LtM7IaVNJsxhUECqpKZTyY+NPBknQAAAAAA/////wMBJbJRBw4pyhkEPPM8zXMk4t2rA+zErgted8T8Dlz2yVoBAAAAAAL68IAAGXapFDk5cIC1HvIsWb10aa+s/77sDaEuiKwBJbJRBw4pyhkEPPM8zXMk4t2rA+zErgted8T8Dlz2yVoBAAAAAAL67PwAGXapFGWb7bXT08erEtf4UyPDobbAYO++iKwBJbJRBw4pyhkEPPM8zXMk4t2rA+zErgted8T8Dlz2yVoBAAAAAAAAAfQAAAAAAAAAAAAAAA==",
+    "expectedHex": "70736574ff0100ea02000000000180e510ab7856a0a5cdedfcbb4cec8695349b31854102aa92994f263e34f0649d0000000000ffffffff030125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a010000000002faf080001976a91439397080b51ef22c59bd7469afacffbeec0da12e88ac0125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a010000000002faecfc001976a914659bedb5d3d3c7ab12d7f85323c3a1b6c060efbe88ac0125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a0100000000000001f40000000000000000000000"
+  },
+  {
+    "inputs": [
+      {
+        "hash": "404015a2b064616e412a62c1b5760f4f953f705016efee584cc8ac5d3b1764e7",
+        "index": 1
+      },
+      {
+        "hash": "2825e7accc2999fc61b4b0ae6586476b8c63433f29d89523532e7722976aef38",
+        "index": 1
+      }
+    ],
+    "outputs": [
+      {
+        "value": 120000000,
+        "script": "76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      },
+      {
+        "value": 79999400,
+        "script": "76a91450a410115f0a7d8a99472e47d1928ff8086948c888ac",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      },
+      {
+        "value": 600,
+        "script": "",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      }
+    ],
+    "expectedBase64": "cHNldP8BAP0TAQIAAAAAAudkFztdrMhMWO7vFlBwP5VPD3a1wWIqQW5hZLCiFUBAAQAAAAD/////OO9qlyJ3LlMjldgpP0NjjGtHhmWusLRh/JkpzKznJSgBAAAAAP////8DASWyUQcOKcoZBDzzPM1zJOLdqwPsxK4LXnfE/A5c9slaAQAAAAAHJw4AABl2qRQ5OXCAtR7yLFm9dGmvrP++7A2hLoisASWyUQcOKcoZBDzzPM1zJOLdqwPsxK4LXnfE/A5c9slaAQAAAAAExLGoABl2qRRQpBARXwp9iplHLkfRko/4CGlIyIisASWyUQcOKcoZBDzzPM1zJOLdqwPsxK4LXnfE/A5c9slaAQAAAAAAAAJYAAAAAAAAAAAAAAAA",
+    "expectedHex": "70736574ff0100fd1301020000000002e764173b5dacc84c58eeef1650703f954f0f76b5c1622a416e6164b0a21540400100000000ffffffff38ef6a9722772e532395d8293f43638c6b478665aeb0b461fc9929ccace725280100000000ffffffff030125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a010000000007270e00001976a91439397080b51ef22c59bd7469afacffbeec0da12e88ac0125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a010000000004c4b1a8001976a91450a410115f0a7d8a99472e47d1928ff8086948c888ac0125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a010000000000000258000000000000000000000000"
+  },
+  {
+    "inputs": [
+      {
+        "hash": "52439251d19b8e9572dd8cd91f176be66ed42f3fbadd5554b9cc892f13e94c7c",
+        "index": 1
+      }
+    ],
+    "outputs": [
+      {
+        "value": 120000000,
+        "script": "76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      },
+      {
+        "value": 79999400,
+        "script": "76a91450a410115f0a7d8a99472e47d1928ff8086948c888ac",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      },
+      {
+        "value": 600,
+        "script": "",
+        "asset": "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225"
+      }
+    ],
+    "expectedBase64": "cHNldP8BAOoCAAAAAAF8TOkTL4nMuVRV3bo/L9Ru5msXH9mM3XKVjpvRUZJDUgEAAAAA/////wMBJbJRBw4pyhkEPPM8zXMk4t2rA+zErgted8T8Dlz2yVoBAAAAAAcnDgAAGXapFDk5cIC1HvIsWb10aa+s/77sDaEuiKwBJbJRBw4pyhkEPPM8zXMk4t2rA+zErgted8T8Dlz2yVoBAAAAAATEsagAGXapFFCkEBFfCn2KmUcuR9GSj/gIaUjIiKwBJbJRBw4pyhkEPPM8zXMk4t2rA+zErgted8T8Dlz2yVoBAAAAAAAAAlgAAAAAAAAAAAAAAA==",
+    "expectedHex": "70736574ff0100ea0200000000017c4ce9132f89ccb95455ddba3f2fd46ee66b171fd98cdd72958e9bd1519243520100000000ffffffff030125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a010000000007270e00001976a91439397080b51ef22c59bd7469afacffbeec0da12e88ac0125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a010000000004c4b1a8001976a91450a410115f0a7d8a99472e47d1928ff8086948c888ac0125b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a0100000000000002580000000000000000000000"
+  }
+]

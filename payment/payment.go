@@ -46,6 +46,12 @@ func FromPayment(payment *Payment) (*Payment, error) {
 	return &Payment{payment.Network, nil, hash160(redeem.Script), nil, redeem, nil}, nil
 }
 
+// FromPayment creates a nested Payment struct from script
+func FromScript(script []byte) (*Payment, error) {
+	redeem := &Payment{Script: script}
+	return FromPayment(redeem)
+}
+
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address
 func (p *Payment) PubKeyHash() string {
 	payload := &address.Base58{p.Network.PubKeyHash, p.Hash}

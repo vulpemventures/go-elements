@@ -2,6 +2,7 @@ package payment
 
 import (
 	"crypto/sha256"
+	"errors"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
@@ -37,10 +38,12 @@ func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) *Payment {
 }
 
 // FromPayment creates a Payment struct from a another Payment
-func FromPayment(payment *Payment) *Payment {
-	buf := payment.Script
-	hash := hash160(buf)
-	return &Payment{payment.Network, payment.PublicKey, hash, nil, nil, nil}
+func FromPayment(payment *Payment) (*Payment, error) {
+	if payment.Script == nil {
+		return nil, errors.New("script can't be nil")
+	}
+	redeem := &Payment{payment.Network, payment.PublicKey, payment.Hash, payment.BlindingKey, payment.Redeem, payment.Script}
+	return &Payment{payment.Network, nil, hash160(redeem.Script), nil, redeem, nil}, nil
 }
 
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address

@@ -2,7 +2,6 @@ package payment
 
 import (
 	"crypto/sha256"
-	"errors"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
@@ -45,12 +44,6 @@ func FromPayment(payment *Payment) *Payment {
 	return &Payment{nil, nil, nil, nil, redeem, nil}
 }
 
-// FromScript creates a Payment struct from a script
-func FromScript(script []byte) (*Payment, error) {
-	redeem := &Payment{Script: script}
-	return FromPayment(redeem), nil
-}
-
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address
 func (p *Payment) PubKeyHash() string {
 	payload := &address.Base58{p.Network.PubKeyHash, p.Hash}
@@ -71,13 +64,10 @@ func (p *Payment) WitnessPubKeyHash() string {
 }
 
 // ScriptHash is a method of the Payment struct to derive a base58 p2sh address
-func (p *Payment) ScriptHash() (string, error) {
-	if p.Redeem == nil {
-		return "", errors.New("redeem not set")
-	}
-	payload := &address.Base58{p.Redeem.Network.ScriptHash, p.Redeem.Hash}
+func (p *Payment) ScriptHash() string {
+	payload := &address.Base58{p.Network.ScriptHash, p.Hash}
 	addr := address.ToBase58(payload)
-	return addr, nil
+	return addr
 }
 
 // Calculate the hash of hasher over buf.

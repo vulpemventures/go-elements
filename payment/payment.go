@@ -32,7 +32,7 @@ func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) *Payment {
 	publicKeyBytes := pubkey.SerializeCompressed()
 	hash := hash160(publicKeyBytes)[:ripemd160.Size]
 	script := make([]byte, 0)
-	script = append([]byte{Op0}, hash...)
+	script = append([]byte{Op0, byte(len(hash))}, hash...)
 	return &Payment{network, pubkey, hash, nil, nil, script}
 }
 

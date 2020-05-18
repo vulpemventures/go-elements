@@ -34,7 +34,7 @@ func TestScriptHash(t *testing.T) {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
 	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest)
 	pay := payment.FromPayment(p2wpkh)
-	if pay.ScriptHash() != "XaRRfutUccvLf6FR86UXMhbMqECgEiaPvF" {
+	if pay.ScriptHash() != "XZavBojABpfXhPWkw7y9YYFNAezUHZR47m" {
 		t.Errorf("TestScriptHash: error when encoding script hash")
 	}
 }

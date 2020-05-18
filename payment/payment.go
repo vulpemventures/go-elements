@@ -28,19 +28,19 @@ type Payment struct {
 // pub 036f5646ed688b9279369da0a4ad78953ae7e6d300436ca8a3264360efe38236e3
 
 // FromPublicKey creates a Payment struct from a btcec.publicKey
-func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) Payment {
+func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) *Payment {
 	publicKeyBytes := pubkey.SerializeCompressed()
 	hash := hash160(publicKeyBytes)[:ripemd160.Size]
 	script := make([]byte, 0)
-	script = append([]byte{Op0}, hash...)
-	return Payment{network, pubkey, hash, nil, nil, script}
+	script = append([]byte{Op0, byte(len(hash))}, hash...)
+	return &Payment{network, pubkey, hash, nil, nil, script}
 }
 
 // FromPayment creates a Payment struct from a another Payment
-func FromPayment(payment *Payment) Payment {
+func FromPayment(payment *Payment) *Payment {
 	buf := payment.Script
 	hash := hash160(buf)
-	return Payment{payment.Network, payment.PublicKey, hash, nil, nil, nil}
+	return &Payment{payment.Network, payment.PublicKey, hash, nil, nil, nil}
 }
 
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address
@@ -59,6 +59,13 @@ func (p *Payment) WitnessPubKeyHash() string {
 	if err != nil {
 		return ""
 	}
+	return addr
+}
+
+// ScriptHash is a method of the Payment struct to derive a base58 p2sh address
+func (p *Payment) ScriptHash() string {
+	payload := &address.Base58{p.Network.ScriptHash, p.Hash}
+	addr := address.ToBase58(payload)
 	return addr
 }
 

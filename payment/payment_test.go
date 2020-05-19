@@ -29,3 +29,11 @@ func TestSegwitAddress(t *testing.T) {
 		t.Errorf("TestSegwitAddress: error when encoding segwit")
 	}
 }
+
+func TestP2WSH(t *testing.T) {
+	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
+	pay := payment.FromPublicKey(publicKey, &network.Regtest)
+	if pay.WitnessScriptHash() != "ert1q5kvuxm0d64ecvmh2kklku6afw03g849af8jfac3t6vgjwrar8xsseary2s" {
+		t.Errorf("TestSegwitAddress: error when encoding segwit")
+	}
+}

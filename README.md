@@ -20,14 +20,14 @@ Go support for confidential transactions on Elements-based blockchains
 - [x] Chain parameters (prefixes, magic numbers, …)
 - [x] Pay to Public Key Hash
 - [x] Pay to Script Hash
-- [ ] Pay to Witness Public Key Hash
+- [x] Pay to Witness Public Key Hash
 - [ ] Pay to Witness Script Hash
-- [ ] Tx serialization / deserialization
+- [x] Tx serialization / deserialization
   - [ ] Use of confidential values instead of pure numbers
-  - [ ] Fix order of witness in transaction serialization
+  - [x] Fix order of witness in transaction serialization
   - [ ] Add confidential fields
-  - [ ] Serialization for (witness) signature
-- [ ] PSET / Bip174 for Elements
+  - [x] Serialization for (witness) signature
+- [x] [PSET / Bip174 for Elements](https://github.com/vulpemventures/go-elements/tree/master/pset)
 - [ ] CGO bindings for blech32
 - [ ] CGO bindings for secp256k1-zkp
 - [ ] Blinding outs/ Unblinding ins

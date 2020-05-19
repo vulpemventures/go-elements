@@ -1,14 +1,18 @@
 package pset
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"io/ioutil"
 	"testing"
+
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/transaction"
 )
 
-func TestPset(t *testing.T) {
-	t.Run("RoundTrip", testRoundTrip)
-}
-
-func testRoundTrip(t *testing.T) {
+func TestRoundTrip(t *testing.T) {
 	tests := struct {
 		base64 []string
 		hex    []string
@@ -62,4 +66,236 @@ func testRoundTrip(t *testing.T) {
 			t.Fatalf("Got: %s, expected: %s", res, str)
 		}
 	}
+}
+
+func TestCreator(t *testing.T) {
+	file, err := ioutil.ReadFile("data/creator.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests []map[string]interface{}
+	err = json.Unmarshal(file, &tests)
+
+	for _, v := range tests {
+		inputs := []*transaction.TxInput{}
+		for _, vIn := range v["inputs"].([]interface{}) {
+			in := vIn.(map[string]interface{})
+			inHash, _ := hex.DecodeString(in["hash"].(string))
+			inIndex := uint32(in["index"].(float64))
+			inHash = reverseBytes(inHash)
+			inputs = append(inputs, transaction.NewTxInput(inHash, inIndex))
+		}
+
+		outputs := []*transaction.TxOutput{}
+		for _, vOut := range v["outputs"].([]interface{}) {
+			out := vOut.(map[string]interface{})
+			outAsset, _ := hex.DecodeString(out["asset"].(string))
+			outAsset = append([]byte{0x01}, reverseBytes(outAsset)...)
+			outValue, _ := toConfidentialValue(int(out["value"].(float64)))
+			outScript, _ := hex.DecodeString(out["script"].(string))
+			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue, outScript))
+		}
+
+		p, err := New(inputs, outputs, 2, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		base64Res, err := p.ToBase64()
+		if err != nil {
+			t.Fatal(err)
+		}
+		hexRes, err := p.ToHex()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedBase64 := v["expectedBase64"].(string)
+		expectedHex := v["expectedHex"].(string)
+		if base64Res != expectedBase64 {
+			t.Fatalf("Got: %s, expected: %s", base64Res, expectedBase64)
+		}
+		if hexRes != expectedHex {
+			t.Fatalf("Got: %s, expected: %s", hexRes, expectedHex)
+		}
+	}
+}
+
+func TestUpdater(t *testing.T) {
+	file, err := ioutil.ReadFile("data/updater.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests []map[string]interface{}
+	err = json.Unmarshal(file, &tests)
+
+	for _, v := range tests {
+		p, err := NewPsetFromBase64(v["base64"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		updater, err := NewUpdater(p)
+
+		for inIndex, vIn := range v["inputs"].([]interface{}) {
+			in := vIn.(map[string]interface{})
+			if in["nonWitnessUtxo"] != nil {
+				tx, err := transaction.NewTxFromHex(in["nonWitnessUtxo"].(string))
+				if err != nil {
+					t.Fatal(err)
+				}
+				updater.AddInNonWitnessUtxo(tx, inIndex)
+			} else {
+				wu := in["witnessUtxo"].(map[string]interface{})
+				asset, _ := hex.DecodeString(wu["asset"].(string))
+				asset = append([]byte{0x01}, reverseBytes(asset)...)
+				script, _ := hex.DecodeString(wu["script"].(string))
+				value, _ := toConfidentialValue(int(wu["value"].(float64)))
+				utxo := transaction.NewTxOutput(asset, value, script)
+				updater.AddInWitnessUtxo(utxo, inIndex)
+				redeemScript, _ := hex.DecodeString(in["redeemScript"].(string))
+				updater.AddInRedeemScript(redeemScript, inIndex)
+			}
+			updater.AddInSighashType(txscript.SigHashType(int(in["sighashType"].(float64))), inIndex)
+		}
+
+		for outIndex, vOut := range v["outputs"].([]interface{}) {
+			out := vOut.(map[string]interface{})
+			redeemScript, _ := hex.DecodeString(out["redeemScript"].(string))
+			updater.AddOutRedeemScript(redeemScript, outIndex)
+		}
+
+		base64Res, err := updater.Upsbt.ToBase64()
+		if err != nil {
+			t.Fatal(err)
+		}
+		hexRes, err := updater.Upsbt.ToHex()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedBase64 := v["expectedBase64"].(string)
+		expectedHex := v["expectedHex"].(string)
+		if base64Res != expectedBase64 {
+			t.Fatalf("Got: %s, expected: %s", base64Res, expectedBase64)
+		}
+		if hexRes != expectedHex {
+			t.Fatalf("Got: %s, expected: %s", hexRes, expectedHex)
+		}
+	}
+}
+
+func TestSigner(t *testing.T) {
+	file, err := ioutil.ReadFile("data/signer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests []map[string]interface{}
+	err = json.Unmarshal(file, &tests)
+
+	for _, v := range tests {
+		p, err := NewPsetFromBase64(v["base64"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		updater, err := NewUpdater(p)
+
+		for inIndex, vIn := range v["inputs"].([]interface{}) {
+			in := vIn.(map[string]interface{})
+			signature, _ := hex.DecodeString(in["signature"].(string))
+			pubkey, _ := hex.DecodeString(in["pubkey"].(string))
+			updater.Sign(inIndex, signature, pubkey, p.Inputs[inIndex].RedeemScript, p.Inputs[inIndex].WitnessScript)
+		}
+
+		base64Res, err := updater.Upsbt.ToBase64()
+		if err != nil {
+			t.Fatal(err)
+		}
+		hexRes, err := updater.Upsbt.ToHex()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedBase64 := v["expectedBase64"].(string)
+		expectedHex := v["expectedHex"].(string)
+		if base64Res != expectedBase64 {
+			t.Fatalf("Got: %s, expected: %s", base64Res, expectedBase64)
+		}
+		if hexRes != expectedHex {
+			t.Fatalf("Got: %s, expected: %s", hexRes, expectedHex)
+		}
+	}
+}
+
+func TestFinalizer(t *testing.T) {
+	file, err := ioutil.ReadFile("data/finalizer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests []map[string]interface{}
+	err = json.Unmarshal(file, &tests)
+
+	for _, v := range tests {
+		p, err := NewPsetFromBase64(v["base64"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = FinalizeAll(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		base64Res, err := p.ToBase64()
+		if err != nil {
+			t.Fatal(err)
+		}
+		hexRes, err := p.ToHex()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedBase64 := v["expectedBase64"].(string)
+		expectedHex := v["expectedHex"].(string)
+		if base64Res != expectedBase64 {
+			t.Fatalf("Got: %s, expected: %s", base64Res, expectedBase64)
+		}
+		if hexRes != expectedHex {
+			t.Fatalf("Got: %s, expected: %s", hexRes, expectedHex)
+		}
+	}
+}
+
+func TestExtractor(t *testing.T) {
+	file, err := ioutil.ReadFile("data/extractor.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests []map[string]interface{}
+	err = json.Unmarshal(file, &tests)
+
+	for _, v := range tests {
+		p, err := NewPsetFromBase64(v["base64"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tx, err := Extract(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := tx.ToHex()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expectedTxHex := v["expectedTxHex"].(string)
+		if res != expectedTxHex {
+			t.Fatalf("Got: %s, expected: %s", res, expectedTxHex)
+		}
+	}
+}
+
+func toConfidentialValue(val int) ([]byte, error) {
+	unconfPrefix := byte(1)
+	b := bytes.NewBuffer([]byte{})
+	if err := transaction.BinarySerializer.PutUint64(b, binary.LittleEndian, uint64(val)); err != nil {
+		return nil, err
+	}
+	return append([]byte{unconfPrefix}, reverseBytes(b.Bytes())...), nil
 }

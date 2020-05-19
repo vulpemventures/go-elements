@@ -29,12 +29,18 @@ type Payment struct {
 // pub 036f5646ed688b9279369da0a4ad78953ae7e6d300436ca8a3264360efe38236e3
 
 // FromPublicKey creates a Payment struct from a btcec.publicKey
-func FromPublicKey(pubkey *btcec.PublicKey, network *network.Network) *Payment {
+func FromPublicKey(pubkey *btcec.PublicKey, net *network.Network) *Payment {
+	var tmpNet *network.Network
+	if net == nil {
+		tmpNet = &network.Liquid
+	} else {
+		tmpNet = net
+	}
 	publicKeyBytes := pubkey.SerializeCompressed()
 	hash := hash160(publicKeyBytes)[:ripemd160.Size]
 	script := make([]byte, 0)
 	script = append([]byte{Op0, byte(len(hash))}, hash...)
-	return &Payment{network, pubkey, hash, nil, nil, script}
+	return &Payment{tmpNet, pubkey, hash, nil, nil, script}
 }
 
 // FromPayment creates a Payment struct from a another Payment
@@ -47,8 +53,14 @@ func FromPayment(payment *Payment) (*Payment, error) {
 }
 
 // FromPayment creates a nested Payment struct from script
-func FromScript(script []byte) (*Payment, error) {
-	redeem := &Payment{Script: script}
+func FromScript(net *network.Network, script []byte) (*Payment, error) {
+	var tmpNet *network.Network
+	if net == nil {
+		tmpNet = &network.Liquid
+	} else {
+		tmpNet = net
+	}
+	redeem := &Payment{Network: tmpNet, Script: script}
 	return FromPayment(redeem)
 }
 

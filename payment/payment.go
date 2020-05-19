@@ -53,7 +53,7 @@ func FromPayment(payment *Payment) (*Payment, error) {
 }
 
 // FromPayment creates a nested Payment struct from script
-func FromScript(net *network.Network, script []byte) (*Payment, error) {
+func FromScript(script []byte, net *network.Network) (*Payment, error) {
 	var tmpNet *network.Network
 	if net == nil {
 		tmpNet = &network.Liquid

@@ -1,6 +1,8 @@
 package transaction
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
@@ -178,4 +180,40 @@ func TestHashForSignature(t *testing.T) {
 			t.Fatalf("Got: %s, expected: %s", res, expectedHash)
 		}
 	}
+}
+
+func TestHashForWitnessV0(t *testing.T) {
+	file, err := ioutil.ReadFile("data/tx_valid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests map[string]interface{}
+	json.Unmarshal(file, &tests)
+
+	for _, v := range tests["txHashForWitnessV0"].([]interface{}) {
+		testVector := v.(map[string]interface{})
+		tx, err := NewTxFromHex(testVector["txHex"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		inIndex := int(testVector["inIndex"].(float64))
+		script, _ := hex.DecodeString(testVector["script"].(string))
+		hashType := txscript.SigHashType(testVector["hashType"].(float64))
+		value, _ := toConfidentialValue(int(testVector["amount"].(float64)))
+
+		hash := tx.HashForWitnessV0(inIndex, script, value, hashType)
+		expectedHash := testVector["expectedHash"].(string)
+		if res := hex.EncodeToString(hash[:]); res != expectedHash {
+			t.Fatalf("Got: %s, expected: %s", res, expectedHash)
+		}
+	}
+}
+
+func toConfidentialValue(val int) ([]byte, error) {
+	unconfPrefix := byte(1)
+	b := bytes.NewBuffer([]byte{})
+	if err := BinarySerializer.PutUint64(b, binary.LittleEndian, uint64(val)); err != nil {
+		return nil, err
+	}
+	return append([]byte{unconfPrefix}, reverseBytes(b.Bytes())...), nil
 }

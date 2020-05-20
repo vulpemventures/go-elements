@@ -3,7 +3,9 @@ package payment
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
 	"golang.org/x/crypto/ripemd160"
@@ -11,7 +13,8 @@ import (
 )
 
 const (
-	Op0 = 0x00
+	Op0             = 0x00 // 0
+	OpCheckMultiSig = 0xae // 174
 )
 
 // Payment defines the structure that holds the information different addresses
@@ -43,6 +46,37 @@ func FromPublicKey(pubkey *btcec.PublicKey, net *network.Network) *Payment {
 	script = append([]byte{Op0, byte(len(pkHash))}, pkHash...)
 	witnessHash := sha256.Sum256(script)
 	return &Payment{tmpNet, pubkey, pkHash, nil, nil, script, witnessHash[:]}
+}
+
+// FromPublicKeys creates a multi-signature Payment struct from list of public key's
+func FromPublicKeys(pubkeys []*btcec.PublicKey, numOfPksRequired int, net *network.Network) (*Payment, error) {
+	if len(pubkeys) < numOfPksRequired {
+		errorMsg := fmt.Sprintf("unable to generate multisig script with "+
+			"%d required signatures when there are only %d public "+
+			"keys available", numOfPksRequired, len(pubkeys))
+		return nil, errors.New(errorMsg)
+	}
+
+	var tmpNet *network.Network
+	if net == nil {
+		tmpNet = &network.Liquid
+	} else {
+		tmpNet = net
+	}
+
+	builder := txscript.NewScriptBuilder().AddInt64(int64(numOfPksRequired))
+	for _, key := range pubkeys {
+		builder.AddData(key.SerializeCompressed())
+	}
+	builder.AddInt64(int64(len(pubkeys)))
+	builder.AddOp(OpCheckMultiSig)
+
+	multiSigScript, err := builder.Script()
+	if err != nil {
+		return nil, err
+	}
+
+	return FromScript(multiSigScript, tmpNet)
 }
 
 // FromPayment creates a Payment struct from a another Payment

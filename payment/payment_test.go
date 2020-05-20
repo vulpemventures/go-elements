@@ -8,12 +8,16 @@ import (
 	"testing"
 )
 
-const privKeyHex = "1cc080a4cd371eafcad489a29664af6a7276b362fe783443ce036552482b971d"
+const (
+	privKeyHex1 = "1cc080a4cd371eafcad489a29664af6a7276b362fe783443ce036552482b971d"
+	privKeyHex2 = "4d6718d4a02f774e752faa97e2c3b70db6b9d9ed5bd2fcecb093bd650f449a51"
+)
 
-var privateKeyBytes, _ = hex.DecodeString(privKeyHex)
+var privateKeyBytes1, _ = hex.DecodeString(privKeyHex1)
+var privateKeyBytes2, _ = hex.DecodeString(privKeyHex2)
 
 func TestLegacyAddress(t *testing.T) {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
+	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
 
 	pay := payment.FromPublicKey(publicKey, &network.Regtest)
 	if pay.PubKeyHash() != "2dxEMfPLNa6rZRAfPe7wNWoaUptyBzQ2Zva" {
@@ -22,7 +26,7 @@ func TestLegacyAddress(t *testing.T) {
 }
 
 func TestSegwitAddress(t *testing.T) {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
+	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
 
 	pay := payment.FromPublicKey(publicKey, &network.Regtest)
 	p2pkh, err := pay.WitnessPubKeyHash()
@@ -35,7 +39,7 @@ func TestSegwitAddress(t *testing.T) {
 }
 
 func TestScriptHash(t *testing.T) {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
+	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
 	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest)
 	pay, err := payment.FromPayment(p2wpkh)
 	p2sh, err := pay.ScriptHash()
@@ -71,4 +75,41 @@ func TestP2WSH(t *testing.T) {
 	if p2wshAddress != "ert1q2z45rh444qmeand48lq0wp3jatxs2nzh492ds9s5yscv2pplxwesajz7q3" {
 		t.Errorf("TestSegwitAddress: error when encoding segwit")
 	}
+}
+
+func TestFromPublicKeys(t *testing.T) {
+	_, publicKey1 := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
+	_, publicKey2 := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes2)
+
+	p2ms, err := payment.FromPublicKeys([]*btcec.PublicKey{publicKey1, publicKey2}, 1, &network.Regtest)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if hex.EncodeToString(p2ms.Script) != "5121036f5646ed688b9279369da0a4ad78953ae7e6d300436ca8a3264360efe38236e321023c61f59e9a3a3eb01c3ed0cf967ad217153944bcf2498a8fd6e70b27c7ab6ee652ae" {
+		t.Error("hex value of p2ms script not as expected")
+	}
+
+	p2wsh, err := payment.FromPayment(p2ms)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2wshAddress, err := p2wsh.WitnessScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+	if p2wshAddress != "ert1q484pt3gqgthcxa35nl4t6utpd0uf7tkm240hlxe6k4newkydwcqs5sjc4c" {
+		t.Errorf("TestSegwitAddress: error when encoding segwit")
+	}
+
+	pay, err := payment.FromPayment(p2ms)
+	p2sh, err := pay.ScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+	if p2sh != "XJkohBHRMT8JUknSqCH7aJP9gAuAe9eNLY" {
+		t.Errorf("TestScriptHash: error when encoding script hash")
+	}
+
 }

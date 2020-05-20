@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"reflect"
 	"testing"
+
+	"github.com/btcsuite/btcd/txscript"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -146,6 +148,34 @@ func TestCopy(t *testing.T) {
 		}
 		if newTx == tx {
 			t.Fatal("Should not have reference equality")
+		}
+	}
+}
+
+func TestHashForSignature(t *testing.T) {
+	file, err := ioutil.ReadFile("data/tx_valid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests map[string]interface{}
+	json.Unmarshal(file, &tests)
+
+	for _, v := range tests["txHashForSignature"].([]interface{}) {
+		testVector := v.(map[string]interface{})
+		tx, err := NewTxFromHex(testVector["txHex"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		inIndex := int(testVector["inIndex"].(float64))
+		script, _ := hex.DecodeString(testVector["script"].(string))
+		hashType := txscript.SigHashType(testVector["hashType"].(float64))
+		hash, err := tx.HashForSignature(inIndex, script, hashType)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedHash := testVector["expectedHash"].(string)
+		if res := hex.EncodeToString(hash[:]); res != expectedHash {
+			t.Fatalf("Got: %s, expected: %s", res, expectedHash)
 		}
 	}
 }

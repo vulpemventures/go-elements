@@ -12,11 +12,6 @@ import (
 	"hash"
 )
 
-const (
-	Op0             = 0x00 // 0
-	OpCheckMultiSig = 0xae // 174
-)
-
 // Payment defines the structure that holds the information different addresses
 type Payment struct {
 	Network     *network.Network
@@ -43,17 +38,17 @@ func FromPublicKey(pubkey *btcec.PublicKey, net *network.Network) *Payment {
 	publicKeyBytes := pubkey.SerializeCompressed()
 	pkHash := hash160(publicKeyBytes)[:ripemd160.Size]
 	script := make([]byte, 0)
-	script = append([]byte{Op0, byte(len(pkHash))}, pkHash...)
+	script = append([]byte{txscript.OP_0, byte(len(pkHash))}, pkHash...)
 	witnessHash := sha256.Sum256(script)
 	return &Payment{tmpNet, pubkey, pkHash, nil, nil, script, witnessHash[:]}
 }
 
 // FromPublicKeys creates a multi-signature Payment struct from list of public key's
-func FromPublicKeys(pubkeys []*btcec.PublicKey, numOfPksRequired int, net *network.Network) (*Payment, error) {
-	if len(pubkeys) < numOfPksRequired {
+func FromPublicKeys(pubkeys []*btcec.PublicKey, nrequired int, net *network.Network) (*Payment, error) {
+	if len(pubkeys) < nrequired {
 		errorMsg := fmt.Sprintf("unable to generate multisig script with "+
 			"%d required signatures when there are only %d public "+
-			"keys available", numOfPksRequired, len(pubkeys))
+			"keys available", nrequired, len(pubkeys))
 		return nil, errors.New(errorMsg)
 	}
 
@@ -64,12 +59,12 @@ func FromPublicKeys(pubkeys []*btcec.PublicKey, numOfPksRequired int, net *netwo
 		tmpNet = net
 	}
 
-	builder := txscript.NewScriptBuilder().AddInt64(int64(numOfPksRequired))
+	builder := txscript.NewScriptBuilder().AddInt64(int64(nrequired))
 	for _, key := range pubkeys {
 		builder.AddData(key.SerializeCompressed())
 	}
 	builder.AddInt64(int64(len(pubkeys)))
-	builder.AddOp(OpCheckMultiSig)
+	builder.AddOp(txscript.OP_CHECKMULTISIG)
 
 	multiSigScript, err := builder.Script()
 	if err != nil {

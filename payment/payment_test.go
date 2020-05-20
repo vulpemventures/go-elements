@@ -87,7 +87,29 @@ func TestFromPublicKeys(t *testing.T) {
 	}
 
 	if hex.EncodeToString(p2ms.Script) != "5121036f5646ed688b9279369da0a4ad78953ae7e6d300436ca8a3264360efe38236e321023c61f59e9a3a3eb01c3ed0cf967ad217153944bcf2498a8fd6e70b27c7ab6ee652ae" {
-		t.Error("hax value of p2ms script not as expected")
+		t.Error("hex value of p2ms script not as expected")
+	}
+
+	p2wsh, err := payment.FromPayment(p2ms)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2wshAddress, err := p2wsh.WitnessScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+	if p2wshAddress != "ert1q484pt3gqgthcxa35nl4t6utpd0uf7tkm240hlxe6k4newkydwcqs5sjc4c" {
+		t.Errorf("TestSegwitAddress: error when encoding segwit")
+	}
+
+	pay, err := payment.FromPayment(p2ms)
+	p2sh, err := pay.ScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+	if p2sh != "XJkohBHRMT8JUknSqCH7aJP9gAuAe9eNLY" {
+		t.Errorf("TestScriptHash: error when encoding script hash")
 	}
 
 }

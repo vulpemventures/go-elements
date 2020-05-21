@@ -306,7 +306,7 @@ func TestFromCreateToBroadcast(t *testing.T) {
 	}
 	pubkey := privkey.PubKey()
 	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest)
-	address := p2wpkh.WitnessPubKeyHash()
+	address, _ := p2wpkh.WitnessPubKeyHash()
 
 	_, err = faucet(address)
 	if err != nil {

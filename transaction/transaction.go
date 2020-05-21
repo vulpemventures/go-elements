@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/txscript"
 )
 
 const (
@@ -18,6 +19,22 @@ const (
 	advancedTransactionFlag   = uint8(0x01)
 	advancedTransactionMarker = uint8(0x00)
 	defaultTxInOutAlloc       = 15
+)
+
+var (
+	One = [32]byte{
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+	}
+	Zero = [32]byte{
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	MaxConfidentialValue = []byte{
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	}
 )
 
 //TxIssuance defines the type for Issuance field in TxInput
@@ -447,6 +464,145 @@ func (tx *Transaction) Serialize() ([]byte, error) {
 	return tx.serialize(nil, true, false, false)
 }
 
+// HashForSignature returns the double sha256 hash of the serialization
+// of the transaction in order to then produce a signature from it.
+// The transaction is serialized in a different way depending on the
+// hashType provided.
+func (tx *Transaction) HashForSignature(
+	inIndex int,
+	prevoutScript []byte,
+	hashType txscript.SigHashType) ([32]byte, error) {
+	if inIndex >= len(tx.Inputs) {
+		return One, nil
+	}
+
+	txCopy := tx.Copy()
+
+	// SIGHASH_NONE: ignore all outputs (wildcard payee)
+	if (hashType & 0x1f) == txscript.SigHashNone {
+		txCopy.Outputs = []*TxOutput{}
+		for i := range txCopy.Inputs {
+			if i != inIndex {
+				txCopy.Inputs[i].Sequence = 0
+			}
+		}
+	} else {
+		// SIGHASH_SINGLE: ignore all outputs, except at the same index
+		if (hashType & 0x1f) == txscript.SigHashSingle {
+			if inIndex >= len(tx.Outputs) {
+				return One, nil
+			}
+
+			outs := txCopy.Outputs[:inIndex+1]
+			txCopy.Outputs = outs
+
+			for i := 0; i < inIndex; i++ {
+				txCopy.Outputs[i].Asset = Zero[:]
+				txCopy.Outputs[i].Nonce = Zero[:]
+				txCopy.Outputs[i].Value = MaxConfidentialValue
+				txCopy.Outputs[i].Script = []byte{}
+			}
+
+			for i := range txCopy.Inputs {
+				if i != inIndex {
+					txCopy.Inputs[i].Sequence = 0
+				}
+			}
+		}
+	}
+
+	// SIGHASH_ANYONECANPAY: ignore inputs entirely
+	if (hashType & txscript.SigHashAnyOneCanPay) == 1 {
+		input := TxInput{
+			Hash:                txCopy.Inputs[inIndex].Hash,
+			Index:               txCopy.Inputs[inIndex].Index,
+			Sequence:            txCopy.Inputs[inIndex].Sequence,
+			Script:              prevoutScript,
+			IsPegin:             txCopy.Inputs[inIndex].IsPegin,
+			Witness:             txCopy.Inputs[inIndex].Witness,
+			PeginWitness:        txCopy.Inputs[inIndex].PeginWitness,
+			Issuance:            txCopy.Inputs[inIndex].Issuance,
+			IssuanceRangeProof:  txCopy.Inputs[inIndex].IssuanceRangeProof,
+			InflationRangeProof: txCopy.Inputs[inIndex].InflationRangeProof,
+		}
+		txCopy.Inputs = []*TxInput{&input}
+	} else {
+		// SIGHASH_ALL: only ignore input scripts
+		for i := range txCopy.Inputs {
+			script := []byte{}
+			if i == inIndex {
+				script = prevoutScript
+			}
+			txCopy.Inputs[i].Script = script
+		}
+	}
+
+	buf, err := txCopy.serialize(nil, false, true, true)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	buf = append(buf, []byte{0x00, 0x00, 0x00, byte(hashType)}...)
+	return chainhash.DoubleHashH(buf), nil
+}
+
+// HashForWitnessV0 returns the double sha256 hash of the serialization
+// of the transaction following the BIP-0143 specification. This hash should
+// then be used to produce a witness signatures for the given inIndex input.
+func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value []byte, hashType txscript.SigHashType) [32]byte {
+	hashInputs := Zero
+	hashSequences := Zero
+	hashIssuances := Zero
+	hashOutputs := Zero
+
+	// Inputs
+	if (hashType & txscript.SigHashAnyOneCanPay) == 0 {
+		hashInputs = calcTxInputsHash(tx.Inputs)
+	}
+	// Sequences
+	if (hashType&txscript.SigHashAnyOneCanPay) == 0 &&
+		(hashType&0x1f) != txscript.SigHashSingle &&
+		(hashType&0x1f) != txscript.SigHashNone {
+		hashSequences = calcTxSequencesHash(tx.Inputs)
+	}
+	// Issuances
+	if (hashType & txscript.SigHashAnyOneCanPay) == 0 {
+		hashIssuances = calcTxIssuancesHash(tx.Inputs)
+	}
+	// Outputs
+	if (hashType&0x1f) != txscript.SigHashSingle &&
+		(hashType&0x1f) != txscript.SigHashNone {
+		hashOutputs = calcTxOutputsHash(tx.Outputs)
+	} else {
+		if (hashType&0x1f) == txscript.SigHashSingle && inIndex < len(tx.Outputs) {
+			hashOutputs = calcTxOutputsHash([]*TxOutput{tx.Outputs[inIndex]})
+		}
+	}
+
+	s, _ := NewSerializer(nil)
+	input := tx.Inputs[inIndex]
+
+	s.WriteUint32(uint32(tx.Version))
+	s.WriteSlice(hashInputs[:])
+	s.WriteSlice(hashSequences[:])
+	s.WriteSlice(hashIssuances[:])
+	s.WriteSlice(input.Hash[:])
+	s.WriteUint32(input.Index)
+	s.WriteVarSlice(prevoutScript)
+	s.WriteSlice(value)
+	s.WriteUint32(input.Sequence)
+	if input.Issuance != nil {
+		s.WriteSlice(input.Issuance.AssetBlindingNonce)
+		s.WriteSlice(input.Issuance.AssetEntropy)
+		s.WriteSlice(input.Issuance.AssetAmount)
+		s.WriteSlice(input.Issuance.TokenAmount)
+	}
+	s.WriteSlice(hashOutputs[:])
+	s.WriteUint32(tx.Locktime)
+	s.WriteUint32(uint32(hashType))
+
+	return chainhash.DoubleHashH(s.Bytes())
+}
+
 // ToHex returns the serializarion of the transaction in hex enncoding format.
 func (tx *Transaction) ToHex() (string, error) {
 	bytes, err := tx.Serialize()
@@ -572,4 +728,47 @@ func (tx *Transaction) serialize(buf *bytes.Buffer, allowWitness, zeroFlag, forS
 	}
 
 	return s.Bytes(), nil
+}
+
+func calcTxInputsHash(ins []*TxInput) [32]byte {
+	s, _ := NewSerializer(nil)
+	for _, in := range ins {
+		s.WriteSlice(in.Hash)
+		s.WriteUint32(in.Index)
+	}
+	return chainhash.DoubleHashH(s.Bytes())
+}
+
+func calcTxSequencesHash(ins []*TxInput) [32]byte {
+	s, _ := NewSerializer(nil)
+	for _, in := range ins {
+		s.WriteUint32(in.Sequence)
+	}
+	return chainhash.DoubleHashH(s.Bytes())
+}
+
+func calcTxIssuancesHash(ins []*TxInput) [32]byte {
+	s, _ := NewSerializer(nil)
+	for _, in := range ins {
+		if in.Issuance != nil {
+			s.WriteSlice(in.Issuance.AssetBlindingNonce)
+			s.WriteSlice(in.Issuance.AssetEntropy)
+			s.WriteSlice(in.Issuance.AssetAmount)
+			s.WriteSlice(in.Issuance.TokenAmount)
+		} else {
+			s.WriteSlice([]byte{0x00})
+		}
+	}
+	return chainhash.DoubleHashH(s.Bytes())
+}
+
+func calcTxOutputsHash(outs []*TxOutput) [32]byte {
+	s, _ := NewSerializer(nil)
+	for _, out := range outs {
+		s.WriteSlice(out.Asset)
+		s.WriteSlice(out.Value)
+		s.WriteSlice(out.Nonce)
+		s.WriteVarSlice(out.Script)
+	}
+	return chainhash.DoubleHashH(s.Bytes())
 }

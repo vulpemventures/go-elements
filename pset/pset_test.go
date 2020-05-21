@@ -5,10 +5,19 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
+	"net/http"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/network"
+	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -82,7 +91,7 @@ func TestCreator(t *testing.T) {
 			in := vIn.(map[string]interface{})
 			inHash, _ := hex.DecodeString(in["hash"].(string))
 			inIndex := uint32(in["index"].(float64))
-			inHash = reverseBytes(inHash)
+			inHash = bufferutil.ReverseBytes(inHash)
 			inputs = append(inputs, transaction.NewTxInput(inHash, inIndex))
 		}
 
@@ -90,7 +99,7 @@ func TestCreator(t *testing.T) {
 		for _, vOut := range v["outputs"].([]interface{}) {
 			out := vOut.(map[string]interface{})
 			outAsset, _ := hex.DecodeString(out["asset"].(string))
-			outAsset = append([]byte{0x01}, reverseBytes(outAsset)...)
+			outAsset = append([]byte{0x01}, bufferutil.ReverseBytes(outAsset)...)
 			outValue, _ := toConfidentialValue(int(out["value"].(float64)))
 			outScript, _ := hex.DecodeString(out["script"].(string))
 			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue, outScript))
@@ -146,7 +155,7 @@ func TestUpdater(t *testing.T) {
 			} else {
 				wu := in["witnessUtxo"].(map[string]interface{})
 				asset, _ := hex.DecodeString(wu["asset"].(string))
-				asset = append([]byte{0x01}, reverseBytes(asset)...)
+				asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
 				script, _ := hex.DecodeString(wu["script"].(string))
 				value, _ := toConfidentialValue(int(wu["value"].(float64)))
 				utxo := transaction.NewTxOutput(asset, value, script)
@@ -291,11 +300,222 @@ func TestExtractor(t *testing.T) {
 	}
 }
 
+func TestFromCreateToBroadcast(t *testing.T) {
+	/**
+	* This test attempts to broadcast a transaction composed by 1 input and 3
+	* outputs. The input of the transaction will be a native segwit input, thus
+	* locked by a p2wpkh script, while the outputs will be a legacy p2sh for the
+	* receiver and a segwit p2wpkh for the change.
+	* The 3rd output is for the fees, that in Elements side chains are explicits.
+	*
+	* This is intended to test that all methods provided let one to manage a
+	* partial transaction from its creatation to the extraction of the final
+	* tranasction so that it can be correctly broadcasted to the network and
+	* included in the blockchain.
+	 */
+
+	// Generate sender random key pair.
+	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubkey := privkey.PubKey()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest)
+	address, _ := p2wpkh.WitnessPubKeyHash()
+
+	// Fund sender address.
+	_, err = faucet(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The transaction will have 1 input and 3 outputs.
+	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
+	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputIndex := uint32(utxos[0]["vout"].(float64))
+	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
+
+	lbtc, _ := hex.DecodeString("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225")
+	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
+	receiverValue, _ := toConfidentialValue(60000000)
+	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
+
+	changeScript := p2wpkh.Script
+	changeValue, _ := toConfidentialValue(39999500)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
+
+	feeScript := []byte{}
+	feeValue, _ := toConfidentialValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
+
+	// Create a new pset.
+	inputs := []*transaction.TxInput{txInput}
+	outputs := []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}
+	p, err := New(inputs, outputs, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add sighash type and witness utxo to the partial input.
+	updater, err := NewUpdater(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updater.AddInSighashType(txscript.SigHashAll, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	witValue, _ := toConfidentialValue(int(utxos[0]["value"].(float64)))
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.Script)
+	updater.AddInWitnessUtxo(witnessUtxo, 0)
+
+	// The signing of the input is done by retrieving the proper hash of the serialization
+	// of the transaction (the BIP-0143 segwit version in this case) directly from the pset's
+	// UnsignedTx.
+	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
+	// when serializing the transaction.
+	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue, txscript.SigHashAll)
+	sig, err := privkey.Sign(witHash[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Update the pset adding the input signature script and the pubkey.
+	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Finalize the partial transaction.
+	p = updater.Upsbt
+	err = FinalizeAll(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Extract the final signed transaction from the Pset wrapper.
+	finalTx, err := Extract(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Serialize the transaction and try to broadcast.
+	txHex, err := finalTx.ToHex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	txid, err := broadcast(txHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(txid) <= 0 {
+		t.Fatal("Expected transaction to be broadcasted")
+	}
+}
+
 func toConfidentialValue(val int) ([]byte, error) {
 	unconfPrefix := byte(1)
 	b := bytes.NewBuffer([]byte{})
 	if err := transaction.BinarySerializer.PutUint64(b, binary.LittleEndian, uint64(val)); err != nil {
 		return nil, err
 	}
-	return append([]byte{unconfPrefix}, reverseBytes(b.Bytes())...), nil
+	return append([]byte{unconfPrefix}, bufferutil.ReverseBytes(b.Bytes())...), nil
+}
+
+func faucet(address string) (string, error) {
+	baseUrl, ok := os.LookupEnv("API_URL")
+	if !ok {
+		return "", errors.New("API_URL environment variable is not set")
+	}
+	url := baseUrl + "/faucet"
+	payload := map[string]string{"address": address}
+	body, _ := json.Marshal(payload)
+	resp, err := http.Post(url, "appliation/json", bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	respBody := map[string]string{}
+	err = json.Unmarshal(data, &respBody)
+	if err != nil {
+		return "", err
+	}
+
+	return respBody["txId"], nil
+}
+
+func unspents(address string) ([]map[string]interface{}, error) {
+	getUtxos := func(address string) ([]interface{}, error) {
+		baseUrl, ok := os.LookupEnv("API_URL")
+		if !ok {
+			return nil, errors.New("API_URL environment variable is not set")
+		}
+		url := baseUrl + "/address/" + address + "/utxo"
+		resp, err := http.Get(url)
+		if err != nil {
+			return nil, err
+		}
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		var respBody interface{}
+		err = json.Unmarshal(data, &respBody)
+		if err != nil {
+			return nil, err
+		}
+
+		return respBody.([]interface{}), nil
+	}
+
+	utxos := []map[string]interface{}{}
+	for len(utxos) <= 0 {
+		time.Sleep(1 * time.Second)
+		u, err := getUtxos(address)
+		if err != nil {
+			return nil, err
+		}
+		for _, unspent := range u {
+			utxo := unspent.(map[string]interface{})
+			utxos = append(utxos, utxo)
+		}
+	}
+
+	return utxos, nil
+}
+
+func broadcast(txHex string) (string, error) {
+	baseUrl, ok := os.LookupEnv("API_URL")
+	if !ok {
+		return "", errors.New("API_URL environment variable is not set")
+	}
+
+	url := baseUrl + "/tx"
+	resp, err := http.Post(url, "text/plain", strings.NewReader(txHex))
+	if err != nil {
+		return "", err
+	}
+	txid, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(txid), nil
 }

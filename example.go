@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
@@ -22,7 +23,9 @@ func main() {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
 
 	pay := payment.FromPublicKey(publicKey, &network.Regtest)
-	println(pay.PubKeyHash())
-	println(pay.WitnessPubKeyHash())
+	legacyAddress := pay.PubKeyHash()
+	segwitAddress, _ := pay.WitnessPubKeyHash()
+	println(legacyAddress)
+	println(segwitAddress)
 
 }

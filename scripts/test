@@ -7,6 +7,8 @@ PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
 
+if [ -n "$(gofmt -l .)" ]; then echo "Go code is not formatted"; exit 1; fi
+
 mode=$1
 apiUrl=$2
 defaultUrl="http://localhost:3001"
@@ -14,13 +16,13 @@ defaultUrl="http://localhost:3001"
 if [ "${mode}" == "local" ]
 then
   [[ "$apiUrl" == "" ]] && apiUrl="${defaultUrl}"
-  API_URL="${apiUrl}" go test ./... -v
+  API_URL="${apiUrl}" go test -count=1 ./... -v
 elif [ "${mode}" == "ci" ]
 then
   mkdir -p tmp && cd tmp
   curl https://travis.nigiri.network | bash &&
   docker-compose up -d
-  API_URL="${defaultUrl}" go test ../... -v
+  API_URL="${defaultUrl}" go test -count=1 ../... -v
   docker-compose down
   cd ..
   rm -rf ./tmp

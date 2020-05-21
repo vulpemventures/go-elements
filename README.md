@@ -48,7 +48,7 @@ $ go get -t -v ./...
 * Run tests
 
 > For running tests it is required to have a running [Nigiri](https://github.com/vulpemventures/nigiri) locally, or at least a remote one reachable from the outside.  
-To run the tests it is mandatory to export an `API_URL` environment vriable pointing to the url of nigiri-chopsitcks.  
+ To run the tests it is mandatory to export an `API_URL` environment variable pointing to the URL of `nigiri-chopsticks`. 
 
 ```
 $ nigiri start --liquid

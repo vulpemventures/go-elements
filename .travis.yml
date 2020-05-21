@@ -2,9 +2,20 @@ language: go
 
 sudo: false
 
+services:
+  - docker
+
 go:
   - tip
 
+before_install:
+  - mkdir -p tmp && cd tmp
+  - curl https://travis.nigiri.network | bash && cd ..
+  - docker-compose -f tmp/docker-compose.yml up -d
+
 script:
   - if [ -n "$(gofmt -l .)" ]; then echo "Go code is not formatted"; exit 1; fi
-  - go test -v ./...
+  - API_URL=http://localhost:3001 go test -count=1 ../... -v
+
+after_script:
+  - docker-compose -f tmp/docker-compose.yml down && rm -rf tmp

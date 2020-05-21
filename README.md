@@ -7,13 +7,9 @@
 [![Build Status](https://travis-ci.com/vulpemventures/go-elements.svg?branch=master)](https://travis-ci.com/vulpemventures/go-elements)
 [![Bitcoin Donate](https://badgen.net/badge/Bitcoin/Donate/F7931A?icon=bitcoin)](https://blockstream.info/address/3MdERN32qiMnQ68bSSee5CXQkrSGx1iStr)
 
-
-
-Go support for confidential transactions on Elements-based blockchains 
-
+Go support for confidential transactions on Elements-based blockchains
 
 **The package is currently being developed. DO NOT USE IT**
-
 
 ## 🛣 Roadmap
 
@@ -21,11 +17,11 @@ Go support for confidential transactions on Elements-based blockchains
 - [x] Pay to Public Key Hash
 - [x] Pay to Script Hash
 - [x] Pay to Witness Public Key Hash
-- [ ] Pay to Witness Script Hash
+- [x] Pay to Witness Script Hash
 - [x] Tx serialization / deserialization
-  - [ ] Use of confidential values instead of pure numbers
+  - [x] Use of confidential values instead of pure numbers
   - [x] Fix order of witness in transaction serialization
-  - [ ] Add confidential fields
+  - [x] Add confidential fields
   - [x] Serialization for (witness) signature
 - [x] [PSET / Bip174 for Elements](https://github.com/vulpemventures/go-elements/tree/master/pset)
 - [ ] CGO bindings for blech32
@@ -33,3 +29,27 @@ Go support for confidential transactions on Elements-based blockchains
 - [ ] Blinding outs/ Unblinding ins
 - [ ] Slip77
 - [ ] Signing a confidential input (use 0 value amounts to produce the hash for the signature)
+
+## Development
+
+Clone repository:
+
+```sh
+$ git clone https://github.com/vulpemventures/go-elements.git
+```
+
+Enter into the project folder and install dependencies:
+
+```sh
+$ cd go-elements
+$ go get -t -v ./...
+```
+
+For running tests it is required to have a running Nigiri locally, or at least a remote one reachable from the outside.  
+To run the tests it is mandatory to export an `API_URL` environment vriable pointing to the url of nigiri-chopsitcks.  
+Example having a local Nigiri running:
+
+```
+$ export API_URL=http://localhost:3001
+$ go test ./... -v
+```

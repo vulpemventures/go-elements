@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -215,5 +216,5 @@ func toConfidentialValue(val int) ([]byte, error) {
 	if err := BinarySerializer.PutUint64(b, binary.LittleEndian, uint64(val)); err != nil {
 		return nil, err
 	}
-	return append([]byte{unconfPrefix}, reverseBytes(b.Bytes())...), nil
+	return append([]byte{unconfPrefix}, bufferutil.ReverseBytes(b.Bytes())...), nil
 }

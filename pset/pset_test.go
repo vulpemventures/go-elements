@@ -15,6 +15,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -90,7 +91,7 @@ func TestCreator(t *testing.T) {
 			in := vIn.(map[string]interface{})
 			inHash, _ := hex.DecodeString(in["hash"].(string))
 			inIndex := uint32(in["index"].(float64))
-			inHash = reverseBytes(inHash)
+			inHash = bufferutil.ReverseBytes(inHash)
 			inputs = append(inputs, transaction.NewTxInput(inHash, inIndex))
 		}
 
@@ -98,7 +99,7 @@ func TestCreator(t *testing.T) {
 		for _, vOut := range v["outputs"].([]interface{}) {
 			out := vOut.(map[string]interface{})
 			outAsset, _ := hex.DecodeString(out["asset"].(string))
-			outAsset = append([]byte{0x01}, reverseBytes(outAsset)...)
+			outAsset = append([]byte{0x01}, bufferutil.ReverseBytes(outAsset)...)
 			outValue, _ := toConfidentialValue(int(out["value"].(float64)))
 			outScript, _ := hex.DecodeString(out["script"].(string))
 			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue, outScript))
@@ -154,7 +155,7 @@ func TestUpdater(t *testing.T) {
 			} else {
 				wu := in["witnessUtxo"].(map[string]interface{})
 				asset, _ := hex.DecodeString(wu["asset"].(string))
-				asset = append([]byte{0x01}, reverseBytes(asset)...)
+				asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
 				script, _ := hex.DecodeString(wu["script"].(string))
 				value, _ := toConfidentialValue(int(wu["value"].(float64)))
 				utxo := transaction.NewTxOutput(asset, value, script)
@@ -336,12 +337,12 @@ func TestFromCreateToBroadcast(t *testing.T) {
 
 	// The transaction will have 1 input and 3 outputs.
 	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = reverseBytes(txInputHash)
+	txInputHash = bufferutil.ReverseBytes(txInputHash)
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
 	lbtc, _ := hex.DecodeString("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225")
-	lbtc = append([]byte{0x01}, reverseBytes(lbtc)...)
+	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 	receiverValue, _ := toConfidentialValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
@@ -432,7 +433,7 @@ func toConfidentialValue(val int) ([]byte, error) {
 	if err := transaction.BinarySerializer.PutUint64(b, binary.LittleEndian, uint64(val)); err != nil {
 		return nil, err
 	}
-	return append([]byte{unconfPrefix}, reverseBytes(b.Bytes())...), nil
+	return append([]byte{unconfPrefix}, bufferutil.ReverseBytes(b.Bytes())...), nil
 }
 
 func faucet(address string) (string, error) {

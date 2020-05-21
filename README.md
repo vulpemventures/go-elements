@@ -30,26 +30,36 @@ Go support for confidential transactions on Elements-based blockchains
 - [ ] Slip77
 - [ ] Signing a confidential input (use 0 value amounts to produce the hash for the signature)
 
-## Development
+## 🖥 Development
 
-Clone repository:
+* Clone repository:
 
 ```sh
 $ git clone https://github.com/vulpemventures/go-elements.git
 ```
 
-Enter into the project folder and install dependencies:
+* Enter into the project folder and install dependencies:
 
 ```sh
 $ cd go-elements
 $ go get -t -v ./...
 ```
 
-For running tests it is required to have a running Nigiri locally, or at least a remote one reachable from the outside.  
+* Run tests
+
+> For running tests it is required to have a running [Nigiri](https://github.com/vulpemventures/nigiri) locally, or at least a remote one reachable from the outside.  
 To run the tests it is mandatory to export an `API_URL` environment vriable pointing to the url of nigiri-chopsitcks.  
-Example having a local Nigiri running:
 
 ```
+$ nigiri start --liquid
 $ export API_URL=http://localhost:3001
 $ go test ./... -v
 ```
+
+## 👷‍♂️ Contributors 
+
+* [@tiero](https://github.com/tiero)
+* [@altafan](https://github.com/altafan)
+* [@sekulicd](https://github.com/sekulicd)
+
+## License [MIT](https://github.com/vulpemventures/go-elements/blob/master/LICENSE)

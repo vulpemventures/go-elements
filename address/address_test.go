@@ -2,7 +2,10 @@ package address_test
 
 import (
 	"encoding/hex"
+	"fmt"
+	"github.com/btcsuite/btcutil"
 	"github.com/vulpemventures/go-elements/address"
+	"log"
 	"testing"
 )
 
@@ -10,6 +13,7 @@ const (
 	base58address = "XFKcLWJmPuToz62uc2sgCBUddmH6yopoxE"
 	base58hexdata = "2b919bfc040faed8de5469dfa0241a3c1e5681be"
 	bech32address = "ert1qlg343tpldc4wvjxn3jdq2qs35r8j5yd5kjfrrt"
+	wifTest       = "cPV3e1eAY9jS1Kr1UhFZ9f5jCpWPMkTVWgUx4VNiEPnaJh7x69cV"
 )
 
 func TestFromBase58(t *testing.T) {
@@ -55,4 +59,21 @@ func TestBech32(t *testing.T) {
 		t.Errorf("TestToBech32: wrong anddress")
 	}
 
+}
+
+func Test_Blech32Encode(t *testing.T) {
+	decodedWif, err := btcutil.DecodeWIF(wifTest)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pkCompressed := decodedWif.PrivKey.PubKey().SerializeCompressed()
+	publicKeyHashCompressed := btcutil.Hash160(pkCompressed)
+	fmt.Printf("PK hash: %v\n", hex.EncodeToString(publicKeyHashCompressed))
+
+	blech, err := address.ToBlech32("el", 0x00, publicKeyHashCompressed)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println(blech)
 }

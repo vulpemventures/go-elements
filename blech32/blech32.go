@@ -212,7 +212,7 @@ func blech32Checksum(hrp string, data []byte) []byte {
 func blech32Polymod(values []int) int {
 	chk := 1
 	for _, v := range values {
-		b := chk >> 50                      //25->55 compared to bech32
+		b := chk >> 55                      //25->55 compared to bech32
 		chk = (chk&0x7fffffffffffff)<<5 ^ v //0x1ffffff->0x7fffffffffffff compared to bech32
 		for i := 0; i < 5; i++ {
 			if (b>>uint(i))&1 == 1 {

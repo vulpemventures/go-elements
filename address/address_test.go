@@ -2,7 +2,6 @@ package address_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/btcsuite/btcutil"
 	"github.com/vulpemventures/go-elements/address"
 	"log"
@@ -61,7 +60,7 @@ func TestBech32(t *testing.T) {
 
 }
 
-func Test_Blech32Encode(t *testing.T) {
+func Test_Blech32EncodeDecode(t *testing.T) {
 	decodedWif, err := btcutil.DecodeWIF(wifTest)
 	if err != nil {
 		log.Fatal(err)
@@ -69,13 +68,21 @@ func Test_Blech32Encode(t *testing.T) {
 
 	pkCompressed := decodedWif.PrivKey.PubKey().SerializeCompressed()
 	publicKeyHashCompressed := btcutil.Hash160(pkCompressed)
-	fmt.Printf("PK hash: %v\n", hex.EncodeToString(publicKeyHashCompressed))
 
-	blech32 := address.Bech32{}
+	blech32Address := address.Bech32{}
 
-	blech, err := blech32.ToBlech32("el", 0x00, publicKeyHashCompressed)
+	blech32Addr, err := blech32Address.ToBlech32("el", 0x00, publicKeyHashCompressed)
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println(blech)
+
+	fromBlech32, err := blech32Address.FromBlech32(blech32Addr)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if hex.EncodeToString(fromBlech32.Data) != hex.EncodeToString(publicKeyHashCompressed) {
+		t.Error("blech32 decoding error")
+	}
+
 }

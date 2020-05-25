@@ -30,6 +30,7 @@ type Bech32 struct {
 
 // Blech32 defines the structure of a confidential address native segwit
 type Blech32 struct {
+	Prefix    string
 	Version   byte
 	PublicKey []byte
 	Data      []byte
@@ -136,6 +137,17 @@ func ToBech32(bc *Bech32) (string, error) {
 // FromBlech32 decodes a blech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
 func FromBlech32(address string) (*Blech32, error) {
+	// Blech32 encoded segwit addresses start with a human-readable part
+	// (hrp) followed by '1'. For Liquid mainnet the hrp is "ex", and for
+	// testnet it is "ert".
+	oneIndex := strings.LastIndexByte(address, '1')
+	if oneIndex <= 1 {
+		return nil, errors.New("Invalid Sewgit address")
+	}
+	hrp := address[:oneIndex+1]
+	// The HRP is everything before the found '1'.
+	prefix := hrp[:len(hrp)-1]
+
 	// Decode the bech32 encoded address.
 	_, data, err := blech32.Decode(address)
 	if err != nil {
@@ -172,24 +184,24 @@ func FromBlech32(address string) (*Blech32, error) {
 			"version 0: %v", len(regrouped))
 	}
 
-	return &Blech32{version, nil, regrouped}, nil
+	return &Blech32{prefix, version, nil, regrouped}, nil
 }
 
 // ToBlech32 encodes a byte slice into a blech32 string
-func ToBlech32(hrp string, witnessVersion byte, witnessProgram []byte) (string, error) {
+func ToBlech32(bl *Blech32) (string, error) {
 	// Group the address bytes into 5 bit groups, as this is what is used to
 	// encode each character in the address string.
-	converted, err := blech32.ConvertBits(witnessProgram, 8, 5, true)
+	converted, err := blech32.ConvertBits(bl.Data, 8, 5, true)
 	if err != nil {
 		return "", err
 	}
 
 	// Concatenate the witness version and program, and encode the resulting
-	// bytes using bech32 encoding.
+	// bytes using blech32 encoding.
 	combined := make([]byte, len(converted)+1)
-	combined[0] = witnessVersion
+	combined[0] = bl.Version
 	copy(combined[1:], converted)
-	blech32Addr, err := blech32.Encode(hrp, combined)
+	blech32Addr, err := blech32.Encode(bl.Prefix, combined)
 	if err != nil {
 		return "", err
 	}
@@ -200,7 +212,7 @@ func ToBlech32(hrp string, witnessVersion byte, witnessProgram []byte) (string, 
 		return "", fmt.Errorf("invalid blech32 address: %v", err)
 	}
 
-	if blech.Version != witnessVersion || !bytes.Equal(blech.Data, witnessProgram) {
+	if blech.Version != bl.Version || !bytes.Equal(blech.Data, bl.Data) {
 		return "", fmt.Errorf("invalid segwit address")
 	}
 

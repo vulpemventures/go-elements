@@ -71,7 +71,9 @@ func Test_Blech32Encode(t *testing.T) {
 	publicKeyHashCompressed := btcutil.Hash160(pkCompressed)
 	fmt.Printf("PK hash: %v\n", hex.EncodeToString(publicKeyHashCompressed))
 
-	blech, err := address.ToBlech32("el", 0x00, publicKeyHashCompressed)
+	blech32 := address.Bech32{}
+
+	blech, err := blech32.ToBlech32("el", 0x00, publicKeyHashCompressed)
 	if err != nil {
 		t.Error(err)
 	}

@@ -13,7 +13,7 @@ var gen = []int{0x7d52fba40bd886, 0x5e8dbf1a03950c, 0x1c3a3c74072a18, 0x385d72fa
 // Decode decodes a blech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
 func Decode(blech string) (string, []byte, error) {
-	// The maximum allowed length for a blech32 string is 90. It must also
+	// The maximum allowed length for a blech32 string is 1000. It must also
 	// be at least 8 characters, since it needs a non-empty HRP, a
 	// separator, and a 6 character checksum.
 	if len(blech) < 8 || len(blech) > 1000 { //90 -> 1000 compared to bech32
@@ -41,8 +41,8 @@ func Decode(blech string) (string, []byte, error) {
 
 	// The string is invalid if the last '1' is non-existent, it is the
 	// first character of the string (no human-readable part) or one of the
-	// last 6 characters of the string (since checksum cannot contain '1'),
-	// or if the string is more than 90 characters in total.
+	// last 12 characters of the string (since checksum cannot contain '1'),
+	// or if the string is more than 1000 characters in total.
 	one := strings.LastIndexByte(blech, '1')
 	if one < 1 || one+13 > len(blech) { //7 -> 13 compared to bech32
 		return "", nil, fmt.Errorf("invalid index of 1")

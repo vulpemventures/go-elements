@@ -10,6 +10,11 @@ const (
 	base58address = "XFKcLWJmPuToz62uc2sgCBUddmH6yopoxE"
 	base58hexdata = "2b919bfc040faed8de5469dfa0241a3c1e5681be"
 	bech32address = "ert1qlg343tpldc4wvjxn3jdq2qs35r8j5yd5kjfrrt"
+	addr1         = "el1qqw3e3mk4ng3ks43mh54udznuekaadh9lgwef3mwgzrfzakmdwcvqpe4ppdaa3t44v3zv2u6w56pv6tc666fvgzaclqjnkz0sd"
+	addr2         = "el1qqw3e3mk4ng3ks43mh54udznuekaadh9lgwef3mwgzrfzakmdwcvqqve2xzutyaf7vjcap67f28q90uxec2ve95g3rpu5crapcmfr2l9xl5jzazvcpysz"
+	pubKey        = "03a398eed59a2368563bbd2bc68a7ccdbbd6dcbf43b298edc810d22edb6d761800"
+	witProg1      = "e6a10b7bd8aeb56444c5734ea682cd2f1ad692c4"
+	witProg2      = "332a30b8b2753e64b1d0ebc951c057f0d9c29992d11118794c0fa1c6d2357ca6"
 )
 
 func TestFromBase58(t *testing.T) {
@@ -55,4 +60,102 @@ func TestBech32(t *testing.T) {
 		t.Errorf("TestToBech32: wrong anddress")
 	}
 
+}
+
+func TestToBlech32_P2WPKH(t *testing.T) {
+	pkBytes, err := hex.DecodeString(pubKey)
+	if err != nil {
+		t.Error(err)
+	}
+
+	witProg1Bytes, err := hex.DecodeString(witProg1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	program1 := append(pkBytes, witProg1Bytes...)
+
+	blech32Addr := &address.Blech32{
+		Prefix:  "el",
+		Version: 0,
+		Data:    program1,
+	}
+
+	blech32, err := address.ToBlech32(blech32Addr)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if addr1 != blech32 {
+		t.Error("TestToBlech32_P2WPKH: blech32 encoding error")
+	}
+}
+
+func TestToBlech32_P2WSH(t *testing.T) {
+	pkBytes, err := hex.DecodeString(pubKey)
+	if err != nil {
+		t.Error(err)
+	}
+
+	witProg2Bytes, err := hex.DecodeString(witProg2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	program2 := append(pkBytes, witProg2Bytes...)
+
+	blech32Addr := &address.Blech32{
+		Prefix:  "el",
+		Version: 0,
+		Data:    program2,
+	}
+
+	blech32, err := address.ToBlech32(blech32Addr)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if addr2 != blech32 {
+		t.Error("TestToBlech32_P2WSH: blech32 encoding error")
+	}
+}
+
+func TestFromBlech32_P2WPKH(t *testing.T) {
+	blech32, err := address.FromBlech32(addr1)
+	if err != nil {
+		t.Error(err)
+	}
+	if blech32.Version != 0 {
+		t.Error("TestFromBlech32_P2WPKH: wrong version")
+	}
+
+	resPubKey := blech32.Data[:33]
+	if hex.EncodeToString(resPubKey) != pubKey {
+		t.Error("TestFromBlech32_P2WPKH: wrong pub key")
+	}
+
+	resProgram := blech32.Data[33:]
+	if hex.EncodeToString(resProgram) != witProg1 {
+		t.Error("TestFromBlech32_P2WPKH: wrong witness program")
+	}
+}
+
+func TestFromBlech32_P2WSH(t *testing.T) {
+	blech32, err := address.FromBlech32(addr2)
+	if err != nil {
+		t.Error(err)
+	}
+	if blech32.Version != 0 {
+		t.Error("TestFromBlech32_P2WSH: wrong version")
+	}
+
+	resPubKey := blech32.Data[:33]
+	if hex.EncodeToString(resPubKey) != pubKey {
+		t.Error("TestFromBlech32_P2WSH: wrong pub key")
+	}
+
+	resProgram := blech32.Data[33:]
+	if hex.EncodeToString(resProgram) != witProg2 {
+		t.Error("TestFromBlech32_P2WSH: wrong witness program")
+	}
 }

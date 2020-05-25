@@ -15,7 +15,7 @@ var gen = []int{0x7d52fba40bd886, 0x5e8dbf1a03950c, 0x1c3a3c74072a18, 0x385d72fa
 func Decode(blech string) (string, []byte, error) {
 	// The maximum allowed length for a blech32 string is 1000. It must also
 	// be at least 8 characters, since it needs a non-empty HRP, a
-	// separator, and a 6 character checksum.
+	// separator, and a 12 character checksum.
 	if len(blech) < 8 || len(blech) > 1000 { //90 -> 1000 compared to bech32
 		return "", nil, fmt.Errorf("invalid blech32 string length %d",
 			len(blech))

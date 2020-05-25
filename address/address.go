@@ -2,7 +2,6 @@ package address
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
@@ -139,7 +138,6 @@ func ToBech32(bc *Bech32) (string, error) {
 func FromBlech32(address string) (*Blech32, error) {
 	// Decode the bech32 encoded address.
 	_, data, err := blech32.Decode(address)
-	fmt.Println(hex.EncodeToString(data))
 	if err != nil {
 		return nil, err
 	}
@@ -159,19 +157,14 @@ func FromBlech32(address string) (*Blech32, error) {
 	// The remaining characters of the address returned are grouped into
 	// words of 5 bits. In order to restore the original witness program
 	// bytes, we'll need to regroup into 8 bit words.
-	regrouped, err := blech32.ConvertBits(data[1:], 5, 8, true)
+	regrouped, err := blech32.ConvertBits(data[1:], 5, 8, false)
 	if err != nil {
 		return nil, err
 	}
 
-	//TODO check length
-	// The regrouped data must be between 2 and 40+33 bytes.
 	if len(regrouped) < 2 || len(regrouped) > 40+33 {
 		return nil, fmt.Errorf("invalid data length")
 	}
-
-	//TODO check length
-	// The regrouped data must be equal tp 53 or 65 bytes.
 
 	// For witness version 0, address MUST be exactly 20+33 or 32+33 bytes.
 	if version == 0 && len(regrouped) != 20+33 && len(regrouped) != 32+33 {

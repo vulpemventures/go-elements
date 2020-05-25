@@ -2,6 +2,7 @@ package address
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
@@ -135,9 +136,10 @@ func ToBech32(bc *Bech32) (string, error) {
 
 // FromBlech32 decodes a blech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
-func (bc *Bech32) FromBlech32(address string) (*Blech32, error) {
+func FromBlech32(address string) (*Blech32, error) {
 	// Decode the bech32 encoded address.
 	_, data, err := blech32.Decode(address)
+	fmt.Println(hex.EncodeToString(data))
 	if err != nil {
 		return nil, err
 	}
@@ -162,13 +164,17 @@ func (bc *Bech32) FromBlech32(address string) (*Blech32, error) {
 		return nil, err
 	}
 
-	// The regrouped data must be between 2 and 40 bytes.
-	if len(regrouped) < 2 || len(regrouped) > 40 {
+	//TODO check length
+	// The regrouped data must be between 2 and 40+33 bytes.
+	if len(regrouped) < 2 || len(regrouped) > 40+33 {
 		return nil, fmt.Errorf("invalid data length")
 	}
 
-	// For witness version 0, address MUST be exactly 20 or 32 bytes.
-	if version == 0 && len(regrouped) != 20 && len(regrouped) != 32 {
+	//TODO check length
+	// The regrouped data must be equal tp 53 or 65 bytes.
+
+	// For witness version 0, address MUST be exactly 20+33 or 32+33 bytes.
+	if version == 0 && len(regrouped) != 20+33 && len(regrouped) != 32+33 {
 		return nil, fmt.Errorf("invalid data length for witness "+
 			"version 0: %v", len(regrouped))
 	}
@@ -177,7 +183,7 @@ func (bc *Bech32) FromBlech32(address string) (*Blech32, error) {
 }
 
 // ToBlech32 encodes a byte slice into a blech32 string
-func (bc *Bech32) ToBlech32(hrp string, witnessVersion byte, witnessProgram []byte) (string, error) {
+func ToBlech32(hrp string, witnessVersion byte, witnessProgram []byte) (string, error) {
 	// Group the address bytes into 5 bit groups, as this is what is used to
 	// encode each character in the address string.
 	converted, err := blech32.ConvertBits(witnessProgram, 8, 5, true)
@@ -190,13 +196,13 @@ func (bc *Bech32) ToBlech32(hrp string, witnessVersion byte, witnessProgram []by
 	combined := make([]byte, len(converted)+1)
 	combined[0] = witnessVersion
 	copy(combined[1:], converted)
-	bech, err := blech32.Encode(hrp, combined)
+	blech32Addr, err := blech32.Encode(hrp, combined)
 	if err != nil {
 		return "", err
 	}
 
 	// Check validity by decoding the created address.
-	blech, err := bc.FromBlech32(bech)
+	blech, err := FromBlech32(blech32Addr)
 	if err != nil {
 		return "", fmt.Errorf("invalid blech32 address: %v", err)
 	}
@@ -205,5 +211,5 @@ func (bc *Bech32) ToBlech32(hrp string, witnessVersion byte, witnessProgram []by
 		return "", fmt.Errorf("invalid segwit address")
 	}
 
-	return bech, nil
+	return blech32Addr, nil
 }

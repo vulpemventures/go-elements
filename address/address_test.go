@@ -2,9 +2,8 @@ package address_test
 
 import (
 	"encoding/hex"
-	"github.com/btcsuite/btcutil"
+	"fmt"
 	"github.com/vulpemventures/go-elements/address"
-	"log"
 	"testing"
 )
 
@@ -12,8 +11,15 @@ const (
 	base58address = "XFKcLWJmPuToz62uc2sgCBUddmH6yopoxE"
 	base58hexdata = "2b919bfc040faed8de5469dfa0241a3c1e5681be"
 	bech32address = "ert1qlg343tpldc4wvjxn3jdq2qs35r8j5yd5kjfrrt"
-	wifTest       = "cPV3e1eAY9jS1Kr1UhFZ9f5jCpWPMkTVWgUx4VNiEPnaJh7x69cV"
+	addr1         = "el1qqw3e3mk4ng3ks43mh54udznuekaadh9lgwef3mwgzrfzakmdwcvqpe4ppdaa3t44v3zv2u6w56pv6tc666fvgzaclqjnkz0sd"
+	addr2         = "el1qqw3e3mk4ng3ks43mh54udznuekaadh9lgwef3mwgzrfzakmdwcvqqve2xzutyaf7vjcap67f28q90uxec2ve95g3rpu5crapcmfr2l9xl5jzazvcpysz"
+	pubKey        = "03a398eed59a2368563bbd2bc68a7ccdbbd6dcbf43b298edc810d22edb6d761800"
+	witProg1      = "e6a10b7bd8aeb56444c5734ea682cd2f1ad692c4"
+	witProg2      = "0020332a30b8b2753e64b1d0ebc951c057f0d9c29992d11118794c0fa1c6d2357ca6"
 )
+
+var witProg1Version = [1]byte{0x14}
+var witProg2Version = [1]byte{0x20}
 
 func TestFromBase58(t *testing.T) {
 	base58, err := address.FromBase58(base58address)
@@ -60,29 +66,29 @@ func TestBech32(t *testing.T) {
 
 }
 
-func Test_Blech32EncodeDecode(t *testing.T) {
-	decodedWif, err := btcutil.DecodeWIF(wifTest)
-	if err != nil {
-		log.Fatal(err)
-	}
+func TestEncodeConfidentialP2WPKH(t *testing.T) {
 
-	pkCompressed := decodedWif.PrivKey.PubKey().SerializeCompressed()
-	publicKeyHashCompressed := btcutil.Hash160(pkCompressed)
-
-	blech32Address := address.Bech32{}
-
-	blech32Addr, err := blech32Address.ToBlech32("el", 0x00, publicKeyHashCompressed)
+	pkBytes, err := hex.DecodeString(pubKey)
 	if err != nil {
 		t.Error(err)
 	}
 
-	fromBlech32, err := blech32Address.FromBlech32(blech32Addr)
+	witProg1Bytes, err := hex.DecodeString(witProg1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if hex.EncodeToString(fromBlech32.Data) != hex.EncodeToString(publicKeyHashCompressed) {
-		t.Error("blech32 decoding error")
+	program1 := append(pkBytes, witProg1Bytes...)
+
+	fmt.Println(hex.EncodeToString(program1))
+
+	blech32, err := address.ToBlech32("el", 0x00, program1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if addr1 != blech32 {
+		t.Error("blech32 encoding not ")
 	}
 
 }

@@ -74,6 +74,7 @@ type FinalValueBlindingFactorInput struct {
 	OutFactors    [][]byte
 }
 
+//FinalValueBlindingFactor method generates blind sum
 func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) ([32]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)

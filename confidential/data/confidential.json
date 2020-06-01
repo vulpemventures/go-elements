@@ -1,5 +1,5 @@
 {
-  "unblind": [
+  "UnblindOutputTC": [
     {
       "scriptPubkey": "",
       "assetGenerator": "0ad2641ccd4d87c1207cdf8fe931a0e7959fa92a012320a3df98b3229941bfd534",
@@ -13,6 +13,28 @@
         "valueBlindingFactor": "ca4bb9102694dbe0e4b777fd9b199fbdaf51493e2167c24418ec5c3da5024af8",
         "assetBlindingFactor": "5dd4b83ac4dc828b033874f818bd0b5575371cc0e1278c554905dfbb49740fda"
       }
+    }
+  ],
+  "FinalValueBlindingFactorTC": [
+    {
+      "inValues": ["20000"],
+      "outValues": ["4910", "13990", "1100"],
+      "inGenerators": [
+        "7fca161c2b849a434f49065cf590f5f1909f25e252f728dfd53669c3c8f8e371"
+      ],
+      "outGenerators": [
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "2c89075f3c8861fea27a15682d664fb643bc08598fe36dcf817fcabc7ef5cf2e",
+        "fdac7bbad99a45187f863cd58686a75135f2cc0714052f809b0c1f603bcdc574"
+      ],
+      "inFactors": [
+        "1c07611b193009e847e5b296f05a561c559ca84e16d1edae6cbe914b73fb6904"
+      ],
+      "outFactors": [
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "74e4135177cd281b332bb8fceb46da32abda5d6dc4d2eef6342a5399c9fb3c48"
+      ],
+      "expected": "6996212c70fa85b82d4fd76bd262e0cebc5d8f52350a73af8d2b881a30442b9d"
     }
   ]
 }

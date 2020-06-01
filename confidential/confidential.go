@@ -1,4 +1,4 @@
-package transaction
+package confidential
 
 import (
 	"crypto/sha256"
@@ -22,8 +22,13 @@ type UnblindOutputResult struct {
 }
 
 //NonceHash method generates hashed secret based on ecdh
-func NonceHash(ctx *secp256k1.Context, pubKey *secp256k1.PublicKey, privKey []byte) (*[32]byte, error) {
-	_, ecdh, err := secp256k1.Ecdh(ctx, pubKey, privKey)
+func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) (*[32]byte, error) {
+	_, publicKey, err := secp256k1.EcPubkeyParse(ctx, pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	_, ecdh, err := secp256k1.Ecdh(ctx, publicKey, privKey)
 	if err != nil {
 		return nil, err
 	}
@@ -37,17 +42,12 @@ func UnblindOutput(input UnblindInput) (*UnblindOutputResult, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	_, pubKey, err := secp256k1.EcPubkeyParse(ctx, input.EphemeralPubkey)
-	if err != nil {
-		return nil, err
-	}
-
 	gen, err := secp256k1.GeneratorFromBytes(input.Asset)
 	if err != nil {
 		return nil, err
 	}
 
-	nonce, err := NonceHash(ctx, pubKey, input.BlindingPrivkey)
+	nonce, err := NonceHash(ctx, input.EphemeralPubkey, input.BlindingPrivkey)
 	if err != nil {
 		return nil, err
 	}

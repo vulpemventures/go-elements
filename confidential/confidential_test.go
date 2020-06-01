@@ -1,4 +1,4 @@
-package transaction
+package confidential
 
 import (
 	"encoding/hex"

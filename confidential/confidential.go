@@ -64,3 +64,29 @@ func UnblindOutput(input UnblindInput) (*UnblindOutputResult, error) {
 		AssetBlindingFactor: message[32:],
 	}, nil
 }
+
+type FinalValueBlindingFactorInput struct {
+	InValues      []uint64
+	OutValues     []uint64
+	InGenerators  [][]byte
+	OutGenerators [][]byte
+	InFactors     [][]byte
+	OutFactors    [][]byte
+}
+
+func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) ([32]byte, error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	values := append(input.InValues, input.OutValues...)
+
+	generatorBlind := make([][]byte, 0)
+	generatorBlind = append(generatorBlind, input.InGenerators...)
+	generatorBlind = append(generatorBlind, input.OutGenerators...)
+
+	blindingFactor := make([][]byte, 0)
+	blindingFactor = append(blindingFactor, input.InFactors...)
+	blindingFactor = append(blindingFactor, input.OutFactors...)
+
+	return secp256k1.BlindGeneratorBlindSum(ctx, values, generatorBlind, blindingFactor, len(input.InValues))
+}

@@ -3,7 +3,6 @@ package confidential
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-secp256k1-zkp"
 	"io/ioutil"
@@ -33,7 +32,7 @@ func TestUnblindOutput(t *testing.T) {
 		t.FailNow()
 	}
 
-	vectors := tests["UnblindOutputTC"].([]interface{})
+	vectors := tests["unblindOutput"].([]interface{})
 	for _, testVector := range vectors {
 		v := testVector.(map[string]interface{})
 		scriptPubkeyStr := v["scriptPubkey"].(string)
@@ -112,14 +111,14 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 		t.FailNow()
 	}
 
-	vectors := tests["FinalValueBlindingFactorTC"].([]interface{})
+	vectors := tests["finalValueBlindingFactor"].([]interface{})
 	for _, testVector := range vectors {
 		v := testVector.(map[string]interface{})
 
 		inValuesSlice := v["inValues"].([]interface{})
 		inValues := make([]uint64, 0)
-		for _, v := range inValuesSlice {
-			n, err := strconv.ParseUint(fmt.Sprintf("%v", v), 10, 64)
+		for _, val := range inValuesSlice {
+			n, err := strconv.ParseUint(val.(string), 10, 64)
 			if !assert.NoError(t, err) {
 				t.FailNow()
 			}
@@ -128,8 +127,8 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 
 		outValuesSlice := v["outValues"].([]interface{})
 		outValues := make([]uint64, 0)
-		for _, v := range outValuesSlice {
-			n, err := strconv.ParseUint(fmt.Sprintf("%v", v), 10, 64)
+		for _, val := range outValuesSlice {
+			n, err := strconv.ParseUint(val.(string), 10, 64)
 			if !assert.NoError(t, err) {
 				t.FailNow()
 			}
@@ -138,8 +137,8 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 
 		inGeneratorsSlice := v["inGenerators"].([]interface{})
 		inGenerators := make([][]byte, 0)
-		for _, v := range inGeneratorsSlice {
-			gen, err := hex.DecodeString(fmt.Sprintf("%v", v))
+		for _, val := range inGeneratorsSlice {
+			gen, err := hex.DecodeString(val.(string))
 			if !assert.NoError(t, err) {
 				t.FailNow()
 			}
@@ -148,8 +147,8 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 
 		outGeneratorsSlice := v["outGenerators"].([]interface{})
 		outGenerators := make([][]byte, 0)
-		for _, v := range outGeneratorsSlice {
-			gen, err := hex.DecodeString(fmt.Sprintf("%v", v))
+		for _, val := range outGeneratorsSlice {
+			gen, err := hex.DecodeString(val.(string))
 			if !assert.NoError(t, err) {
 				t.FailNow()
 			}
@@ -158,8 +157,8 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 
 		inFactorsSlice := v["inFactors"].([]interface{})
 		inFactors := make([][]byte, 0)
-		for _, v := range inFactorsSlice {
-			gen, err := hex.DecodeString(fmt.Sprintf("%v", v))
+		for _, val := range inFactorsSlice {
+			gen, err := hex.DecodeString(val.(string))
 			if !assert.NoError(t, err) {
 				t.FailNow()
 			}
@@ -168,8 +167,8 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 
 		outFactorsSlice := v["outFactors"].([]interface{})
 		outFactors := make([][]byte, 0)
-		for _, v := range outFactorsSlice {
-			gen, err := hex.DecodeString(fmt.Sprintf("%v", v))
+		for _, val := range outFactorsSlice {
+			gen, err := hex.DecodeString(val.(string))
 			if !assert.NoError(t, err) {
 				t.FailNow()
 			}

@@ -1,5 +1,5 @@
 {
-  "UnblindOutputTC": [
+  "unblindOutput": [
     {
       "scriptPubkey": "",
       "assetGenerator": "0ad2641ccd4d87c1207cdf8fe931a0e7959fa92a012320a3df98b3229941bfd534",
@@ -15,7 +15,7 @@
       }
     }
   ],
-  "FinalValueBlindingFactorTC": [
+  "finalValueBlindingFactor": [
     {
       "inValues": ["20000"],
       "outValues": ["4910", "13990", "1100"],

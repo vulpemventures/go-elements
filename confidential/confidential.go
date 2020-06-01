@@ -22,18 +22,18 @@ type UnblindOutputResult struct {
 }
 
 //NonceHash method generates hashed secret based on ecdh
-func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) ([32]byte, error) {
+func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) (result [32]byte, err error) {
 	_, publicKey, err := secp256k1.EcPubkeyParse(ctx, pubKey)
 	if err != nil {
-		return [32]byte{}, err
+		return result, err
 	}
 
 	_, ecdh, err := secp256k1.Ecdh(ctx, publicKey, privKey)
 	if err != nil {
-		return [32]byte{}, err
+		return result, err
 	}
 
-	result := sha256.Sum256(ecdh)
+	result = sha256.Sum256(ecdh)
 	return result, nil
 }
 
@@ -93,32 +93,34 @@ func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) ([32]byte, er
 }
 
 //AssetCommitment method generates asset commitment
-func AssetCommitment(asset []byte, factor []byte) ([33]byte, error) {
+func AssetCommitment(asset []byte, factor []byte) (result [33]byte, err error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
 	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, asset, factor)
 	if err != nil {
-		return [33]byte{}, err
+		return result, err
 	}
 
-	return secp256k1.GeneratorSerialize(ctx, generator), nil
+	result = generator.Bytes()
+
+	return result, nil
 }
 
 //ValueCommitment method generates value commitment
-func ValueCommitment(value uint64, generator []byte, factor []byte) ([33]byte, error) {
+func ValueCommitment(value uint64, generator []byte, factor []byte) (result [33]byte, err error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
 	gen, err := secp256k1.GeneratorParse(ctx, generator)
 	if err != nil {
-		return [33]byte{}, err
+		return result, err
 	}
 
 	commit, err := secp256k1.Commit(ctx, factor, value, gen)
 	if err != nil {
-		return [33]byte{}, err
+		return result, err
 	}
 
-	return secp256k1.CommitmentSerialize(ctx, commit)
+	return commit.Bytes(), nil
 }

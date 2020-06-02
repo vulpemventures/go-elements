@@ -36,5 +36,19 @@
       ],
       "expected": "6996212c70fa85b82d4fd76bd262e0cebc5d8f52350a73af8d2b881a30442b9d"
     }
+  ],
+  "surjectionProof": [
+    {
+      "seed": "c626acc7ebec10373c18c6c1124515495e6d6732ceb36beda3ad6b26698c723a",
+      "outputAsset": "25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a",
+      "outputAssetBlindingFactor": "c4681a2583b714a31c5a0b997a6c107a96be4aef4847d9cde3035e8ef23642bf",
+      "inputAssets": [
+        "25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"
+      ],
+      "inputAssetBlindingFactors": [
+        "6e957b358d643f1803bb096c4d0f3ce77edf8af6ca77751bf55a9bcb8fb38668"
+      ],
+      "expected": "0100013f038e1a201a6cecf538bf712bca62e5d2f868ea0e6078c4298adf10ed61a557c78237c1899cb38aea419aef38161ffa7f82e90c0d19df8e5f37eb7d37193ce8"
+    }
   ]
 }

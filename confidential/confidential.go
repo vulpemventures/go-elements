@@ -52,7 +52,14 @@ func UnblindOutput(input UnblindInput) (*UnblindOutputResult, error) {
 		return nil, err
 	}
 
-	rewind, value, _, _, message, err := secp256k1.RangeProofRewind(ctx, &input.ValueCommit, input.Rangeproof, nonce, input.ScriptPubkey, gen)
+	rewind, value, _, _, message, err := secp256k1.RangeProofRewind(
+		ctx,
+		&input.ValueCommit,
+		input.Rangeproof,
+		nonce,
+		input.ScriptPubkey,
+		gen,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +96,13 @@ func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) ([32]byte, er
 	blindingFactor = append(blindingFactor, input.InFactors...)
 	blindingFactor = append(blindingFactor, input.OutFactors...)
 
-	return secp256k1.BlindGeneratorBlindSum(ctx, values, generatorBlind, blindingFactor, len(input.InValues))
+	return secp256k1.BlindGeneratorBlindSum(
+		ctx,
+		values,
+		generatorBlind,
+		blindingFactor,
+		len(input.InValues),
+	)
 }
 
 //AssetCommitment method generates asset commitment
@@ -97,7 +110,11 @@ func AssetCommitment(asset []byte, factor []byte) (result [33]byte, err error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, asset, factor)
+	generator, err := secp256k1.GeneratorGenerateBlinded(
+		ctx,
+		asset,
+		factor,
+	)
 	if err != nil {
 		return
 	}
@@ -117,7 +134,12 @@ func ValueCommitment(value uint64, generator []byte, factor []byte) (result [33]
 		return
 	}
 
-	commit, err := secp256k1.Commit(ctx, factor, value, gen)
+	commit, err := secp256k1.Commit(
+		ctx,
+		factor,
+		value,
+		gen,
+	)
 	if err != nil {
 		return
 	}
@@ -145,12 +167,20 @@ func RangeProof(input RangeProofInput) ([]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	nonce, err := NonceHash(ctx, input.BlindingPubkey, input.EphemeralPrivkey)
+	nonce, err := NonceHash(
+		ctx,
+		input.BlindingPubkey,
+		input.EphemeralPrivkey,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, input.Asset, input.AssetBlindingFactor)
+	generator, err := secp256k1.GeneratorGenerateBlinded(
+		ctx,
+		input.Asset,
+		input.AssetBlindingFactor,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -183,5 +213,17 @@ func RangeProof(input RangeProofInput) ([]byte, error) {
 		mb = 36
 	}
 
-	return secp256k1.RangeProofSign(ctx, mv, commit, input.ValueBlindFactor, nonce, e, mb, input.Value, message, input.ScriptPubkey, generator)
+	return secp256k1.RangeProofSign(
+		ctx,
+		mv,
+		commit,
+		input.ValueBlindFactor,
+		nonce,
+		e,
+		mb,
+		input.Value,
+		message,
+		input.ScriptPubkey,
+		generator,
+	)
 }

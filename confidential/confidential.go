@@ -52,7 +52,14 @@ func UnblindOutput(input UnblindInput) (*UnblindOutputResult, error) {
 		return nil, err
 	}
 
-	rewind, value, _, _, message, err := secp256k1.RangeProofRewind(ctx, &input.ValueCommit, input.Rangeproof, nonce, input.ScriptPubkey, gen)
+	rewind, value, _, _, message, err := secp256k1.RangeProofRewind(
+		ctx,
+		&input.ValueCommit,
+		input.Rangeproof,
+		nonce,
+		input.ScriptPubkey,
+		gen,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +96,13 @@ func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) ([32]byte, er
 	blindingFactor = append(blindingFactor, input.InFactors...)
 	blindingFactor = append(blindingFactor, input.OutFactors...)
 
-	return secp256k1.BlindGeneratorBlindSum(ctx, values, generatorBlind, blindingFactor, len(input.InValues))
+	return secp256k1.BlindGeneratorBlindSum(
+		ctx,
+		values,
+		generatorBlind,
+		blindingFactor,
+		len(input.InValues),
+	)
 }
 
 //AssetCommitment method generates asset commitment
@@ -124,6 +137,82 @@ func ValueCommitment(value uint64, generator []byte, factor []byte) (result [33]
 
 	result = commit.Bytes()
 	return
+}
+
+type RangeProofInput struct {
+	Value               uint64
+	BlindingPubkey      []byte
+	EphemeralPrivkey    []byte
+	Asset               []byte
+	AssetBlindingFactor []byte
+	ValueBlindFactor    [32]byte
+	ValueCommit         []byte
+	ScriptPubkey        []byte
+	MinValue            uint64
+	Exp                 int
+	MinBits             int
+}
+
+//RangeProof method calculates range proof
+func RangeProof(input RangeProofInput) ([]byte, error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	nonce, err := NonceHash(
+		ctx,
+		input.BlindingPubkey,
+		input.EphemeralPrivkey,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, input.Asset, input.AssetBlindingFactor)
+	if err != nil {
+		return nil, err
+	}
+
+	message := append(input.Asset, input.AssetBlindingFactor...)
+
+	commit, err := secp256k1.CommitmentParse(ctx, input.ValueCommit)
+	if err != nil {
+		return nil, err
+	}
+
+	var mv uint64
+	if input.MinValue > 0 {
+		mv = input.MinValue
+	} else {
+		mv = 1
+	}
+
+	var e int
+	if input.MinValue > 0 {
+		e = input.Exp
+	} else {
+		e = 1
+	}
+
+	var mb int
+	if input.MinBits > 0 {
+		mb = input.MinBits
+	} else {
+		mb = 36
+	}
+
+	return secp256k1.RangeProofSign(
+		ctx,
+		mv,
+		commit,
+		input.ValueBlindFactor,
+		nonce,
+		e,
+		mb,
+		input.Value,
+		message,
+		input.ScriptPubkey,
+		generator,
+	)
 }
 
 type SurjectionProofInput struct {

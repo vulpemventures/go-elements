@@ -25,16 +25,16 @@ type UnblindOutputResult struct {
 func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) (result [32]byte, err error) {
 	_, publicKey, err := secp256k1.EcPubkeyParse(ctx, pubKey)
 	if err != nil {
-		return result, err
+		return
 	}
 
 	_, ecdh, err := secp256k1.Ecdh(ctx, publicKey, privKey)
 	if err != nil {
-		return result, err
+		return
 	}
 
 	result = sha256.Sum256(ecdh)
-	return result, nil
+	return
 }
 
 //UnblindOutput method unblinds confidential transaction output
@@ -99,12 +99,12 @@ func AssetCommitment(asset []byte, factor []byte) (result [33]byte, err error) {
 
 	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, asset, factor)
 	if err != nil {
-		return result, err
+		return
 	}
 
 	result = generator.Bytes()
 
-	return result, nil
+	return
 }
 
 //ValueCommitment method generates value commitment
@@ -114,13 +114,14 @@ func ValueCommitment(value uint64, generator []byte, factor []byte) (result [33]
 
 	gen, err := secp256k1.GeneratorParse(ctx, generator)
 	if err != nil {
-		return result, err
+		return
 	}
 
 	commit, err := secp256k1.Commit(ctx, factor, value, gen)
 	if err != nil {
-		return result, err
+		return
 	}
 
-	return commit.Bytes(), nil
+	result = commit.Bytes()
+	return
 }

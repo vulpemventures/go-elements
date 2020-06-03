@@ -262,3 +262,71 @@ func TestValueCommitment(t *testing.T) {
 		assert.Equal(t, hex.EncodeToString(valueCommitment[:]), expected)
 	}
 }
+
+func TestSurjectionProof(t *testing.T) {
+	err := setUp()
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	vectors := tests["surjectionProof"].([]interface{})
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
+
+		seedStr := v["seed"].(string)
+		seed, err := hex.DecodeString(seedStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		outputAssetStr := v["outputAsset"].(string)
+		outputAsset, err := hex.DecodeString(outputAssetStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		outputAssetBlindingFactorStr := v["outputAssetBlindingFactor"].(string)
+		outputAssetBlindingFactor, err := hex.DecodeString(outputAssetBlindingFactorStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		inputAssetsSlice := v["inputAssets"].([]interface{})
+		inputAssets := make([][]byte, 0)
+		for _, val := range inputAssetsSlice {
+			a, err := hex.DecodeString(val.(string))
+			if !assert.NoError(t, err) {
+				t.FailNow()
+			}
+			inputAssets = append(inputAssets, a)
+		}
+
+		inputAssetBlindingFactorsSlice := v["inputAssetBlindingFactors"].([]interface{})
+		inputAssetBlindingFactors := make([][]byte, 0)
+		for _, val := range inputAssetBlindingFactorsSlice {
+			a, err := hex.DecodeString(val.(string))
+			if !assert.NoError(t, err) {
+				t.FailNow()
+			}
+			inputAssetBlindingFactors = append(inputAssetBlindingFactors, a)
+		}
+
+		input := SurjectionProofInput{
+			OutputAsset:               outputAsset,
+			OutputAssetBlindingFactor: outputAssetBlindingFactor,
+			InputAssets:               inputAssets,
+			InputAssetBlindingFactors: inputAssetBlindingFactors,
+			Seed:                      seed,
+		}
+
+		factor, err := SurjectionProof(input)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		expectedFactor := v["expected"].(string)
+		assert.Equal(t, expectedFactor, hex.EncodeToString(factor[:]))
+
+	}
+
+}

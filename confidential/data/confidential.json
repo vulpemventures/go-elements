@@ -37,6 +37,21 @@
       "expected": "6996212c70fa85b82d4fd76bd262e0cebc5d8f52350a73af8d2b881a30442b9d"
     }
   ],
+  "assetCommitment": [
+    {
+      "asset": "25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a",
+      "factor": "c4681a2583b714a31c5a0b997a6c107a96be4aef4847d9cde3035e8ef23642bf",
+      "expected": "0a8d276fa2ab45fed0f622f818be77f456baa2f3b90456e30d2c561446b25b5458"
+    }
+  ],
+  "valueCommitment": [
+    {
+      "value": "10000",
+      "factor": "8b5d87d94b9f54dc5dd9f31df5dffedc974fc4d5bf0d2ee1297e5aba504ccc26",
+      "generator": "0ba4fd25e0e2108e55aec683810a8652f9b067242419a1f7cc0f01f92b4b078252",
+      "expected": "08a9de5e391458abf4eb6ff0cc346fa0a8b5b0806b2ee9261dde54d436423c1982"
+    }
+  ],
   "surjectionProof": [
     {
       "seed": "c626acc7ebec10373c18c6c1124515495e6d6732ceb36beda3ad6b26698c723a",

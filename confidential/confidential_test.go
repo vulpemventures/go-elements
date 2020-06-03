@@ -194,6 +194,75 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 	}
 }
 
+func TestAssetCommitment(t *testing.T) {
+	err := setUp()
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	vectors := tests["assetCommitment"].([]interface{})
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
+		assetStr := v["asset"].(string)
+		factorStr := v["factor"].(string)
+		asset, err := hex.DecodeString(assetStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		factor, err := hex.DecodeString(factorStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		commitment, err := AssetCommitment(asset, factor)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		expected := v["expected"].(string)
+		assert.Equal(t, hex.EncodeToString(commitment[:]), expected)
+	}
+}
+
+func TestValueCommitment(t *testing.T) {
+	err := setUp()
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	vectors := tests["valueCommitment"].([]interface{})
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
+		valueStr := v["value"].(string)
+		generatorStr := v["generator"].(string)
+		factorStr := v["factor"].(string)
+
+		value, err := strconv.ParseUint(valueStr, 10, 64)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		factor, err := hex.DecodeString(factorStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		generator, err := hex.DecodeString(generatorStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		valueCommitment, err := ValueCommitment(value, generator, factor)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		expected := v["expected"].(string)
+		assert.Equal(t, hex.EncodeToString(valueCommitment[:]), expected)
+	}
+}
+
 func TestSurjectionProof(t *testing.T) {
 	err := setUp()
 	if !assert.NoError(t, err) {

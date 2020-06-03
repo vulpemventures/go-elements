@@ -110,11 +110,7 @@ func AssetCommitment(asset []byte, factor []byte) (result [33]byte, err error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	generator, err := secp256k1.GeneratorGenerateBlinded(
-		ctx,
-		asset,
-		factor,
-	)
+	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, asset, factor)
 	if err != nil {
 		return
 	}
@@ -134,12 +130,7 @@ func ValueCommitment(value uint64, generator []byte, factor []byte) (result [33]
 		return
 	}
 
-	commit, err := secp256k1.Commit(
-		ctx,
-		factor,
-		value,
-		gen,
-	)
+	commit, err := secp256k1.Commit(ctx, factor, value, gen)
 	if err != nil {
 		return
 	}
@@ -176,11 +167,7 @@ func RangeProof(input RangeProofInput) ([]byte, error) {
 		return nil, err
 	}
 
-	generator, err := secp256k1.GeneratorGenerateBlinded(
-		ctx,
-		input.Asset,
-		input.AssetBlindingFactor,
-	)
+	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, input.Asset, input.AssetBlindingFactor)
 	if err != nil {
 		return nil, err
 	}

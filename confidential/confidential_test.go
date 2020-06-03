@@ -413,3 +413,18 @@ func TestSurjectionProof(t *testing.T) {
 	}
 
 }
+
+func TestSatoshiToElementsValueAndBack(t *testing.T) {
+	var satoshi uint64 = 200000000
+	elementsValue, err := SatoshiToElementsValue(satoshi)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	satoshiValue, err := ElementsToSatoshiValue(elementsValue)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	assert.Equal(t, satoshi, satoshiValue)
+}

@@ -1,8 +1,16 @@
 package confidential
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
+	"github.com/vulpemventures/go-elements/common"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-secp256k1-zkp"
+)
+
+const (
+	confidentialValue = 9
 )
 
 type UnblindInput struct {
@@ -297,4 +305,26 @@ func SurjectionProof(input SurjectionProofInput) ([]byte, error) {
 	}
 
 	return secp256k1.SurjectionProofSerialize(ctx, proof)
+}
+
+//SatoshiToElementsValue method converts Satoshi value to Elements value
+func SatoshiToElementsValue(val uint64) (result [9]byte, err error) {
+	unconfPrefix := byte(1)
+	b := bytes.NewBuffer([]byte{})
+	if err = common.BinarySerializer.PutUint64(b, binary.LittleEndian, val); err != nil {
+		return
+	}
+	copy(result[:], append([]byte{unconfPrefix}, bufferutil.ReverseBytes(b.Bytes())...))
+
+	return
+}
+
+//ElementsToSatoshiValue method converts Elements value to Satoshi value
+func ElementsToSatoshiValue(val [9]byte) (result uint64, err error) {
+	reverseValueBuffer := [confidentialValue - 1]byte{}
+	copy(reverseValueBuffer[:], val[1:])
+	bufferutil.ReverseBytes(reverseValueBuffer[:])
+	d := common.NewDeserializer(bytes.NewBuffer(reverseValueBuffer[:]))
+	result, err = d.ReadUint64()
+	return
 }

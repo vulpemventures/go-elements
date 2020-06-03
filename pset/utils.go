@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"github.com/vulpemventures/go-elements/common"
 	"io"
 	"sort"
 
@@ -34,7 +35,7 @@ import (
 // serialization (writeTxWitness encodes the bitcoin protocol encoding for a
 // transaction input's witness into w).
 func writeTxWitness(wit [][]byte) ([]byte, error) {
-	s, err := transaction.NewSerializer(nil)
+	s, err := common.NewSerializer(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,7 @@ func readTxOut(txout []byte) (*transaction.TxOutput, error) {
 	if len(txout) < 45 {
 		return nil, psbt.ErrInvalidPsbtFormat
 	}
-	d := transaction.NewDeserializer(bytes.NewBuffer(txout))
+	d := common.NewDeserializer(bytes.NewBuffer(txout))
 	asset, err := d.ReadElementsAsset()
 	if err != nil {
 		return nil, err
@@ -322,7 +323,7 @@ func readTxOut(txout []byte) (*transaction.TxOutput, error) {
 }
 
 func writeTxOut(txout *transaction.TxOutput) ([]byte, error) {
-	s, err := transaction.NewSerializer(nil)
+	s, err := common.NewSerializer(nil)
 	if err != nil {
 		return nil, err
 	}

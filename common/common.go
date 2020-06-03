@@ -14,7 +14,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-package transaction
+package common
 
 import (
 	"encoding/binary"
@@ -263,7 +263,7 @@ func readVarInt(r io.Reader) (uint64, error) {
 
 // varIntSerializeSize returns the number of bytes it would take to serialize
 // val as a variable length integer.
-func varIntSerializeSize(val uint64) int {
+func VarIntSerializeSize(val uint64) int {
 	// The value is small enough to be represented by itself, so it's
 	// just 1 byte.
 	if val < 0xfd {
@@ -286,6 +286,6 @@ func varIntSerializeSize(val uint64) int {
 
 // varSlizeSerializeSize returns the number of bytes it would take to serialize
 // val as a variable length byte slice.
-func varSliceSerializeSize(val []byte) int {
-	return varIntSerializeSize(uint64(len(val))) + len(val)
+func VarSliceSerializeSize(val []byte) int {
+	return VarIntSerializeSize(uint64(len(val))) + len(val)
 }

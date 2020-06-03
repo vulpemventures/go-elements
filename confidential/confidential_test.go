@@ -263,6 +263,89 @@ func TestValueCommitment(t *testing.T) {
 	}
 }
 
+func TestRangeProof(t *testing.T) {
+	err := setUp()
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	vectors := tests["rangeProof"].([]interface{})
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
+		valueStr := v["value"].(string)
+		value, err := strconv.ParseUint(valueStr, 10, 64)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		blindingPubkeyStr := v["blindingPubkey"].(string)
+		blindingPubkey, err := hex.DecodeString(blindingPubkeyStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		scriptPubkeyStr := v["scriptPubkey"].(string)
+		scriptPubkey, err := hex.DecodeString(scriptPubkeyStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		assetStr := v["asset"].(string)
+		asset, err := hex.DecodeString(assetStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		assetBlindingFactorStr := v["assetBlindingFactor"].(string)
+		assetBlindingFactor, err := hex.DecodeString(assetBlindingFactorStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		ephemeralPrivkeyStr := v["ephemeralPrivkey"].(string)
+		ephemeralPrivkey, err := hex.DecodeString(ephemeralPrivkeyStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		valueCommitmentStr := v["valueCommitment"].(string)
+		valueCommitment, err := hex.DecodeString(valueCommitmentStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		valueBlindingFactorStr := v["valueBlindingFactor"].(string)
+		valueBlindingFactor, err := hex.DecodeString(valueBlindingFactorStr)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+		var valueBlindingFactorArray [32]byte
+		copy(valueBlindingFactorArray[:], valueBlindingFactor[:])
+
+		input := RangeProofInput{
+			Value:               value,
+			BlindingPubkey:      blindingPubkey,
+			EphemeralPrivkey:    ephemeralPrivkey,
+			Asset:               asset,
+			AssetBlindingFactor: assetBlindingFactor,
+			ValueBlindFactor:    valueBlindingFactorArray,
+			ValueCommit:         valueCommitment,
+			ScriptPubkey:        scriptPubkey,
+			MinValue:            1,
+			Exp:                 0,
+			MinBits:             36,
+		}
+
+		proof, err := RangeProof(input)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		expectedStr := v["expected"].(string)
+		assert.Equal(t, hex.EncodeToString(proof[:]), expectedStr)
+	}
+}
+
 func TestSurjectionProof(t *testing.T) {
 	err := setUp()
 	if !assert.NoError(t, err) {

@@ -139,14 +139,22 @@ func SurjectionProof(input SurjectionProofInput) ([]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	outputGenerator, err := secp256k1.GeneratorGenerateBlinded(ctx, input.OutputAsset, input.OutputAssetBlindingFactor)
+	outputGenerator, err := secp256k1.GeneratorGenerateBlinded(
+		ctx,
+		input.OutputAsset,
+		input.OutputAssetBlindingFactor,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	inputGenerators := make([]secp256k1.Generator, 0)
 	for i, v := range input.InputAssets {
-		gen, err := secp256k1.GeneratorGenerateBlinded(ctx, v, input.InputAssetBlindingFactors[i])
+		gen, err := secp256k1.GeneratorGenerateBlinded(
+			ctx,
+			v,
+			input.InputAssetBlindingFactors[i],
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -175,12 +183,26 @@ func SurjectionProof(input SurjectionProofInput) ([]byte, error) {
 	}
 
 	maxIterations := 100
-	proof, inputIndex, err := secp256k1.SurjectionProofInitialize(ctx, fixedInputTags, nInputsToUse, *fixedOutputTag, maxIterations, input.Seed)
+	proof, inputIndex, err := secp256k1.SurjectionProofInitialize(
+		ctx,
+		fixedInputTags,
+		nInputsToUse,
+		*fixedOutputTag,
+		maxIterations,
+		input.Seed,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	err = secp256k1.SurjectionProofGenerate(ctx, proof, inputGenerators, *outputGenerator, inputIndex, input.InputAssetBlindingFactors[inputIndex], input.OutputAssetBlindingFactor)
+	err = secp256k1.SurjectionProofGenerate(
+		ctx,
+		proof,
+		inputGenerators,
+		*outputGenerator,
+		inputIndex,
+		input.InputAssetBlindingFactors[inputIndex],
+		input.OutputAssetBlindingFactor)
 	if err != nil {
 		return nil, err
 	}

@@ -25,15 +25,16 @@ type UnblindOutputResult struct {
 func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) (result [32]byte, err error) {
 	_, publicKey, err := secp256k1.EcPubkeyParse(ctx, pubKey)
 	if err != nil {
-		return result, err
+		return
 	}
 
 	_, ecdh, err := secp256k1.Ecdh(ctx, publicKey, privKey)
 	if err != nil {
-		return result, err
+		return
 	}
 
-	return sha256.Sum256(ecdh), nil
+	result = sha256.Sum256(ecdh)
+	return
 }
 
 //UnblindOutput method unblinds confidential transaction output
@@ -89,6 +90,40 @@ func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) ([32]byte, er
 	blindingFactor = append(blindingFactor, input.OutFactors...)
 
 	return secp256k1.BlindGeneratorBlindSum(ctx, values, generatorBlind, blindingFactor, len(input.InValues))
+}
+
+//AssetCommitment method generates asset commitment
+func AssetCommitment(asset []byte, factor []byte) (result [33]byte, err error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, asset, factor)
+	if err != nil {
+		return
+	}
+
+	result = generator.Bytes()
+
+	return
+}
+
+//ValueCommitment method generates value commitment
+func ValueCommitment(value uint64, generator []byte, factor []byte) (result [33]byte, err error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	gen, err := secp256k1.GeneratorParse(ctx, generator)
+	if err != nil {
+		return
+	}
+
+	commit, err := secp256k1.Commit(ctx, factor, value, gen)
+	if err != nil {
+		return
+	}
+
+	result = commit.Bytes()
+	return
 }
 
 type RangeProofInput struct {

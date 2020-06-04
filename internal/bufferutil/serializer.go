@@ -1,4 +1,4 @@
-package common
+package bufferutil
 
 import (
 	"bytes"

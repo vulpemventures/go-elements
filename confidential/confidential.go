@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"github.com/vulpemventures/go-elements/common"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
@@ -328,7 +327,7 @@ func SatoshiToElementsValue(val uint64) (
 ) {
 	unconfPrefix := byte(1)
 	b := bytes.NewBuffer([]byte{})
-	if err = common.BinarySerializer.PutUint64(
+	if err = bufferutil.BinarySerializer.PutUint64(
 		b,
 		binary.LittleEndian,
 		val,
@@ -355,7 +354,7 @@ func ElementsToSatoshiValue(val [ElementsUnconfidentialValueLength]byte) (
 	reverseValueBuffer := [ElementsUnconfidentialValueLength - 1]byte{}
 	copy(reverseValueBuffer[:], val[1:])
 	bufferutil.ReverseBytes(reverseValueBuffer[:])
-	d := common.NewDeserializer(bytes.NewBuffer(reverseValueBuffer[:]))
+	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer[:]))
 	result, err = d.ReadUint64()
 	return
 }

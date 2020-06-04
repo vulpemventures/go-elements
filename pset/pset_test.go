@@ -2,10 +2,10 @@ package pset
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/vulpemventures/go-elements/confidential"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -100,9 +100,9 @@ func TestCreator(t *testing.T) {
 			out := vOut.(map[string]interface{})
 			outAsset, _ := hex.DecodeString(out["asset"].(string))
 			outAsset = append([]byte{0x01}, bufferutil.ReverseBytes(outAsset)...)
-			outValue, _ := toConfidentialValue(int(out["value"].(float64)))
+			outValue, _ := confidential.SatoshiToElementsValue(uint64(out["value"].(float64)))
 			outScript, _ := hex.DecodeString(out["script"].(string))
-			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue, outScript))
+			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue[:], outScript))
 		}
 
 		p, err := New(inputs, outputs, 2, 0)
@@ -157,8 +157,8 @@ func TestUpdater(t *testing.T) {
 				asset, _ := hex.DecodeString(wu["asset"].(string))
 				asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
 				script, _ := hex.DecodeString(wu["script"].(string))
-				value, _ := toConfidentialValue(int(wu["value"].(float64)))
-				utxo := transaction.NewTxOutput(asset, value, script)
+				value, _ := confidential.SatoshiToElementsValue(uint64(wu["value"].(float64)))
+				utxo := transaction.NewTxOutput(asset, value[:], script)
 				updater.AddInWitnessUtxo(utxo, inIndex)
 				redeemScript, _ := hex.DecodeString(in["redeemScript"].(string))
 				updater.AddInRedeemScript(redeemScript, inIndex)
@@ -343,17 +343,17 @@ func TestFromCreateToBroadcast(t *testing.T) {
 
 	lbtc, _ := hex.DecodeString("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225")
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-	receiverValue, _ := toConfidentialValue(60000000)
+	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
-	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
 	changeScript := p2wpkh.Script
-	changeValue, _ := toConfidentialValue(39999500)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
+	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
 	feeScript := []byte{}
-	feeValue, _ := toConfidentialValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
+	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
 	// Create a new pset.
 	inputs := []*transaction.TxInput{txInput}
@@ -373,8 +373,8 @@ func TestFromCreateToBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := toConfidentialValue(int(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.Script)
+	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
 	updater.AddInWitnessUtxo(witnessUtxo, 0)
 
 	// The signing of the input is done by retrieving the proper hash of the serialization
@@ -383,7 +383,7 @@ func TestFromCreateToBroadcast(t *testing.T) {
 	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
 	// when serializing the transaction.
 	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
-	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue, txscript.SigHashAll)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -425,15 +425,6 @@ func TestFromCreateToBroadcast(t *testing.T) {
 	if len(txid) <= 0 {
 		t.Fatal("Expected transaction to be broadcasted")
 	}
-}
-
-func toConfidentialValue(val int) ([]byte, error) {
-	unconfPrefix := byte(1)
-	b := bytes.NewBuffer([]byte{})
-	if err := transaction.BinarySerializer.PutUint64(b, binary.LittleEndian, uint64(val)); err != nil {
-		return nil, err
-	}
-	return append([]byte{unconfPrefix}, bufferutil.ReverseBytes(b.Bytes())...), nil
 }
 
 func faucet(address string) (string, error) {

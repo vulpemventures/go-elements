@@ -1,8 +1,16 @@
 package confidential
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
+	"errors"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-secp256k1-zkp"
+)
+
+const (
+	ElementsUnconfidentialValueLength = 9
 )
 
 type UnblindInput struct {
@@ -22,7 +30,10 @@ type UnblindOutputResult struct {
 }
 
 //NonceHash method generates hashed secret based on ecdh
-func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) (result [32]byte, err error) {
+func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) (
+	result [32]byte,
+	err error,
+) {
 	_, publicKey, err := secp256k1.EcPubkeyParse(ctx, pubKey)
 	if err != nil {
 		return
@@ -82,7 +93,10 @@ type FinalValueBlindingFactorInput struct {
 }
 
 //FinalValueBlindingFactor method generates blind sum
-func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) ([32]byte, error) {
+func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) (
+	[32]byte,
+	error,
+) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -121,7 +135,10 @@ func AssetCommitment(asset []byte, factor []byte) (result [33]byte, err error) {
 }
 
 //ValueCommitment method generates value commitment
-func ValueCommitment(value uint64, generator []byte, factor []byte) (result [33]byte, err error) {
+func ValueCommitment(value uint64, generator []byte, factor []byte) (
+	result [33]byte,
+	err error,
+) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -167,7 +184,11 @@ func RangeProof(input RangeProofInput) ([]byte, error) {
 		return nil, err
 	}
 
-	generator, err := secp256k1.GeneratorGenerateBlinded(ctx, input.Asset, input.AssetBlindingFactor)
+	generator, err := secp256k1.GeneratorGenerateBlinded(
+		ctx,
+		input.Asset,
+		input.AssetBlindingFactor,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -297,4 +318,43 @@ func SurjectionProof(input SurjectionProofInput) ([]byte, error) {
 	}
 
 	return secp256k1.SurjectionProofSerialize(ctx, proof)
+}
+
+//SatoshiToElementsValue method converts Satoshi value to Elements value
+func SatoshiToElementsValue(val uint64) (
+	result [ElementsUnconfidentialValueLength]byte,
+	err error,
+) {
+	unconfPrefix := byte(1)
+	b := bytes.NewBuffer([]byte{})
+	if err = bufferutil.BinarySerializer.PutUint64(
+		b,
+		binary.LittleEndian,
+		val,
+	); err != nil {
+		return
+	}
+	copy(
+		result[:],
+		append([]byte{unconfPrefix}, bufferutil.ReverseBytes(b.Bytes())...),
+	)
+
+	return
+}
+
+//ElementsToSatoshiValue method converts Elements value to Satoshi value
+func ElementsToSatoshiValue(val [ElementsUnconfidentialValueLength]byte) (
+	result uint64,
+	err error,
+) {
+	if val[0] != byte(1) {
+		err = errors.New("invalid prefix")
+		return
+	}
+	reverseValueBuffer := [ElementsUnconfidentialValueLength - 1]byte{}
+	copy(reverseValueBuffer[:], val[1:])
+	bufferutil.ReverseBytes(reverseValueBuffer[:])
+	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer[:]))
+	result, err = d.ReadUint64()
+	return
 }

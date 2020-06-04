@@ -1,11 +1,13 @@
 package confidential
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-secp256k1-zkp"
 	"io/ioutil"
+	"math/big"
 	"strconv"
 	"testing"
 )
@@ -412,4 +414,23 @@ func TestSurjectionProof(t *testing.T) {
 
 	}
 
+}
+
+func TestSatoshiToElementsValueAndBack(t *testing.T) {
+	bigInt, err := rand.Int(rand.Reader, big.NewInt(1000000000))
+	if err != nil {
+		panic(err)
+	}
+	satoshi := bigInt.Uint64()
+	elementsValue, err := SatoshiToElementsValue(satoshi)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	satoshiValue, err := ElementsToSatoshiValue(elementsValue)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	assert.Equal(t, satoshi, satoshiValue)
 }

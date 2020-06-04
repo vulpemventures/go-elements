@@ -45,7 +45,6 @@ func (b *blinder) BlindOutputs() error {
 	}
 
 	outputValues := make([]uint64, 0)
-	//TODO check if looping over UnsignedTx's Outputs is correct?
 	for _, output := range b.pset.UnsignedTx.Outputs {
 		var val [9]byte
 		copy(val[:], output.Value)
@@ -106,6 +105,10 @@ func (b *blinder) validate() error {
 			return errors.New("all inputs must contain a non witness " +
 				"utxo or a witness utxo")
 		}
+
+		if len(input.PartialSigs) > 0 {
+			return errors.New("non of the inputs can't be partiali signed")
+		}
 	}
 
 	if len(b.blindingPrivkeys) != len(b.pset.Inputs) {
@@ -124,29 +127,26 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 	unblindOutputs := make([]confidential.UnblindOutputResult, 0)
-	for index, input := range b.pset.Inputs {
+	for index, input := range b.pset.UnsignedTx.Inputs {
 		var prevout *transaction.TxOutput
-		if input.NonWitnessUtxo != nil {
-			//TODO: check if prevout should be created like below
-			prevout = input.NonWitnessUtxo.Outputs[index]
+		if b.pset.Inputs[input.Index].NonWitnessUtxo != nil {
+			prevout = b.pset.Inputs[input.Index].NonWitnessUtxo.Outputs[input.Index]
 		} else {
-			prevout = input.WitnessUtxo
+			prevout = b.pset.Inputs[input.Index].WitnessUtxo
 		}
 
 		if len(prevout.RangeProof) > 0 && len(prevout.SurjectionProof) > 0 {
-			val, err := secp256k1.CommitmentParse(ctx, prevout.Value)
+			//TODO: implement CommitmentFromBytes, check comment:
+			//https://github.com/vulpemventures/go-elements/pull/79#discussion_r435315406
+			commitmentValue, err := secp256k1.CommitmentParse(ctx, prevout.Value)
 			if err != nil {
 				return nil, err
 			}
-			var commitmentValue secp256k1.Commitment
-			if val != nil {
-				commitmentValue = *val
-			}
 			unblindInput := confidential.UnblindInput{
-				EphemeralPubkey: b.blindingPubkeys[index],  //TODO: is this ok?
-				BlindingPrivkey: b.blindingPrivkeys[index], //TODO: is this ok?
+				EphemeralPubkey: prevout.Nonce,
+				BlindingPrivkey: b.blindingPrivkeys[index],
 				Rangeproof:      prevout.RangeProof,
-				ValueCommit:     commitmentValue,
+				ValueCommit:     *commitmentValue,
 				Asset:           prevout.Asset,
 				ScriptPubkey:    prevout.Script,
 			}
@@ -164,7 +164,10 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 				return nil, err
 			}
 			output := confidential.UnblindOutputResult{
-				Value: satoshiValue,
+				Value:               satoshiValue,
+				Asset:               prevout.Asset,
+				ValueBlindingFactor: make([]byte, 32),
+				AssetBlindingFactor: make([]byte, 32),
 			}
 			unblindOutputs = append(unblindOutputs, output)
 		}
@@ -235,7 +238,6 @@ func (b *blinder) blindOutputs(
 			return err
 		}
 
-		//TODO: is it ok to use btcec?
 		ephemeralPrivKey, err := btcec.NewPrivateKey(btcec.S256())
 		if err != nil {
 			return err
@@ -270,7 +272,7 @@ func (b *blinder) blindOutputs(
 			ScriptPubkey:        outputScript,
 			MinValue:            1,
 			Exp:                 0,
-			MinBits:             36,
+			MinBits:             52,
 		}
 		rangeProof, err := confidential.RangeProof(rangeProofInput)
 		if err != nil {
@@ -293,11 +295,7 @@ func (b *blinder) blindOutputs(
 
 		b.pset.UnsignedTx.Outputs[outputIndex].Asset = assetCommitment[:]
 		b.pset.UnsignedTx.Outputs[outputIndex].Value = valueCommitment[:]
-
-		//TODO: should i calculate Nonce using confidential package?
-		b.pset.UnsignedTx.Outputs[outputIndex].Nonce = outputNonce.
-			SerializeUncompressed()
-
+		b.pset.UnsignedTx.Outputs[outputIndex].Nonce = outputNonce.SerializeCompressed()
 		b.pset.UnsignedTx.Outputs[outputIndex].RangeProof = rangeProof
 		b.pset.UnsignedTx.Outputs[outputIndex].SurjectionProof = surjectionProof
 	}

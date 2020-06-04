@@ -8,7 +8,7 @@ import (
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
 
-type randomNumberGenerator func(n int) ([]byte, error)
+type randomNumberGenerator func(n interface{}) ([]byte, error)
 
 type blinder struct {
 	pset             *Pset
@@ -19,7 +19,7 @@ type blinder struct {
 
 // NewBlinder returns a new instance of blinder, if the passed Pset struct is
 // in a valid form, else an error.
-func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte, rng func(n int) ([]byte, error)) (
+func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte, rng randomNumberGenerator) (
 	*blinder,
 	error,
 ) {

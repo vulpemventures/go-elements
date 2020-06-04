@@ -28,18 +28,18 @@ func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte, rng rand
 		return nil, err
 	}
 
-	var f randomNumberGenerator
+	var gen randomNumberGenerator
 	if rng == nil {
-		f = generateRandomNumber
+		gen = generateRandomNumber
 	} else {
-		f = rng
+		gen = rng
 	}
 
 	return &blinder{
 		pset:             pset,
 		blindingPrivkeys: blindingPrivkeys,
 		blindingPubkeys:  blindingPubkeys,
-		rng:              f,
+		rng:              gen,
 	}, nil
 }
 

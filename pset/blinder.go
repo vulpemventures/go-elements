@@ -1,6 +1,7 @@
 package pset
 
 import (
+	"crypto/rand"
 	"errors"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/confidential"
@@ -8,7 +9,7 @@ import (
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
 
-type randomNumberGenerator func(n interface{}) ([]byte, error)
+type randomNumberGenerator func() ([]byte, error)
 
 type blinder struct {
 	pset             *Pset
@@ -27,11 +28,18 @@ func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte, rng rand
 		return nil, err
 	}
 
+	var f randomNumberGenerator
+	if rng == nil {
+		f = generateRandomNumber
+	} else {
+		f = rng
+	}
+
 	return &blinder{
 		pset:             pset,
 		blindingPrivkeys: blindingPrivkeys,
 		blindingPubkeys:  blindingPubkeys,
-		rng:              rng,
+		rng:              f,
 	}, nil
 }
 
@@ -187,7 +195,7 @@ func (b *blinder) generateOutputBlindingFactors(
 	numOutputs := len(b.pset.Outputs) - 1
 	outputAbfs := make([][]byte, 0)
 	for i := 0; i < numOutputs; i++ {
-		rand, err := b.rng(32)
+		rand, err := b.rng()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -196,7 +204,7 @@ func (b *blinder) generateOutputBlindingFactors(
 
 	outputVbfs := make([][]byte, 0)
 	for i := 0; i < numOutputs-1; i++ {
-		rand, err := b.rng(32)
+		rand, err := b.rng()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -236,7 +244,7 @@ func (b *blinder) blindOutputs(
 			continue
 		}
 
-		randomSeed, err := b.rng(32)
+		randomSeed, err := b.rng()
 		if err != nil {
 			return err
 		}
@@ -303,4 +311,13 @@ func (b *blinder) blindOutputs(
 		b.pset.UnsignedTx.Outputs[outputIndex].SurjectionProof = surjectionProof
 	}
 	return nil
+}
+
+func generateRandomNumber() ([]byte, error) {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }

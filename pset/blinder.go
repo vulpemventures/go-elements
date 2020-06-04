@@ -1,7 +1,6 @@
 package pset
 
 import (
-	"crypto/rand"
 	"errors"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/confidential"
@@ -9,15 +8,18 @@ import (
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
 
+type randomNumberGenerator func(n int) ([]byte, error)
+
 type blinder struct {
 	pset             *Pset
 	blindingPrivkeys [][]byte
 	blindingPubkeys  [][]byte
+	rng              randomNumberGenerator
 }
 
 // NewBlinder returns a new instance of blinder, if the passed Pset struct is
 // in a valid form, else an error.
-func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte) (
+func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte, rng func(n int) ([]byte, error)) (
 	*blinder,
 	error,
 ) {
@@ -29,6 +31,7 @@ func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte) (
 		pset:             pset,
 		blindingPrivkeys: blindingPrivkeys,
 		blindingPubkeys:  blindingPubkeys,
+		rng:              rng,
 	}, nil
 }
 
@@ -46,7 +49,7 @@ func (b *blinder) BlindOutputs() error {
 
 	outputValues := make([]uint64, 0)
 	for _, output := range b.pset.UnsignedTx.Outputs {
-		var val [9]byte
+		var val [confidential.ElementsUnconfidentialValueLength]byte
 		copy(val[:], output.Value)
 		value, err := confidential.ElementsToSatoshiValue(val)
 		if err != nil {
@@ -107,7 +110,7 @@ func (b *blinder) validate() error {
 		}
 
 		if len(input.PartialSigs) > 0 {
-			return errors.New("non of the inputs can't be partiali signed")
+			return errors.New("inputs must not contain signatures")
 		}
 	}
 
@@ -184,7 +187,7 @@ func (b *blinder) generateOutputBlindingFactors(
 	numOutputs := len(b.pset.Outputs) - 1
 	outputAbfs := make([][]byte, 0)
 	for i := 0; i < numOutputs; i++ {
-		rand, err := generateRandomNumber(32)
+		rand, err := b.rng(32)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -193,7 +196,7 @@ func (b *blinder) generateOutputBlindingFactors(
 
 	outputVbfs := make([][]byte, 0)
 	for i := 0; i < numOutputs-1; i++ {
-		rand, err := generateRandomNumber(32)
+		rand, err := b.rng(32)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -233,7 +236,7 @@ func (b *blinder) blindOutputs(
 			continue
 		}
 
-		randomSeed, err := generateRandomNumber(32)
+		randomSeed, err := b.rng(32)
 		if err != nil {
 			return err
 		}
@@ -300,13 +303,4 @@ func (b *blinder) blindOutputs(
 		b.pset.UnsignedTx.Outputs[outputIndex].SurjectionProof = surjectionProof
 	}
 	return nil
-}
-
-func generateRandomNumber(n int) ([]byte, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
 }

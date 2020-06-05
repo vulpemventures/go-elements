@@ -161,7 +161,7 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 				BlindingPrivkey: b.blindingPrivkeys[index],
 				Rangeproof:      prevout.RangeProof,
 				ValueCommit:     *commitmentValue,
-				Asset:           prevout.Asset[1:],
+				Asset:           prevout.Asset,
 				ScriptPubkey:    prevout.Script,
 			}
 
@@ -179,7 +179,7 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 			}
 			output := confidential.UnblindOutputResult{
 				Value:               satoshiValue,
-				Asset:               prevout.Asset,
+				Asset:               prevout.Asset[1:],
 				ValueBlindingFactor: make([]byte, 32),
 				AssetBlindingFactor: make([]byte, 32),
 			}
@@ -239,7 +239,7 @@ func (b *blinder) blindOutputs(
 	inputAgs [][]byte,
 	inputAbfs [][]byte,
 ) error {
-	for outputIndex, _ := range b.pset.Outputs {
+	for outputIndex, _ := range outputValues {
 		outputAsset := b.pset.UnsignedTx.Outputs[outputIndex].Asset[1:]
 		outputScript := b.pset.UnsignedTx.Outputs[outputIndex].Script
 		outputValue := outputValues[outputIndex]

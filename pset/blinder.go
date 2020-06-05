@@ -57,13 +57,15 @@ func (b *blinder) BlindOutputs() error {
 
 	outputValues := make([]uint64, 0)
 	for _, output := range b.pset.UnsignedTx.Outputs {
-		var val [confidential.ElementsUnconfidentialValueLength]byte
-		copy(val[:], output.Value)
-		value, err := confidential.ElementsToSatoshiValue(val)
-		if err != nil {
-			return err
+		if len(output.Script) > 0 {
+			var val [confidential.ElementsUnconfidentialValueLength]byte
+			copy(val[:], output.Value)
+			value, err := confidential.ElementsToSatoshiValue(val)
+			if err != nil {
+				return err
+			}
+			outputValues = append(outputValues, value)
 		}
-		outputValues = append(outputValues, value)
 	}
 
 	inputAbfs := make([][]byte, 0)
@@ -138,12 +140,13 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 	unblindOutputs := make([]confidential.UnblindOutputResult, 0)
-	for index, input := range b.pset.UnsignedTx.Inputs {
+	for index, _ := range b.pset.UnsignedTx.Inputs {
 		var prevout *transaction.TxOutput
-		if b.pset.Inputs[input.Index].NonWitnessUtxo != nil {
-			prevout = b.pset.Inputs[input.Index].NonWitnessUtxo.Outputs[input.Index]
+		//TODO: check if change is ok since in test it was failing
+		if b.pset.Inputs[index].NonWitnessUtxo != nil {
+			prevout = b.pset.Inputs[index].NonWitnessUtxo.Outputs[index]
 		} else {
-			prevout = b.pset.Inputs[input.Index].WitnessUtxo
+			prevout = b.pset.Inputs[index].WitnessUtxo
 		}
 
 		if len(prevout.RangeProof) > 0 && len(prevout.SurjectionProof) > 0 {
@@ -168,7 +171,7 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 			}
 			unblindOutputs = append(unblindOutputs, *output)
 		} else {
-			val := [9]byte{}
+			val := [confidential.ElementsUnconfidentialValueLength]byte{}
 			copy(val[:], prevout.Value)
 			satoshiValue, err := confidential.ElementsToSatoshiValue(val)
 			if err != nil {

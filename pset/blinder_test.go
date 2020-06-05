@@ -2,7 +2,6 @@ package pset
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/confidential"
@@ -165,5 +164,4 @@ func TestCreateBlindAndBroadcast(t *testing.T) {
 	if len(txid) <= 0 {
 		t.Fatal("Expected transaction to be broadcasted")
 	}
-	fmt.Println(txid)
 }

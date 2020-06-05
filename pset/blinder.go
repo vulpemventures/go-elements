@@ -239,13 +239,13 @@ func (b *blinder) blindOutputs(
 	inputAgs [][]byte,
 	inputAbfs [][]byte,
 ) error {
-	for outputIndex, _ := range outputValues {
+	for outputIndex, _ := range b.pset.Outputs {
 		outputAsset := b.pset.UnsignedTx.Outputs[outputIndex].Asset[1:]
 		outputScript := b.pset.UnsignedTx.Outputs[outputIndex].Script
-		outputValue := outputValues[outputIndex]
 		if len(outputScript) == 0 {
 			continue
 		}
+		outputValue := outputValues[outputIndex]
 
 		randomSeed, err := b.rng()
 		if err != nil {

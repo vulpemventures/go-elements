@@ -90,7 +90,7 @@ func TestCreateBlindAndBroadcast(t *testing.T) {
 	updater.AddInWitnessUtxo(witnessUtxo, 0)
 
 	//blind outputs
-	blindingPrivKeys := make([][]byte, 0)
+	blindingPrivKeys := [][]byte{{}}
 
 	blindingPubKeys := make([][]byte, 0)
 	pk, err := btcec.NewPrivateKey(btcec.S256())

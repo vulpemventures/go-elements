@@ -161,7 +161,7 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 				BlindingPrivkey: b.blindingPrivkeys[index],
 				Rangeproof:      prevout.RangeProof,
 				ValueCommit:     *commitmentValue,
-				Asset:           prevout.Asset,
+				Asset:           prevout.Asset[1:],
 				ScriptPubkey:    prevout.Script,
 			}
 

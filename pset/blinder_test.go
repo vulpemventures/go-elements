@@ -89,26 +89,8 @@ func TestCreateBlindAndBroadcast(t *testing.T) {
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
 	updater.AddInWitnessUtxo(witnessUtxo, 0)
 
-	// The signing of the input is done by retrieving the proper hash of the serialization
-	// of the transaction (the BIP-0143 segwit version in this case) directly from the pset's
-	// UnsignedTx.
-	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
-	// when serializing the transaction.
-	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
-	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
-	sig, err := privkey.Sign(witHash[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	//blind outputs
 	blindingPrivKeys := make([][]byte, 0)
-	blindingPrivKeys = append(blindingPrivKeys, privkey.Serialize())
 
 	blindingPubKeys := make([][]byte, 0)
 	pk, err := btcec.NewPrivateKey(btcec.S256())
@@ -132,7 +114,23 @@ func TestCreateBlindAndBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//blind outputs
+
+	// The signing of the input is done by retrieving the proper hash of the serialization
+	// of the transaction (the BIP-0143 segwit version in this case) directly from the pset's
+	// UnsignedTx.
+	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
+	// when serializing the transaction.
+	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
+	sig, err := privkey.Sign(witHash[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Update the pset adding the input signature script and the pubkey.
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)

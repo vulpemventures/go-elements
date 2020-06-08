@@ -133,8 +133,6 @@ func (p *Payment) ConfidentialPubKeyHash() string {
 		errors.New("payment's blinding key can't be nil")
 	}
 
-	fmt.Println()
-
 	prefix := [1]byte{p.Network.PubKeyHash}
 	confidentialAddress := append(
 		append(
@@ -165,8 +163,6 @@ func (p *Payment) ConfidentialScriptHash() string {
 	if p.BlindingKey == nil {
 		errors.New("payment's blinding key can't be nil")
 	}
-
-	fmt.Println()
 
 	prefix := [1]byte{p.Network.ScriptHash}
 	confidentialAddress := append(

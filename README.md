@@ -32,10 +32,11 @@ $ go get -u github.com/vulpemventures/go-elements
   - [x] Serialization for (witness) signature
 - [x] [PSET / Bip174 for Elements](https://github.com/vulpemventures/go-elements/tree/master/pset)
 - [x] [Blech32](https://github.com/vulpemventures/go-elements/tree/master/blech32)
-- [ ] [CGO bindings for secp256k1-zkp](https://github.com/vulpemventures/go-secp256k1-zkp)
-- [ ] Blinding outs/ Unblinding ins
+- [x] [CGO bindings for secp256k1-zkp](https://github.com/vulpemventures/go-secp256k1-zkp)
+- [x] Blinding outs/ Unblinding ins
+- [x] Signing a confidential input (use 0 value amounts to produce the hash for the signature)
+- [ ] Asset issuance
 - [ ] Slip77
-- [ ] Signing a confidential input (use 0 value amounts to produce the hash for the signature)
 
 ## 🖥 Development
 

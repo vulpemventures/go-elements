@@ -28,7 +28,11 @@ type Payment struct {
 // pub 036f5646ed688b9279369da0a4ad78953ae7e6d300436ca8a3264360efe38236e3
 
 // FromPublicKey creates a Payment struct from a btcec.publicKey
-func FromPublicKey(pubkey *btcec.PublicKey, net *network.Network) *Payment {
+func FromPublicKey(
+	pubkey *btcec.PublicKey,
+	net *network.Network,
+	blindingKey *btcec.PublicKey,
+) *Payment {
 	var tmpNet *network.Network
 	if net == nil {
 		tmpNet = &network.Liquid
@@ -40,11 +44,16 @@ func FromPublicKey(pubkey *btcec.PublicKey, net *network.Network) *Payment {
 	script := make([]byte, 0)
 	script = append([]byte{txscript.OP_0, byte(len(pkHash))}, pkHash...)
 	witnessHash := sha256.Sum256(script)
-	return &Payment{tmpNet, pubkey, pkHash, nil, nil, script, witnessHash[:]}
+	return &Payment{tmpNet, pubkey, pkHash, blindingKey, nil, script, witnessHash[:]}
 }
 
 // FromPublicKeys creates a multi-signature Payment struct from list of public key's
-func FromPublicKeys(pubkeys []*btcec.PublicKey, nrequired int, net *network.Network) (*Payment, error) {
+func FromPublicKeys(
+	pubkeys []*btcec.PublicKey,
+	nrequired int,
+	net *network.Network,
+	blindingKey *btcec.PublicKey,
+) (*Payment, error) {
 	if len(pubkeys) < nrequired {
 		errorMsg := fmt.Sprintf("unable to generate multisig script with "+
 			"%d required signatures when there are only %d public "+
@@ -71,7 +80,7 @@ func FromPublicKeys(pubkeys []*btcec.PublicKey, nrequired int, net *network.Netw
 		return nil, err
 	}
 
-	return FromScript(multiSigScript, tmpNet)
+	return FromScript(multiSigScript, tmpNet, blindingKey)
 }
 
 // FromPayment creates a Payment struct from a another Payment
@@ -85,7 +94,11 @@ func FromPayment(payment *Payment) (*Payment, error) {
 }
 
 // FromPayment creates a nested Payment struct from script
-func FromScript(script []byte, net *network.Network) (*Payment, error) {
+func FromScript(
+	script []byte,
+	net *network.Network,
+	blindingKey *btcec.PublicKey,
+) (*Payment, error) {
 	if script == nil || len(script) == 0 {
 		return nil, errors.New("payment's script can't be empty or nil")
 	}
@@ -95,7 +108,7 @@ func FromScript(script []byte, net *network.Network) (*Payment, error) {
 	} else {
 		tmpNet = net
 	}
-	redeem := &Payment{Network: tmpNet, Script: script}
+	redeem := &Payment{Network: tmpNet, Script: script, BlindingKey: blindingKey}
 	return FromPayment(redeem)
 }
 
@@ -103,6 +116,20 @@ func FromScript(script []byte, net *network.Network) (*Payment, error) {
 func (p *Payment) PubKeyHash() string {
 	if p.Hash == nil || len(p.Hash) == 0 {
 		errors.New("payment's hash can't be empty or nil")
+	}
+	payload := &address.Base58{p.Network.PubKeyHash, p.Hash}
+	addr := address.ToBase58(payload)
+	return addr
+}
+
+// ConfidentialPubKeyHash is a method of the Payment struct to derive a
+//base58 confidential p2pkh address
+func (p *Payment) ConfidentialPubKeyHash() string {
+	if p.Hash == nil || len(p.Hash) == 0 {
+		errors.New("payment's hash can't be empty or nil")
+	}
+	if p.BlindingKey == nil {
+		errors.New("payment's blinding key can't be nil")
 	}
 	payload := &address.Base58{p.Network.PubKeyHash, p.Hash}
 	addr := address.ToBase58(payload)

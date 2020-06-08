@@ -1,5 +1,7 @@
 github.com/aead/siphash v1.0.1 h1:FwHfE/T45KPKYuuSAKyyvE+oPWcaQ+CUmFW0bPlM+kg=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
+github.com/anaskhan96/base58check v0.0.0-20181220122047-b05365d494c4 h1:FUDNaUiPOxrVtUmsRSdx7hrvCKXpfQafPpPU0Yh27os=
+github.com/anaskhan96/base58check v0.0.0-20181220122047-b05365d494c4/go.mod h1:glPG1rmt/bD3wEXWanFIuoPjC4MG+JEN+i7YhwEYA/Y=
 github.com/btcsuite/btcd v0.20.1-beta h1:Ik4hyJqN8Jfyv3S4AGBOmyouMsYE3EdYODkMbQjwPGw=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f h1:bAs4lUbRJpnnkd9VhRV3jjAVU7DJVjMaK+IsvSeZvFo=

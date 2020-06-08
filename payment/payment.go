@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
 	"golang.org/x/crypto/ripemd160"
@@ -131,9 +132,18 @@ func (p *Payment) ConfidentialPubKeyHash() string {
 	if p.BlindingKey == nil {
 		errors.New("payment's blinding key can't be nil")
 	}
-	payload := &address.Base58{p.Network.PubKeyHash, p.Hash}
-	addr := address.ToBase58(payload)
-	return addr
+
+	fmt.Println()
+
+	prefix := [1]byte{p.Network.PubKeyHash}
+	confidentialAddress := append(
+		append(
+			prefix[:],
+			p.BlindingKey.SerializeCompressed()...,
+		),
+		p.Hash...,
+	)
+	return base58.CheckEncode(confidentialAddress, p.Network.Confidential)
 }
 
 // ScriptHash is a method of the Payment struct to derive a base58 p2sh address
@@ -144,6 +154,29 @@ func (p *Payment) ScriptHash() (string, error) {
 	payload := &address.Base58{p.Network.ScriptHash, p.Hash}
 	addr := address.ToBase58(payload)
 	return addr, nil
+}
+
+// ConfidentialScriptHash is a method of the Payment struct to derive a
+//base58 confidential p2sh address
+func (p *Payment) ConfidentialScriptHash() string {
+	if p.Hash == nil || len(p.Hash) == 0 {
+		errors.New("payment's hash can't be empty or nil")
+	}
+	if p.BlindingKey == nil {
+		errors.New("payment's blinding key can't be nil")
+	}
+
+	fmt.Println()
+
+	prefix := [1]byte{p.Network.ScriptHash}
+	confidentialAddress := append(
+		append(
+			prefix[:],
+			p.BlindingKey.SerializeCompressed()...,
+		),
+		p.Script...,
+	)
+	return base58.CheckEncode(confidentialAddress, p.Network.Confidential)
 }
 
 // WitnessPubKeyHash is a method of the Payment struct to derive a base58 p2wpkh address

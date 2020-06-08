@@ -17,14 +17,14 @@ var privateKeyBytes, _ = hex.DecodeString(privateKeyHex)
 //This examples shows how standard P2PKH address can be created
 func ExampleFromPublicKey() {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
-	pay := payment.FromPublicKey(publicKey, &network.Regtest)
+	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	fmt.Printf("P2PKH address %v\n:", pay.PubKeyHash())
 }
 
 //This examples shows how nested payment can be done in order to create non native SegWit(P2SH-P2WPKH) address
 func ExampleFromPayment() {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
-	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest)
+	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	pay, err := payment.FromPayment(p2wpkh)
 	p2sh, err := pay.ScriptHash()
 	if err != nil {

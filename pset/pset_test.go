@@ -388,6 +388,7 @@ func TestFromCreateToBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
 	if err != nil {
 		t.Fatal(err)

@@ -22,7 +22,7 @@ func main() {
 	privateKeyBytes, _ := hex.DecodeString(privKeyHex)
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
 
-	pay := payment.FromPublicKey(publicKey, &network.Regtest)
+	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	legacyAddress := pay.PubKeyHash()
 	segwitAddress, _ := pay.WitnessPubKeyHash()
 	println(legacyAddress)

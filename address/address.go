@@ -33,7 +33,7 @@ type Blech32 struct {
 	Prefix    string
 	Version   byte
 	PublicKey []byte
-	Data      []byte
+	Program   []byte
 }
 
 // FromBase58 decodes a string that was base58 encoded and verifies the checksum.
@@ -184,14 +184,24 @@ func FromBlech32(address string) (*Blech32, error) {
 			"version 0: %v", len(regrouped))
 	}
 
-	return &Blech32{prefix, version, nil, regrouped}, nil
+	return &Blech32{
+		prefix,
+		version,
+		regrouped[:33],
+		regrouped[33:],
+	}, nil
 }
 
 // ToBlech32 encodes a byte slice into a blech32 string
 func ToBlech32(bl *Blech32) (string, error) {
 	// Group the address bytes into 5 bit groups, as this is what is used to
 	// encode each character in the address string.
-	converted, err := blech32.ConvertBits(bl.Data, 8, 5, true)
+	converted, err := blech32.ConvertBits(
+		append(bl.PublicKey, bl.Program...),
+		8,
+		5,
+		true,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -212,7 +222,10 @@ func ToBlech32(bl *Blech32) (string, error) {
 		return "", fmt.Errorf("invalid blech32 address: %v", err)
 	}
 
-	if blech.Version != bl.Version || !bytes.Equal(blech.Data, bl.Data) {
+	blechData := append(blech.PublicKey, blech.Program...)
+	blData := append(bl.PublicKey, bl.Program...)
+
+	if blech.Version != bl.Version || !bytes.Equal(blechData, blData) {
 		return "", fmt.Errorf("invalid segwit address")
 	}
 

@@ -3,6 +3,7 @@ package payment_test
 import (
 	"encoding/hex"
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"testing"
@@ -19,7 +20,7 @@ var privateKeyBytes2, _ = hex.DecodeString(privKeyHex2)
 func TestLegacyAddress(t *testing.T) {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
 
-	pay := payment.FromPublicKey(publicKey, &network.Regtest)
+	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	if pay.PubKeyHash() != "2dxEMfPLNa6rZRAfPe7wNWoaUptyBzQ2Zva" {
 		t.Errorf("TestLegacyAddress: error when encoding legacy")
 	}
@@ -28,7 +29,7 @@ func TestLegacyAddress(t *testing.T) {
 func TestSegwitAddress(t *testing.T) {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
 
-	pay := payment.FromPublicKey(publicKey, &network.Regtest)
+	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	p2pkh, err := pay.WitnessPubKeyHash()
 	if err != nil {
 		t.Error(err)
@@ -40,7 +41,7 @@ func TestSegwitAddress(t *testing.T) {
 
 func TestScriptHash(t *testing.T) {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
-	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest)
+	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	pay, err := payment.FromPayment(p2wpkh)
 	p2sh, err := pay.ScriptHash()
 	if err != nil {
@@ -58,7 +59,7 @@ func TestP2WSH(t *testing.T) {
 		t.Error(err)
 	}
 
-	p2ms, err := payment.FromScript(redeemScriptBytes, &network.Regtest)
+	p2ms, err := payment.FromScript(redeemScriptBytes, &network.Regtest, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -81,7 +82,12 @@ func TestFromPublicKeys(t *testing.T) {
 	_, publicKey1 := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
 	_, publicKey2 := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes2)
 
-	p2ms, err := payment.FromPublicKeys([]*btcec.PublicKey{publicKey1, publicKey2}, 1, &network.Regtest)
+	p2ms, err := payment.FromPublicKeys(
+		[]*btcec.PublicKey{publicKey1, publicKey2},
+		1,
+		&network.Regtest,
+		nil,
+	)
 	if err != nil {
 		t.Error(err)
 	}
@@ -111,5 +117,123 @@ func TestFromPublicKeys(t *testing.T) {
 	if p2sh != "XJkohBHRMT8JUknSqCH7aJP9gAuAe9eNLY" {
 		t.Errorf("TestScriptHash: error when encoding script hash")
 	}
+}
 
+func TestPaymentConfidentialPubKeyHash(t *testing.T) {
+	expected := "VTpzxkqVGbraaCz18fQ2GxLvZkupCi2MPtUdt9ygAEeZ8v9gZPtkD5RUc" +
+		"ap55WZ3aVsbUG6TsQvXc8R3"
+	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk1Byte, err := hex.DecodeString(pk1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey1, err := btcec.ParsePubKey(pk1Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pk2 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk2Byte, err := hex.DecodeString(pk2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey2, err := btcec.ParsePubKey(pk2Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payment := payment.FromPublicKey(pubKey1, &network.Liquid, pubKey2)
+	assert.Equal(t, expected, payment.ConfidentialPubKeyHash())
+}
+
+func TestPaymentConfidentialScriptHash(t *testing.T) {
+	expected := "VJLCUu2hpcjPaTGMnANXni8wVYjsCAiTEznE5zgRZZyAWXE2P6rz6Dvph" +
+		"BHSn7iz4w9sLb3mFSHGJbte"
+	script, err := hex.DecodeString(
+		"a9149f840a5fc02407ef0ad499c2ec0eb0b942fb008687")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk2Byte, err := hex.DecodeString(pk1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindingKey, err := btcec.ParsePubKey(pk2Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payment, err := payment.FromScript(script, &network.Liquid, blindingKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, expected, payment.ConfidentialScriptHash())
+
+}
+
+func TestPaymentConfidentialWitnessPubKeyHash(t *testing.T) {
+	expected := "lq1qqvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz95" +
+		"tny4ul3zq2qcskw55h5rhzymdpv5dzw6hr8jz3tq5y"
+	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk1Byte, err := hex.DecodeString(pk1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey1, err := btcec.ParsePubKey(pk1Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pk2 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk2Byte, err := hex.DecodeString(pk2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey2, err := btcec.ParsePubKey(pk2Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payment := payment.FromPublicKey(pubKey1, &network.Liquid, pubKey2)
+	address, err := payment.ConfidentialWitnessPubKeyHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, expected, address)
+}
+
+func TestConfidentialWitnessScriptHash(t *testing.T) {
+	expected := "lq1qqvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq" +
+		"r5x3lrzmrq2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hq6f9r3gz0h4tn"
+
+	script, err := hex.DecodeString("0014d0d1f8c5b1815bc471aef4f4720c64ecac38dfa501c0aac94f1434a866a02ae0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk2Byte, err := hex.DecodeString(pk1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindingKey, err := btcec.ParsePubKey(pk2Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p, err := payment.FromScript(script, &network.Liquid, blindingKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := p.ConfidentialWitnessScriptHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, expected, addr)
 }

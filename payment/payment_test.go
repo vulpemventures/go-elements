@@ -2,7 +2,6 @@ package payment_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
@@ -160,8 +159,6 @@ func TestPaymentConfidentialScriptHash(t *testing.T) {
 	script := append(append([]byte{txscript.OP_HASH160, 0x14}, scriptHash...),
 		[]byte{txscript.OP_EQUAL}...)
 
-	fmt.Println(hex.EncodeToString(script))
-
 	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
 	pk2Byte, err := hex.DecodeString(pk1)
 	if err != nil {
@@ -211,4 +208,39 @@ func TestPaymentConfidentialWitnessPubKeyHash(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, address)
+}
+
+func TestConfidentialWitnessScriptHash(t *testing.T) {
+	expected := "lq1qqvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq" +
+		"r5x3lrzmrq2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hq6f9r3gz0h4tn"
+
+	scriptHash, err := hex.DecodeString(
+		"d0d1f8c5b1815bc471aef4f4720c64ecac38dfa501c0aac94f1434a866a02ae0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	script := append([]byte{txscript.OP_0, 0x14}, scriptHash...)
+
+	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk2Byte, err := hex.DecodeString(pk1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindingKey, err := btcec.ParsePubKey(pk2Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p, err := payment.FromScript(script, &network.Liquid, blindingKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := p.ConfidentialWitnessScriptHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, expected, addr)
 }

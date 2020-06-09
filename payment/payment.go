@@ -128,10 +128,13 @@ func FromScript(
 
 	scriptHash := make([]byte, 0)
 	if script[0] == txscript.OP_0 {
-		scriptHash = append(scriptHash, script[1:]...)
+		scriptHash = append(scriptHash, script[2:]...)
 	}
-	if scriptHash[0] == txscript.OP_HASH160 {
-		scriptHash = append(scriptHash, script[1:len(scriptHash)-1]...)
+	if script[0] == txscript.OP_HASH160 {
+		scriptHash = append(scriptHash, script[2:len(script)-1]...)
+	}
+	if script[len(script)-1] == txscript.OP_CHECKMULTISIG {
+		scriptHash = hash160(script)
 	}
 
 	redeem := &Payment{Network: tmpNet, Hash: scriptHash, Script: script,
@@ -251,6 +254,27 @@ func (p *Payment) WitnessScriptHash() (string, error) {
 	addr, err := address.ToBech32(payload)
 	if err != nil {
 		return "", err
+	}
+	return addr, nil
+}
+
+// ConfidentialWitnessScriptHash is a method of the Payment struct to derive
+//a confidential base58 p2wsh address
+func (p *Payment) ConfidentialWitnessScriptHash() (string, error) {
+	if p.Hash == nil || len(p.Hash) == 0 {
+		return "", errors.New("payment's hash can't be empty or nil")
+	}
+	//Here the Version for wpkh is always 0
+	version := byte(0x00)
+	payload := &address.Blech32{
+		p.Network.Blech32,
+		version,
+		p.BlindingKey.SerializeCompressed(),
+		p.Hash,
+	}
+	addr, err := address.ToBlech32(payload)
+	if err != nil {
+		return "", nil
 	}
 	return addr, nil
 }

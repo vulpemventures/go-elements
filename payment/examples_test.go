@@ -32,3 +32,23 @@ func ExampleFromPayment() {
 	}
 	fmt.Printf("Non native SegWit address %v\n:", p2sh)
 }
+
+func ExampleConfidentialWitnessPubKeyHash() {
+	pk, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		fmt.Println(err)
+	}
+	blindingKey := pk.PubKey()
+
+	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	p2wpkh := payment.FromPublicKey(privkey.PubKey(), &network.Regtest, blindingKey)
+	confidentialWpkh, err := p2wpkh.ConfidentialWitnessPubKeyHash()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("Confidential SegWit address %v\n:", confidentialWpkh)
+}

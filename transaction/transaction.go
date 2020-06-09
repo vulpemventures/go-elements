@@ -3,6 +3,7 @@ package transaction
 import (
 	"bytes"
 	"encoding/hex"
+
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -37,14 +38,6 @@ var (
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	}
 )
-
-//TxIssuance defines the type for Issuance field in TxInput
-type TxIssuance struct {
-	AssetBlindingNonce []byte
-	AssetEntropy       []byte
-	AssetAmount        []byte
-	TokenAmount        []byte
-}
 
 // TxInput defines an elements transaction input.
 type TxInput struct {

@@ -10,6 +10,8 @@ import (
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
+const ()
+
 // IssuanceEntity defines one of the fields of the issuance contract
 type IssuanceEntity struct {
 	Domain string `json:"domain"`
@@ -99,7 +101,7 @@ func (issuance *TxIssuance) GenerateEntropy(inTxHash []byte, inTxIndex uint32, c
 // GenerateAsset calculates the asset hash for the given issuance
 func (issuance *TxIssuance) GenerateAsset() ([]byte, error) {
 	if issuance.AssetEntropy == nil || len(issuance.AssetEntropy) <= 0 {
-		return nil, errors.New("issuance entropy must not be defined")
+		return nil, errors.New("issuance entropy must not be nil")
 	}
 
 	buf := append(issuance.AssetEntropy, make([]byte, 32)...)
@@ -111,7 +113,7 @@ func (issuance *TxIssuance) GenerateAsset() ([]byte, error) {
 // GenerateReissuanceToken calculates the asset hash for the given issuance
 func (issuance *TxIssuance) GenerateReissuanceToken(flag uint) ([]byte, error) {
 	if issuance.AssetEntropy == nil || len(issuance.AssetEntropy) <= 0 {
-		return nil, errors.New("issuance entropy must not be defined")
+		return nil, errors.New("issuance entropy must not be nil")
 	}
 	if flag != 0 && flag != 1 {
 		return nil, errors.New("invalid flag for reissuance token")

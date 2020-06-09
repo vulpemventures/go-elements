@@ -180,3 +180,35 @@ func TestPaymentConfidentialScriptHash(t *testing.T) {
 	assert.Equal(t, expected, payment.ConfidentialScriptHash())
 
 }
+
+func TestPaymentConfidentialWitnessPubKeyHash(t *testing.T) {
+	expected := "lq1qqvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz95" +
+		"tny4ul3zq2qcskw55h5rhzymdpv5dzw6hr8jz3tq5y"
+	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk1Byte, err := hex.DecodeString(pk1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey1, err := btcec.ParsePubKey(pk1Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pk2 := "030000000000000000000000000000000000000000000000000000000000000001"
+	pk2Byte, err := hex.DecodeString(pk2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey2, err := btcec.ParsePubKey(pk2Byte, btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payment := payment.FromPublicKey(pubKey1, &network.Liquid, pubKey2)
+	address, err := payment.ConfidentialWitnessPubKeyHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, expected, address)
+}

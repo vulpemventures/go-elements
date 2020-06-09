@@ -89,9 +89,25 @@ func FromPayment(payment *Payment) (*Payment, error) {
 	if payment.Script == nil || len(payment.Script) == 0 {
 		return nil, errors.New("payment's script can't be empty or nil")
 	}
-	redeem := &Payment{payment.Network, payment.PublicKey, payment.Hash, payment.BlindingKey, payment.Redeem, payment.Script, payment.WitnessHash}
+	redeem := &Payment{
+		payment.Network,
+		payment.PublicKey,
+		payment.Hash,
+		payment.BlindingKey,
+		payment.Redeem,
+		payment.Script,
+		payment.WitnessHash,
+	}
 	witnessHash := sha256.Sum256(redeem.Script)
-	return &Payment{payment.Network, payment.PublicKey, hash160(redeem.Script), payment.BlindingKey, redeem, payment.Script, witnessHash[:]}, nil
+	return &Payment{
+		payment.Network,
+		payment.PublicKey,
+		payment.Hash,
+		payment.BlindingKey,
+		redeem,
+		payment.Script,
+		witnessHash[:],
+	}, nil
 }
 
 // FromPayment creates a nested Payment struct from script
@@ -109,7 +125,17 @@ func FromScript(
 	} else {
 		tmpNet = net
 	}
-	redeem := &Payment{Network: tmpNet, Script: script, BlindingKey: blindingKey}
+
+	scriptHash := make([]byte, 0)
+	if script[0] == txscript.OP_0 {
+		scriptHash = append(scriptHash, script[1:]...)
+	}
+	if scriptHash[0] == txscript.OP_HASH160 {
+		scriptHash = append(scriptHash, script[1:len(scriptHash)-1]...)
+	}
+
+	redeem := &Payment{Network: tmpNet, Hash: scriptHash, Script: script,
+		BlindingKey: blindingKey}
 	return FromPayment(redeem)
 }
 
@@ -184,6 +210,27 @@ func (p *Payment) WitnessPubKeyHash() (string, error) {
 	version := byte(0x00)
 	payload := &address.Bech32{p.Network.Bech32, version, p.Hash}
 	addr, err := address.ToBech32(payload)
+	if err != nil {
+		return "", nil
+	}
+	return addr, nil
+}
+
+// ConfidentialWitnessPubKeyHash is a method of the Payment struct to derive
+//a confidential base58 p2wpkh address
+func (p *Payment) ConfidentialWitnessPubKeyHash() (string, error) {
+	if p.Hash == nil || len(p.Hash) == 0 {
+		return "", errors.New("payment's hash can't be empty or nil")
+	}
+	//Here the Version for wpkh is always 0
+	version := byte(0x00)
+	payload := &address.Blech32{
+		p.Network.Blech32,
+		version,
+		p.BlindingKey.SerializeCompressed(),
+		p.Hash,
+	}
+	addr, err := address.ToBlech32(payload)
 	if err != nil {
 		return "", nil
 	}

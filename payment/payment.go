@@ -81,7 +81,12 @@ func FromPublicKeys(
 		return nil, err
 	}
 
-	return FromScript(multiSigScript, tmpNet, blindingKey)
+	redeem, err := FromScript(multiSigScript, tmpNet, blindingKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return FromPayment(redeem)
 }
 
 // FromPayment creates a Payment struct from a another Payment
@@ -102,7 +107,7 @@ func FromPayment(payment *Payment) (*Payment, error) {
 	return &Payment{
 		payment.Network,
 		payment.PublicKey,
-		payment.Hash,
+		hash160(payment.Script),
 		payment.BlindingKey,
 		redeem,
 		payment.Script,
@@ -133,13 +138,13 @@ func FromScript(
 	if script[0] == txscript.OP_HASH160 {
 		scriptHash = append(scriptHash, script[2:len(script)-1]...)
 	}
-	if script[len(script)-1] == txscript.OP_CHECKMULTISIG {
-		scriptHash = hash160(script)
-	}
 
-	redeem := &Payment{Network: tmpNet, Hash: scriptHash, Script: script,
-		BlindingKey: blindingKey}
-	return FromPayment(redeem)
+	return &Payment{
+		Network:     tmpNet,
+		Hash:        scriptHash,
+		Script:      script,
+		BlindingKey: blindingKey,
+	}, nil
 }
 
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address

@@ -3,7 +3,6 @@ package payment_test
 import (
 	"encoding/hex"
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
@@ -150,14 +149,11 @@ func TestPaymentConfidentialPubKeyHash(t *testing.T) {
 func TestPaymentConfidentialScriptHash(t *testing.T) {
 	expected := "VJLCUu2hpcjPaTGMnANXni8wVYjsCAiTEznE5zgRZZyAWXE2P6rz6Dvph" +
 		"BHSn7iz4w9sLb3mFSHGJbte"
-	scriptHash, err := hex.DecodeString(
-		"9f840a5fc02407ef0ad499c2ec0eb0b942fb0086")
+	script, err := hex.DecodeString(
+		"a9149f840a5fc02407ef0ad499c2ec0eb0b942fb008687")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	script := append(append([]byte{txscript.OP_HASH160, 0x14}, scriptHash...),
-		[]byte{txscript.OP_EQUAL}...)
 
 	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
 	pk2Byte, err := hex.DecodeString(pk1)
@@ -214,13 +210,10 @@ func TestConfidentialWitnessScriptHash(t *testing.T) {
 	expected := "lq1qqvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq" +
 		"r5x3lrzmrq2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hq6f9r3gz0h4tn"
 
-	scriptHash, err := hex.DecodeString(
-		"d0d1f8c5b1815bc471aef4f4720c64ecac38dfa501c0aac94f1434a866a02ae0")
+	script, err := hex.DecodeString("0014d0d1f8c5b1815bc471aef4f4720c64ecac38dfa501c0aac94f1434a866a02ae0")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	script := append([]byte{txscript.OP_0, 0x14}, scriptHash...)
 
 	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
 	pk2Byte, err := hex.DecodeString(pk1)

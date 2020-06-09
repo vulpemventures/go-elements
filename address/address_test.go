@@ -73,12 +73,11 @@ func TestToBlech32_P2WPKH(t *testing.T) {
 		t.Error(err)
 	}
 
-	program1 := append(pkBytes, witProg1Bytes...)
-
 	blech32Addr := &address.Blech32{
-		Prefix:  "el",
-		Version: 0,
-		Data:    program1,
+		Prefix:    "el",
+		Version:   0,
+		PublicKey: pkBytes,
+		Program:   witProg1Bytes,
 	}
 
 	blech32, err := address.ToBlech32(blech32Addr)
@@ -102,12 +101,11 @@ func TestToBlech32_P2WSH(t *testing.T) {
 		t.Error(err)
 	}
 
-	program2 := append(pkBytes, witProg2Bytes...)
-
 	blech32Addr := &address.Blech32{
-		Prefix:  "el",
-		Version: 0,
-		Data:    program2,
+		Prefix:    "el",
+		Version:   0,
+		PublicKey: pkBytes,
+		Program:   witProg2Bytes,
 	}
 
 	blech32, err := address.ToBlech32(blech32Addr)
@@ -129,12 +127,12 @@ func TestFromBlech32_P2WPKH(t *testing.T) {
 		t.Error("TestFromBlech32_P2WPKH: wrong version")
 	}
 
-	resPubKey := blech32.Data[:33]
+	resPubKey := blech32.PublicKey
 	if hex.EncodeToString(resPubKey) != pubKey {
 		t.Error("TestFromBlech32_P2WPKH: wrong pub key")
 	}
 
-	resProgram := blech32.Data[33:]
+	resProgram := blech32.Program
 	if hex.EncodeToString(resProgram) != witProg1 {
 		t.Error("TestFromBlech32_P2WPKH: wrong witness program")
 	}
@@ -149,12 +147,12 @@ func TestFromBlech32_P2WSH(t *testing.T) {
 		t.Error("TestFromBlech32_P2WSH: wrong version")
 	}
 
-	resPubKey := blech32.Data[:33]
+	resPubKey := blech32.PublicKey
 	if hex.EncodeToString(resPubKey) != pubKey {
 		t.Error("TestFromBlech32_P2WSH: wrong pub key")
 	}
 
-	resProgram := blech32.Data[33:]
+	resProgram := blech32.Program
 	if hex.EncodeToString(resProgram) != witProg2 {
 		t.Error("TestFromBlech32_P2WSH: wrong witness program")
 	}

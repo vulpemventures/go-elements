@@ -1,0 +1,14 @@
+{
+  "valid": [
+    {
+      "assetAmount": 1000,
+      "tokenAmount": 0,
+      "txHash": "39453cf897e2f0c2e9563364874f4b2a85be06dd8ec10665085033eeb75016c3",
+      "index": 68,
+      "tokenFlag": 0,
+      "expectedEntropy": "3db9d8b4a9da087b42f29f34431412aaa24d63750bb31b9a2e263797248135e0",
+      "expectedAsset": "dedf795f74e8b52c6ff8a9ad390850a87b18aeb2be9d1967038308290093a893",
+      "expectedToken": "fa1074db60b598cf1d6d0318655125c26a2afc9fe57fb2bdff8d8f7408f8814d"
+    }
+  ]
+}

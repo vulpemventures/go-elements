@@ -320,7 +320,7 @@ func TestFromCreateToBroadcast(t *testing.T) {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
-	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest)
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, nil)
 	address, _ := p2wpkh.WitnessPubKeyHash()
 
 	// Fund sender address.

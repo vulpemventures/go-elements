@@ -10,8 +10,6 @@ import (
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
-const ()
-
 // IssuanceEntity defines one of the fields of the issuance contract
 type IssuanceEntity struct {
 	Domain string `json:"domain"`

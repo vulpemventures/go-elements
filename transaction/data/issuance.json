@@ -6,6 +6,9 @@
       "txHash": "39453cf897e2f0c2e9563364874f4b2a85be06dd8ec10665085033eeb75016c3",
       "index": 68,
       "tokenFlag": 0,
+      "precision": 4,
+      "expectedAssetAmount": 10000000,
+      "expectedTokenAmount": 10000,
       "expectedEntropy": "3db9d8b4a9da087b42f29f34431412aaa24d63750bb31b9a2e263797248135e0",
       "expectedAsset": "dedf795f74e8b52c6ff8a9ad390850a87b18aeb2be9d1967038308290093a893",
       "expectedToken": "fa1074db60b598cf1d6d0318655125c26a2afc9fe57fb2bdff8d8f7408f8814d"
@@ -16,6 +19,7 @@
       "txHash": "8f2713d29adbc1668229b6f35a9452d19f0020c7f65366ca9cb72c4a212d353a",
       "index": 1,
       "tokenFlag": 0,
+      "precision": 0,
       "contract": {
         "name": "Test",
         "ticker": "TST",
@@ -23,6 +27,8 @@
         "precision": 0,
         "entity": { "domain": "test.io" }
       },
+      "expectedAssetAmount": 100000000000,
+      "expectedTokenAmount": 100000000,
       "expectedEntropy": "2b73af1c9ae64a6903b3055361dd7b75082003a85374049982fc1e8f31b9a8cf",
       "expectedAsset": "7af6e284f3729228895eddd45b39f72be65f8866d404e5c4374b2b97e7f178e7",
       "expectedToken": "5b706edc0f72ea114e7a1f867c8b63a698944435e62699b9821deecc6d81bcef"

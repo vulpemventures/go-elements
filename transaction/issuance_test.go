@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
@@ -24,9 +25,10 @@ func TestIssuanceGeneration(t *testing.T) {
 
 		inTxHash, _ := hex.DecodeString(v["txHash"].(string))
 		inIndex := uint32(v["index"].(float64))
-		assetAmount := uint64(v["assetAmount"].(float64))
-		tokenAmount := uint64(v["tokenAmount"].(float64))
+		assetAmount := v["assetAmount"].(float64)
+		tokenAmount := v["tokenAmount"].(float64)
 		tokenFlag := uint(v["tokenFlag"].(float64))
+		precision := uint(v["precision"].(float64))
 
 		var contract *IssuanceContract
 		if v["contract"] != nil {
@@ -36,10 +38,22 @@ func TestIssuanceGeneration(t *testing.T) {
 			contract = &c
 		}
 
-		issuance, err := NewTxIssuance(assetAmount, tokenAmount)
+		issuance, err := NewTxIssuance(assetAmount, tokenAmount, precision)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
+
+		amount := [9]byte{}
+		copy(amount[:], issuance.TxIssuance.AssetAmount)
+		resAssetAmount, _ := confidential.ElementsToSatoshiValue(
+			amount,
+		)
+		copy(amount[:], issuance.TxIssuance.TokenAmount)
+		resTokenAmount, _ := confidential.ElementsToSatoshiValue(
+			amount,
+		)
+		assert.Equal(t, uint64(v["expectedAssetAmount"].(float64)), resAssetAmount)
+		assert.Equal(t, uint64(v["expectedTokenAmount"].(float64)), resTokenAmount)
 
 		err = issuance.GenerateEntropy(bufferutil.ReverseBytes(inTxHash), inIndex, contract)
 		if !assert.NoError(t, err) {

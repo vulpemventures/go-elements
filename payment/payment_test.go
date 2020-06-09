@@ -2,7 +2,9 @@ package payment_test
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
@@ -155,6 +157,11 @@ func TestPaymentConfidentialScriptHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	script := append(append([]byte{txscript.OP_HASH160, 0x14}, scriptHash...),
+		[]byte{txscript.OP_EQUAL}...)
+
+	fmt.Println(hex.EncodeToString(script))
+
 	pk1 := "030000000000000000000000000000000000000000000000000000000000000001"
 	pk2Byte, err := hex.DecodeString(pk1)
 	if err != nil {
@@ -165,7 +172,7 @@ func TestPaymentConfidentialScriptHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	payment, err := payment.FromScript(scriptHash, &network.Liquid, blindingKey)
+	payment, err := payment.FromScript(script, &network.Liquid, blindingKey)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -170,7 +170,7 @@ func (p *Payment) ConfidentialScriptHash() string {
 			prefix[:],
 			p.BlindingKey.SerializeCompressed()...,
 		),
-		p.Script...,
+		p.Hash...,
 	)
 	return base58.CheckEncode(confidentialAddress, p.Network.Confidential)
 }

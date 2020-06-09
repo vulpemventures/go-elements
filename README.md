@@ -15,7 +15,8 @@ Go support for confidential transactions on Elements-based blockchains
 ## Install
 
 ```sh
-$ go get -u github.com/vulpemventures/go-elements
+# Install latest tagged release 
+$ go get github.com/vulpemventures/go-elements@latest
 ```
 
 ## 🛣 Roadmap

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/fastsha256"
+	"github.com/vulpemventures/fastsha256"
 	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
@@ -79,16 +79,17 @@ func (issuance *TxIssuance) GenerateEntropy(inTxHash []byte, inTxIndex uint32, c
 	}
 
 	// Use the default `0x00..00` 32-byte array if contract is not set
-	serializedContract := make([]byte, 32)
+	contractHash := make([]byte, 32)
 	if contract != nil {
-		serializedContract, err = json.Marshal(contract)
+		serializedContract, err := json.Marshal(contract)
 		if err != nil {
 			return err
 		}
+		contractHash = chainhash.HashB(serializedContract)
 	}
 
 	buf := chainhash.DoubleHashB(s.Bytes())
-	buf = append(buf, serializedContract...)
+	buf = append(buf, contractHash...)
 	entropy := fastsha256.MidState256(buf)
 
 	issuance.AssetEntropy = entropy[:]

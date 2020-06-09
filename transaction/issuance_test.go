@@ -10,7 +10,7 @@ import (
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
-func TestIssuanceGenerateEntropy(t *testing.T) {
+func TestIssuanceGeneration(t *testing.T) {
 	file, err := ioutil.ReadFile("data/issuance.json")
 	if !assert.NoError(t, err) {
 		t.FailNow()
@@ -21,14 +21,18 @@ func TestIssuanceGenerateEntropy(t *testing.T) {
 
 	for _, testVector := range tests["valid"].([]interface{}) {
 		v := testVector.(map[string]interface{})
+
 		inTxHash, _ := hex.DecodeString(v["txHash"].(string))
 		inIndex := uint32(v["index"].(float64))
 		assetAmount := uint64(v["assetAmount"].(float64))
 		tokenAmount := uint64(v["tokenAmount"].(float64))
 		tokenFlag := uint(v["tokenFlag"].(float64))
+
 		var contract *IssuanceContract
 		if v["contract"] != nil {
-			c := v["contract"].(IssuanceContract)
+			var c IssuanceContract
+			contractBytes, _ := json.Marshal(v["contract"].(interface{}))
+			json.Unmarshal(contractBytes, &c)
 			contract = &c
 		}
 

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
@@ -14,12 +15,11 @@ const (
 )
 
 type UnblindInput struct {
-	EphemeralPubkey []byte
-	BlindingPrivkey []byte
-	Rangeproof      []byte
-	ValueCommit     secp256k1.Commitment
-	Asset           []byte
-	ScriptPubkey    []byte
+	Nonce        [32]byte
+	Rangeproof   []byte
+	ValueCommit  secp256k1.Commitment
+	Asset        []byte
+	ScriptPubkey []byte
 }
 
 type UnblindOutputResult struct {
@@ -30,10 +30,13 @@ type UnblindOutputResult struct {
 }
 
 //NonceHash method generates hashed secret based on ecdh
-func NonceHash(ctx *secp256k1.Context, pubKey, privKey []byte) (
+func NonceHash(pubKey, privKey []byte) (
 	result [32]byte,
 	err error,
 ) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
 	_, publicKey, err := secp256k1.EcPubkeyParse(ctx, pubKey)
 	if err != nil {
 		return
@@ -58,16 +61,11 @@ func UnblindOutput(input UnblindInput) (*UnblindOutputResult, error) {
 		return nil, err
 	}
 
-	nonce, err := NonceHash(ctx, input.EphemeralPubkey, input.BlindingPrivkey)
-	if err != nil {
-		return nil, err
-	}
-
 	rewind, value, _, _, message, err := secp256k1.RangeProofRewind(
 		ctx,
 		&input.ValueCommit,
 		input.Rangeproof,
-		nonce,
+		input.Nonce,
 		input.ScriptPubkey,
 		gen,
 	)
@@ -158,8 +156,7 @@ func ValueCommitment(value uint64, generator []byte, factor []byte) (
 
 type RangeProofInput struct {
 	Value               uint64
-	BlindingPubkey      []byte
-	EphemeralPrivkey    []byte
+	Nonce               [32]byte
 	Asset               []byte
 	AssetBlindingFactor []byte
 	ValueBlindFactor    [32]byte
@@ -174,15 +171,6 @@ type RangeProofInput struct {
 func RangeProof(input RangeProofInput) ([]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
-
-	nonce, err := NonceHash(
-		ctx,
-		input.BlindingPubkey,
-		input.EphemeralPrivkey,
-	)
-	if err != nil {
-		return nil, err
-	}
 
 	generator, err := secp256k1.GeneratorGenerateBlinded(
 		ctx,
@@ -226,7 +214,7 @@ func RangeProof(input RangeProofInput) ([]byte, error) {
 		mv,
 		commit,
 		input.ValueBlindFactor,
-		nonce,
+		input.Nonce,
 		e,
 		mb,
 		input.Value,

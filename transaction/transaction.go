@@ -3,6 +3,11 @@ package transaction
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
+	"github.com/btcsuite/btcutil"
+	"github.com/vulpemventures/go-elements/address"
+	"github.com/vulpemventures/go-elements/confidential"
+	"github.com/vulpemventures/go-elements/network"
 
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 
@@ -71,6 +76,106 @@ func NewTxInput(hash []byte, index uint32) *TxInput {
 		nil,
 		nil,
 	}
+}
+
+type AddIssuanceArg struct {
+	Precision           uint
+	Contract            *IssuanceContract
+	AssetAmount         float64
+	TokenAmount         float64
+	AssetAddress        string
+	TokenAddress        string
+	ReissuanceTokenFlag uint
+	Net                 network.Network
+}
+
+//AddIssuance adds non-confidential issuance to the transaction
+func (tx *Transaction) AddIssuance(arg AddIssuanceArg) (uint32, error) {
+	if len(tx.Inputs) == 0 {
+		return 0, errors.New("transaction must contain at least one input ")
+	}
+
+	if arg.AssetAmount == 0 {
+		return 0, errors.New("asset amount must be greater then 0")
+	}
+
+	if arg.AssetAddress == "" {
+		return 0, errors.New("asset address must be provided")
+	}
+
+	if arg.TokenAmount > 0 && arg.TokenAddress == "" {
+		return 0, errors.New("token address must be provided")
+	}
+
+	issuanceExt, err := NewTxIssuance(arg.AssetAmount, arg.TokenAmount,
+		arg.Precision)
+	if err != nil {
+		return 0, err
+	}
+
+	var inputIndex uint32
+	var inputHash []byte
+	for i, input := range tx.Inputs {
+		if input.Issuance == nil {
+			inputIndex = uint32(i)
+			inputHash = input.Hash
+		}
+	}
+
+	err = issuanceExt.GenerateEntropy(inputHash, inputIndex, arg.Contract)
+	if err != nil {
+		return 0, err
+	}
+	tx.Inputs[inputIndex].Issuance = &issuanceExt.TxIssuance
+
+	assetHash, err := issuanceExt.GenerateAsset()
+	if err != nil {
+		return 0, err
+	}
+
+	assetAmount, err := confidential.SatoshiToElementsValue(
+		uint64(arg.AssetAmount * btcutil.SatoshiPerBitcoin),
+	)
+	if err != nil {
+		return 0, err
+	}
+	script, err := address.ToOutputScript(arg.TokenAddress, arg.Net)
+	if err != nil {
+		return 0, err
+	}
+
+	output := &TxOutput{
+		Asset:  assetHash,
+		Value:  assetAmount[:],
+		Script: script,
+	}
+	tx.AddOutput(output)
+	if arg.TokenAmount > 0 {
+		tokenHash, err := issuanceExt.GenerateReissuanceToken(arg.ReissuanceTokenFlag)
+		if err != nil {
+			return 0, err
+		}
+
+		tokenAmount, err := confidential.SatoshiToElementsValue(
+			uint64(arg.TokenAmount * btcutil.SatoshiPerBitcoin),
+		)
+		if err != nil {
+			return 0, err
+		}
+		script, err := address.ToOutputScript(arg.TokenAddress, arg.Net)
+		if err != nil {
+			return 0, err
+		}
+
+		output := &TxOutput{
+			Asset:  tokenHash,
+			Value:  tokenAmount[:],
+			Script: script,
+		}
+		tx.AddOutput(output)
+	}
+
+	return inputIndex, nil
 }
 
 // SerializeSize returns the number of bytes it would take to serialize the the

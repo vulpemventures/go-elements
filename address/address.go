@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/btcsuite/btcutil/bech32"
 	"github.com/vulpemventures/go-elements/blech32"
+	"github.com/vulpemventures/go-elements/network"
+	"golang.org/x/crypto/ripemd160"
 	"strings"
 )
 
@@ -14,6 +17,17 @@ import (
 type Address struct {
 	address string
 }
+
+const (
+	P2Pkh = iota
+	P2Sh
+	ConfidentialP2Pkh
+	ConfidentialP2Sh
+	P2Wpkh
+	P2Wsh
+	ConfidentialP2Wpkh
+	ConfidentialP2Wsh
+)
 
 // Base58 type defines the structure of an address legacy or wrapped segwit
 type Base58 struct {
@@ -25,7 +39,7 @@ type Base58 struct {
 type Bech32 struct {
 	Prefix  string
 	Version byte
-	Data    []byte
+	Program []byte
 }
 
 // Blech32 defines the structure of a confidential address native segwit
@@ -116,7 +130,7 @@ func FromBech32(address string) (*Bech32, error) {
 func ToBech32(bc *Bech32) (string, error) {
 	// Group the address bytes into 5 bit groups, as this is what is used to
 	// encode each character in the address string.
-	converted, err := bech32.ConvertBits(bc.Data, 8, 5, true)
+	converted, err := bech32.ConvertBits(bc.Program, 8, 5, true)
 	if err != nil {
 		return "", err
 	}
@@ -230,4 +244,203 @@ func ToBlech32(bl *Blech32) (string, error) {
 	}
 
 	return blech32Addr, nil
+}
+
+//ToOutputScript creates a new script to pay a transaction output to a the
+//specified address
+func ToOutputScript(address string, net network.Network) ([]byte, error) {
+	addressType, err := DecodeType(address, net)
+	if err != nil {
+		return nil, err
+	}
+
+	switch addressType {
+	case P2Pkh:
+		pubKeyHash, _, err := base58.CheckDecode(address)
+		if err != nil {
+			return nil, err
+		}
+		return txscript.NewScriptBuilder().
+			AddOp(txscript.OP_DUP).
+			AddOp(txscript.OP_HASH160).
+			AddData(pubKeyHash).
+			AddOp(txscript.OP_EQUALVERIFY).
+			AddOp(txscript.OP_CHECKSIG).
+			Script()
+
+	case P2Sh:
+		scriptHash, _, err := base58.CheckDecode(address)
+		if err != nil {
+			return nil, err
+		}
+		return txscript.NewScriptBuilder().
+			AddOp(txscript.OP_HASH160).
+			AddData(scriptHash).
+			AddOp(txscript.OP_EQUAL).
+			Script()
+
+	case ConfidentialP2Pkh:
+		decoded, _, err := base58.CheckDecode(address)
+		if err != nil {
+			return nil, err
+		}
+		prefixPlusBlindKeySize := 34
+		pubKeyHash := decoded[prefixPlusBlindKeySize:]
+		return txscript.NewScriptBuilder().
+			AddOp(txscript.OP_DUP).
+			AddOp(txscript.OP_HASH160).
+			AddData(pubKeyHash).
+			AddOp(txscript.OP_EQUALVERIFY).
+			AddOp(txscript.OP_CHECKSIG).
+			Script()
+	case ConfidentialP2Sh:
+		decoded, _, err := base58.CheckDecode(address)
+		if err != nil {
+			return nil, err
+		}
+		prefixPlusBlindKeySize := 34
+		scriptHash := decoded[prefixPlusBlindKeySize:]
+		return txscript.NewScriptBuilder().
+			AddOp(txscript.OP_HASH160).
+			AddData(scriptHash).
+			AddOp(txscript.OP_EQUAL).
+			Script()
+	case P2Wpkh, P2Wsh:
+		fromBech32, err := FromBech32(address)
+		if err != nil {
+			return nil, err
+		}
+		return txscript.NewScriptBuilder().
+			AddOp(txscript.OP_0).
+			AddData(fromBech32.Program).
+			Script()
+	case ConfidentialP2Wpkh, ConfidentialP2Wsh:
+		fromBlech32, err := FromBlech32(address)
+		if err != nil {
+			return nil, err
+		}
+		return txscript.NewScriptBuilder().
+			AddOp(txscript.OP_0).
+			AddData(fromBlech32.Program).
+			Script()
+	default:
+		return nil, errors.New("unsupported address type")
+	}
+}
+
+//DecodeType returns address type
+func DecodeType(address string, net network.Network) (int, error) {
+	if isBlech32(address, net) {
+		return handleBlech32(address, net)
+	}
+	if isBech32(address, net) {
+		return handleBech32(address, net)
+	}
+	return handleBase58(address, net)
+}
+
+func isBlech32(address string, net network.Network) bool {
+	oneIndex := strings.LastIndexByte(address, '1')
+	if oneIndex > 1 {
+		prefix := address[:oneIndex]
+		if prefix == net.Blech32 {
+			return true
+		}
+		return false
+	}
+	return false
+}
+
+func handleBlech32(address string, net network.Network) (int, error) {
+	fromBlech32, err := FromBlech32(address)
+	if err != nil {
+		return 0, err
+	}
+	switch len(fromBlech32.Program) {
+	case 20:
+		return ConfidentialP2Wpkh, nil
+	case 32:
+		return ConfidentialP2Wsh, nil
+	default:
+		return 0, errors.New("invalid program length")
+	}
+}
+
+func isBech32(address string, net network.Network) bool {
+	oneIndex := strings.LastIndexByte(address, '1')
+	if oneIndex > 1 {
+		prefix := address[:oneIndex]
+		if prefix == net.Bech32 {
+			return true
+		}
+		return false
+	}
+	return false
+}
+
+func handleBech32(address string, net network.Network) (int, error) {
+	fromBech32, err := FromBech32(address)
+	if err != nil {
+		return 0, err
+	}
+	switch len(fromBech32.Program) {
+	case 20:
+		return P2Wpkh, nil
+	case 32:
+		return P2Wsh, nil
+	default:
+		return 0, errors.New("invalid program length")
+	}
+}
+
+func handleBase58(address string, net network.Network) (int, error) {
+	decoded, netID, err := base58.CheckDecode(address)
+	if err != nil {
+		if err == base58.ErrChecksum {
+			return 0, errors.New("checksum mismatch")
+		}
+		return 0, errors.New("decoded address is of unknown format")
+	}
+
+	if netID == net.Confidential {
+		prefixPlusBlindKeySize := 34
+		switch len(decoded[prefixPlusBlindKeySize:]) {
+		case ripemd160.Size:
+			prefix := decoded[0]
+			isP2PKH := prefix == net.PubKeyHash
+			isP2SH := prefix == net.ScriptHash
+			switch {
+			case isP2PKH && isP2SH:
+				return 0, errors.New("address collision")
+			case isP2PKH:
+				return ConfidentialP2Pkh, nil
+			case isP2SH:
+				return ConfidentialP2Sh, nil
+			default:
+				return 0, errors.New("unknown address type")
+			}
+
+		default:
+			return 0, errors.New("decoded address is of unknown size")
+		}
+	}
+
+	switch len(decoded) {
+	case ripemd160.Size:
+		isP2PKH := netID == net.PubKeyHash
+		isP2SH := netID == net.ScriptHash
+		switch {
+		case isP2PKH && isP2SH:
+			return 0, errors.New("address collision")
+		case isP2PKH:
+			return P2Pkh, nil
+		case isP2SH:
+			return P2Sh, nil
+		default:
+			return 0, errors.New("unknown address type")
+		}
+
+	default:
+		return 0, errors.New("decoded address is of unknown size")
+	}
 }

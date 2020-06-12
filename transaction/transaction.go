@@ -383,7 +383,7 @@ func (tx *Transaction) Copy() *Transaction {
 			nil,
 			input.IsPegin,
 			nil,
-			nil,
+			&TxIssuance{},
 			nil,
 			nil,
 		}

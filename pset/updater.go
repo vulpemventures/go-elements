@@ -400,14 +400,16 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
 			" be provided")
 	}
 
-	if arg.TokenAmount > 0 && arg.TokenAddress == "" {
-		return errors.New("destination address for reissuance token " +
-			"must be provided")
-	}
+	if arg.TokenAmount > 0 {
+		if arg.TokenAmount > 0 && arg.TokenAddress == "" {
+			return errors.New("destination address for reissuance token " +
+				"must be provided")
+		}
 
-	if arg.TokenFlag != NonConfidentialReissuanceTokenFlag &&
-		arg.TokenFlag != ConfidentialReissuanceTokenFlag {
-		return errors.New("token flag must be 0 or 1")
+		if arg.TokenFlag != NonConfidentialReissuanceTokenFlag &&
+			arg.TokenFlag != ConfidentialReissuanceTokenFlag {
+			return errors.New("token flag must be 0 or 1")
+		}
 	}
 
 	issuance, err := transaction.NewTxIssuance(arg.AssetAmount, arg.TokenAmount,

@@ -26,17 +26,17 @@ import (
 // before signing), and ensures that the right form of utxo field
 // (NonWitnessUtxo or WitnessUtxo) is included in the input so that signature
 // insertion (and then finalization) can take place.
-func (u *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
+func (p *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	redeemScript []byte, witnessScript []byte) (psbt.SignOutcome, error) {
 
-	if isFinalized(u.Upsbt, inIndex) {
+	if isFinalized(p.Upsbt, inIndex) {
 		return psbt.SignFinalized, nil
 	}
 
 	// Add the witnessScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if witnessScript != nil {
-		err := u.AddInWitnessScript(witnessScript, inIndex)
+		err := p.AddInWitnessScript(witnessScript, inIndex)
 		if err != nil {
 			return psbt.SignInvalid, err
 		}
@@ -45,7 +45,7 @@ func (u *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	// Add the redeemScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if redeemScript != nil {
-		err := u.AddInRedeemScript(redeemScript, inIndex)
+		err := p.AddInRedeemScript(redeemScript, inIndex)
 		if err != nil {
 			return psbt.SignInvalid, err
 		}
@@ -57,28 +57,28 @@ func (u *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	// Case 1: if witnessScript is present, it must be of type witness;
 	// if not, signature insertion will of course fail.
 	switch {
-	case u.Upsbt.Inputs[inIndex].WitnessScript != nil:
-		if u.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
-			err := nonWitnessToWitness(u.Upsbt, inIndex)
+	case p.Upsbt.Inputs[inIndex].WitnessScript != nil:
+		if p.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
+			err := nonWitnessToWitness(p.Upsbt, inIndex)
 			if err != nil {
 				return psbt.SignInvalid, err
 			}
 		}
 
-		err := u.addPartialSignature(inIndex, sig, pubKey)
+		err := p.addPartialSignature(inIndex, sig, pubKey)
 		if err != nil {
 			return psbt.SignInvalid, err
 		}
 
 	// Case 2: no witness script, only redeem script; can be legacy p2sh or
 	// p2sh-wrapped p2wkh.
-	case u.Upsbt.Inputs[inIndex].RedeemScript != nil:
+	case p.Upsbt.Inputs[inIndex].RedeemScript != nil:
 		// We only need to decide if the input is witness, and we don't
 		// rely on the witnessutxo/nonwitnessutxo in the PSBT, instead
 		// we check the redeemScript content.
 		if txscript.IsWitnessProgram(redeemScript) {
-			if u.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
-				err := nonWitnessToWitness(u.Upsbt, inIndex)
+			if p.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
+				err := nonWitnessToWitness(p.Upsbt, inIndex)
 				if err != nil {
 					return psbt.SignInvalid, err
 				}
@@ -87,7 +87,7 @@ func (u *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 
 		// If it is not a valid witness program, we here assume that
 		// the provided WitnessUtxo/NonWitnessUtxo field was correct.
-		err := u.addPartialSignature(inIndex, sig, pubKey)
+		err := p.addPartialSignature(inIndex, sig, pubKey)
 		if err != nil {
 			return psbt.SignInvalid, err
 		}
@@ -96,19 +96,19 @@ func (u *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	// non-p2sh. To check if it's segwit, check the scriptPubKey of the
 	// output.
 	default:
-		if u.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
-			outIndex := u.Upsbt.UnsignedTx.Inputs[inIndex].Index
-			script := u.Upsbt.Inputs[inIndex].NonWitnessUtxo.Outputs[outIndex].Script
+		if p.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
+			outIndex := p.Upsbt.UnsignedTx.Inputs[inIndex].Index
+			script := p.Upsbt.Inputs[inIndex].NonWitnessUtxo.Outputs[outIndex].Script
 
 			if txscript.IsWitnessProgram(script) {
-				err := nonWitnessToWitness(u.Upsbt, inIndex)
+				err := nonWitnessToWitness(p.Upsbt, inIndex)
 				if err != nil {
 					return psbt.SignInvalid, err
 				}
 			}
 		}
 
-		err := u.addPartialSignature(inIndex, sig, pubKey)
+		err := p.addPartialSignature(inIndex, sig, pubKey)
 		if err != nil {
 			return psbt.SignInvalid, err
 		}

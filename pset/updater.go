@@ -422,3 +422,15 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) (uint32, error) {
 
 	return inputIndex, nil
 }
+
+//AddInput adds input to underlying unsignedTx
+func (p *Updater) AddInput(txInput *transaction.TxInput) {
+	p.Upsbt.UnsignedTx.AddInput(txInput)
+	p.Upsbt.Inputs = append(p.Upsbt.Inputs, PInput{})
+}
+
+//AddOutput adds output to underlying unsignedTx
+func (p *Updater) AddOutput(txOutput *transaction.TxOutput) {
+	p.Upsbt.UnsignedTx.AddOutput(txOutput)
+	p.Upsbt.Outputs = append(p.Upsbt.Outputs, POutput{})
+}

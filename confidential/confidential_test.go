@@ -4,12 +4,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
-	"github.com/vulpemventures/go-secp256k1-zkp"
 	"io/ioutil"
 	"math/big"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/vulpemventures/go-secp256k1-zkp"
 )
 
 var tests map[string]interface{}
@@ -74,13 +75,17 @@ func TestUnblindOutput(t *testing.T) {
 			t.FailNow()
 		}
 
+		nonce, err := NonceHash(ephemeralPubkey, blindingPrivkey)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
 		input := UnblindInput{
-			EphemeralPubkey: ephemeralPubkey,
-			BlindingPrivkey: blindingPrivkey,
-			Rangeproof:      rangeproof,
-			ValueCommit:     *commitment,
-			Asset:           assetGenerator,
-			ScriptPubkey:    scriptPubkey,
+			Nonce:        nonce,
+			Rangeproof:   rangeproof,
+			ValueCommit:  *commitment,
+			Asset:        assetGenerator,
+			ScriptPubkey: scriptPubkey,
 		}
 
 		output, err := UnblindOutput(input)
@@ -324,10 +329,14 @@ func TestRangeProof(t *testing.T) {
 		var valueBlindingFactorArray [32]byte
 		copy(valueBlindingFactorArray[:], valueBlindingFactor[:])
 
+		nonce, err := NonceHash(blindingPubkey, ephemeralPrivkey)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
 		input := RangeProofInput{
 			Value:               value,
-			BlindingPubkey:      blindingPubkey,
-			EphemeralPrivkey:    ephemeralPrivkey,
+			Nonce:               nonce,
 			Asset:               asset,
 			AssetBlindingFactor: assetBlindingFactor,
 			ValueBlindFactor:    valueBlindingFactorArray,

@@ -331,12 +331,12 @@ func ToOutputScript(address string, net network.Network) ([]byte, error) {
 //DecodeType returns address type
 func DecodeType(address string, net network.Network) (int, error) {
 	if isBlech32(address, net) {
-		return handleBlech32(address, net)
+		return decodeBlech32(address, net)
 	}
 	if isBech32(address, net) {
-		return handleBech32(address, net)
+		return decodeBech32(address, net)
 	}
-	return handleBase58(address, net)
+	return decodeBase58(address, net)
 }
 
 func isBlech32(address string, net network.Network) bool {
@@ -351,7 +351,7 @@ func isBlech32(address string, net network.Network) bool {
 	return false
 }
 
-func handleBlech32(address string, net network.Network) (int, error) {
+func decodeBlech32(address string, net network.Network) (int, error) {
 	fromBlech32, err := FromBlech32(address)
 	if err != nil {
 		return 0, err
@@ -378,7 +378,7 @@ func isBech32(address string, net network.Network) bool {
 	return false
 }
 
-func handleBech32(address string, net network.Network) (int, error) {
+func decodeBech32(address string, net network.Network) (int, error) {
 	fromBech32, err := FromBech32(address)
 	if err != nil {
 		return 0, err
@@ -393,7 +393,7 @@ func handleBech32(address string, net network.Network) (int, error) {
 	}
 }
 
-func handleBase58(address string, net network.Network) (int, error) {
+func decodeBase58(address string, net network.Network) (int, error) {
 	decoded, netID, err := base58.CheckDecode(address)
 	if err != nil {
 		if err == base58.ErrChecksum {

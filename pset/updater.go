@@ -13,6 +13,8 @@ package pset
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
+	"github.com/vulpemventures/go-elements/network"
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
@@ -364,4 +366,59 @@ func (p *Updater) AddOutWitnessScript(witnessScript []byte,
 	}
 
 	return nil
+}
+
+type AddIssuanceArg struct {
+	Precision    uint
+	Contract     *transaction.IssuanceContract
+	AssetAmount  float64
+	TokenAmount  float64
+	AssetAddress string
+	TokenAddress string
+	TokenFlag    uint
+	Net          network.Network
+}
+
+//AddIssuance adds non-confidential issuance to the transaction
+func (p *Updater) AddIssuance(arg AddIssuanceArg) (uint32, error) {
+	if len(p.Upsbt.UnsignedTx.Inputs) == 0 {
+		return 0, errors.New("transaction must contain at least one input")
+	}
+
+	if arg.AssetAmount == 0 {
+		return 0, errors.New("asset amount must be greater then 0")
+	}
+
+	if arg.AssetAddress == "" {
+		return 0, errors.New("destination address for issued asset must" +
+			" be provided")
+	}
+
+	if arg.TokenAmount > 0 && arg.TokenAddress == "" {
+		return 0, errors.New("destination address for reissuance token " +
+			"must be provided")
+	}
+
+	issuance, err := transaction.NewTxIssuance(arg.AssetAmount, arg.TokenAmount,
+		arg.Precision)
+	if err != nil {
+		return 0, err
+	}
+
+	var inputIndex uint32
+	var inputHash []byte
+	for i, input := range p.Upsbt.UnsignedTx.Inputs {
+		if input.Issuance == nil {
+			inputIndex = uint32(i)
+			inputHash = input.Hash
+		}
+	}
+
+	err = issuance.GenerateEntropy(inputHash, inputIndex, arg.Contract)
+	if err != nil {
+		return 0, err
+	}
+	p.Upsbt.UnsignedTx.Inputs[inputIndex].Issuance = &issuance.TxIssuance
+
+	return inputIndex, nil
 }

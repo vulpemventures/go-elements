@@ -295,20 +295,20 @@ func TestDecodeAddressTypeP2sh(t *testing.T) {
 }
 
 func TestDecodeAddressTypeConfidentialP2Pkh(t *testing.T) {
-	privKey1, err := btcec.NewPrivateKey(btcec.S256())
+	privKey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	privKey2, err := btcec.NewPrivateKey(btcec.S256())
+	blindingPrivKey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	pay := payment.FromPublicKey(
-		privKey1.PubKey(),
+		privKey.PubKey(),
 		&network.Liquid,
-		privKey2.PubKey(),
+		blindingPrivKey.PubKey(),
 	)
 	confidentialP2pkhAddress := pay.ConfidentialPubKeyHash()
 

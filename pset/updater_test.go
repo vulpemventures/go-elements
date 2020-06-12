@@ -9,12 +9,12 @@ import (
 
 func TestUpdaterAddInput(t *testing.T) {
 	inputs := make([]*transaction.TxInput, 0)
-	output := make([]*transaction.TxOutput, 0)
-	pset, err := New(inputs, output, 2, 0)
+	outputs := make([]*transaction.TxOutput, 0)
+	p, err := New(inputs, outputs, 2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	updater, err := NewUpdater(pset)
+	updater, err := NewUpdater(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,6 +29,10 @@ func TestUpdaterAddInput(t *testing.T) {
 		Hash:  hash,
 		Index: 2,
 	}
+
+	assert.Equal(t, 0, len(updater.Upsbt.UnsignedTx.Inputs))
+	assert.Equal(t, 0, len(updater.Upsbt.Inputs))
+
 	updater.AddInput(&txInput)
 
 	assert.Equal(t, 1, len(updater.Upsbt.UnsignedTx.Inputs))
@@ -37,12 +41,12 @@ func TestUpdaterAddInput(t *testing.T) {
 
 func TestUpdaterAddOutput(t *testing.T) {
 	inputs := make([]*transaction.TxInput, 0)
-	output := make([]*transaction.TxOutput, 0)
-	pset, err := New(inputs, output, 2, 0)
+	outputs := make([]*transaction.TxOutput, 0)
+	p, err := New(inputs, outputs, 2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	updater, err := NewUpdater(pset)
+	updater, err := NewUpdater(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +68,10 @@ func TestUpdaterAddOutput(t *testing.T) {
 		Value:  []byte{byte(42)},
 		Script: script,
 	}
+
+	assert.Equal(t, 0, len(updater.Upsbt.UnsignedTx.Outputs))
+	assert.Equal(t, 0, len(updater.Upsbt.Outputs))
+
 	updater.AddOutput(&txOutput)
 
 	assert.Equal(t, 1, len(updater.Upsbt.UnsignedTx.Outputs))

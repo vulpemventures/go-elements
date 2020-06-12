@@ -3,6 +3,7 @@ package pset
 import (
 	"crypto/rand"
 	"errors"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -156,13 +157,16 @@ func (b *blinder) unblindInputs() ([]confidential.UnblindOutputResult, error) {
 			if err != nil {
 				return nil, err
 			}
+			nonce, err := confidential.NonceHash(
+				prevout.Nonce,
+				b.blindingPrivkeys[index],
+			)
 			unblindInput := confidential.UnblindInput{
-				EphemeralPubkey: prevout.Nonce,
-				BlindingPrivkey: b.blindingPrivkeys[index],
-				Rangeproof:      prevout.RangeProof,
-				ValueCommit:     *commitmentValue,
-				Asset:           prevout.Asset,
-				ScriptPubkey:    prevout.Script,
+				Nonce:        nonce,
+				Rangeproof:   prevout.RangeProof,
+				ValueCommit:  *commitmentValue,
+				Asset:        prevout.Asset,
+				ScriptPubkey: prevout.Script,
 			}
 
 			output, err := confidential.UnblindOutput(unblindInput)
@@ -275,10 +279,17 @@ func (b *blinder) blindOutputs(
 		outVbf := [32]byte{}
 		copy(outVbf[:], outputVbfs[outputIndex])
 
+		nonce, err := confidential.NonceHash(
+			b.blindingPubkeys[outputIndex],
+			ephemeralPrivKey.Serialize(),
+		)
+		if err != nil {
+			return err
+		}
+
 		rangeProofInput := confidential.RangeProofInput{
 			Value:               outputValue,
-			BlindingPubkey:      b.blindingPubkeys[outputIndex],
-			EphemeralPrivkey:    ephemeralPrivKey.Serialize(),
+			Nonce:               nonce,
 			Asset:               outputAsset,
 			AssetBlindingFactor: outputAbfs[outputIndex],
 			ValueBlindFactor:    outVbf,

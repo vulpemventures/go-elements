@@ -14,12 +14,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
-	"github.com/vulpemventures/go-elements/address"
-	"github.com/vulpemventures/go-elements/network"
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/psbt"
+	"github.com/vulpemventures/go-elements/address"
+	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -374,6 +374,18 @@ func (p *Updater) AddOutWitnessScript(witnessScript []byte,
 	return nil
 }
 
+//AddInput adds input to underlying unsignedTx
+func (p *Updater) AddInput(txInput *transaction.TxInput) {
+	p.Upsbt.UnsignedTx.AddInput(txInput)
+	p.Upsbt.Inputs = append(p.Upsbt.Inputs, PInput{})
+}
+
+//AddOutput adds output to underlying unsignedTx
+func (p *Updater) AddOutput(txOutput *transaction.TxOutput) {
+	p.Upsbt.UnsignedTx.AddOutput(txOutput)
+	p.Upsbt.Outputs = append(p.Upsbt.Outputs, POutput{})
+}
+
 type AddIssuanceArg struct {
 	Precision    uint
 	Contract     *transaction.IssuanceContract
@@ -412,70 +424,76 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
 		}
 	}
 
-	issuance, err := transaction.NewTxIssuance(arg.AssetAmount, arg.TokenAmount,
-		arg.Precision)
+	issuance, err := transaction.NewTxIssuance(
+		arg.AssetAmount,
+		arg.TokenAmount,
+		arg.Precision,
+	)
 	if err != nil {
 		return err
 	}
 
-	var inputIndex uint32
-	var inputHash []byte
+	var prevoutIndex uint32
+	var inputIndex int
+	var prevoutHash [32]byte
 	for i, input := range p.Upsbt.UnsignedTx.Inputs {
 		if input.Issuance == nil {
-			inputIndex = uint32(i)
-			inputHash = input.Hash
+			prevoutIndex = input.Index
+			inputIndex = i
+			copy(prevoutHash[:], input.Hash)
+			break
 		}
 	}
 
-	err = issuance.GenerateEntropy(inputHash, inputIndex, arg.Contract)
+	err = issuance.GenerateEntropy(prevoutHash[:], prevoutIndex, arg.Contract)
 	if err != nil {
 		return err
 	}
-	p.Upsbt.UnsignedTx.Inputs[inputIndex].Issuance = &issuance.TxIssuance
+
+	p.Upsbt.UnsignedTx.Inputs[inputIndex].Issuance = &transaction.TxIssuance{
+		AssetEntropy:       issuance.ContractHash,
+		AssetAmount:        issuance.TxIssuance.AssetAmount,
+		TokenAmount:        issuance.TxIssuance.TokenAmount,
+		AssetBlindingNonce: issuance.TxIssuance.AssetBlindingNonce,
+	}
 
 	assetHash, err := issuance.GenerateAsset()
 	if err != nil {
 		return err
 	}
-	script, err := address.ToOutputScript(arg.TokenAddress, arg.Net)
+	// prepend with a 0x01 prefix
+	assetHash = append([]byte{0x01}, assetHash...)
+
+	script, err := address.ToOutputScript(arg.AssetAddress, arg.Net)
 	if err != nil {
 		return err
 	}
 
-	output := &transaction.TxOutput{
-		Asset:  assetHash,
-		Value:  issuance.TxIssuance.AssetAmount,
-		Script: script,
-	}
+	output := transaction.NewTxOutput(
+		assetHash,
+		issuance.TxIssuance.AssetAmount,
+		script,
+	)
 	p.AddOutput(output)
+
 	if arg.TokenAmount > 0 {
 		tokenHash, err := issuance.GenerateReissuanceToken(arg.TokenFlag)
 		if err != nil {
 			return err
 		}
+		tokenHash = append([]byte{byte(1)}, tokenHash...)
 		script, err := address.ToOutputScript(arg.TokenAddress, arg.Net)
 		if err != nil {
 			return err
 		}
 
-		output := &transaction.TxOutput{
-			Asset:  tokenHash,
-			Value:  issuance.TxIssuance.TokenAmount,
-			Script: script,
-		}
+		output := transaction.NewTxOutput(
+			tokenHash,
+			issuance.TxIssuance.TokenAmount,
+			script,
+		)
 		p.AddOutput(output)
 	}
+
 	return nil
-}
-
-//AddInput adds input to underlying unsignedTx
-func (p *Updater) AddInput(txInput *transaction.TxInput) {
-	p.Upsbt.UnsignedTx.AddInput(txInput)
-	p.Upsbt.Inputs = append(p.Upsbt.Inputs, PInput{})
-}
-
-//AddOutput adds output to underlying unsignedTx
-func (p *Updater) AddOutput(txOutput *transaction.TxOutput) {
-	p.Upsbt.UnsignedTx.AddOutput(txOutput)
-	p.Upsbt.Outputs = append(p.Upsbt.Outputs, POutput{})
 }

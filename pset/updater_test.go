@@ -2,6 +2,9 @@ package pset
 
 import (
 	"encoding/hex"
+	"strings"
+	"testing"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
@@ -10,7 +13,6 @@ import (
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
-	"testing"
 )
 
 func TestUpdaterAddInput(t *testing.T) {
@@ -203,12 +205,12 @@ func TestCreateAddIssuanceSignAndBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	txid, err := broadcast(txHex)
+	res, err := broadcast(txHex)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(txid) <= 0 {
-		t.Fatal("Expected transaction to be broadcasted")
+	if len(res) <= 0 || strings.Contains(res, "sendrawtransaction") {
+		t.Fatalf("Expected transaction to be broadcasted, failed for reason: %s", res)
 	}
 }

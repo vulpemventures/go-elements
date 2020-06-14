@@ -37,7 +37,8 @@ type TxIssuance struct {
 // the transaction
 type TxIssuanceExtended struct {
 	TxIssuance
-	Precision uint
+	Precision    uint
+	ContractHash []byte
 }
 
 // NewTxIssuance returns a new empty issuance instance
@@ -52,20 +53,19 @@ func NewTxIssuance(assetAmount, tokenAmount float64, precision uint) (*TxIssuanc
 		return nil, errors.New("invalid precision")
 	}
 
-	aa := uint64(assetAmount * math.Pow10(int(8-precision)))
-	ta := uint64(tokenAmount * math.Pow10(int(8-precision)))
-	confAssetAmount, err := confidential.SatoshiToElementsValue(aa)
+	confAssetAmount, err := toConfidentialAssetAmount(assetAmount, precision)
 	if err != nil {
 		return nil, err
 	}
-	confTokenAmount, err := confidential.SatoshiToElementsValue(ta)
+	confTokenAmount, err := toConfidentialTokenAmount(tokenAmount, precision)
 	if err != nil {
 		return nil, err
 	}
 
 	issuance := TxIssuance{
-		AssetAmount: confAssetAmount[:],
-		TokenAmount: confTokenAmount[:],
+		AssetAmount:        confAssetAmount,
+		TokenAmount:        confTokenAmount,
+		AssetBlindingNonce: make([]byte, 32),
 	}
 
 	return &TxIssuanceExtended{
@@ -116,6 +116,7 @@ func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex u
 	buf = append(buf, contractHash...)
 	entropy := fastsha256.MidState256(buf)
 
+	issuance.ContractHash = contractHash
 	issuance.TxIssuance.AssetEntropy = entropy[:]
 	return nil
 }
@@ -147,4 +148,26 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 	token := fastsha256.MidState256(buf)
 
 	return token[:], nil
+}
+
+func toConfidentialAssetAmount(assetAmount float64, precision uint) ([]byte, error) {
+	amount := uint64(assetAmount * math.Pow10(int(8-precision)))
+	confAmount, err := confidential.SatoshiToElementsValue(amount)
+	if err != nil {
+		return nil, err
+	}
+	return confAmount[:], nil
+}
+
+func toConfidentialTokenAmount(tokenAmount float64, precision uint) ([]byte, error) {
+	if tokenAmount == 0 {
+		return []byte{0x00}, nil
+	}
+
+	amount := uint64(tokenAmount * math.Pow10(int(8-precision)))
+	confAmount, err := confidential.SatoshiToElementsValue(amount)
+	if err != nil {
+		return nil, err
+	}
+	return confAmount[:], nil
 }

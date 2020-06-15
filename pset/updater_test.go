@@ -2,9 +2,10 @@ package pset
 
 import (
 	"encoding/hex"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/transaction"
-	"testing"
 )
 
 func TestUpdaterAddInput(t *testing.T) {

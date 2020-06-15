@@ -52,10 +52,10 @@ func TestBech32(t *testing.T) {
 	if bech32.Version != 0 {
 		t.Errorf("TestFromBech32: wrong version")
 	}
-	if len(bech32.Data) != 33 && len(bech32.Data) != 20 {
+	if len(bech32.Program) != 33 && len(bech32.Program) != 20 {
 		t.Errorf("TestFromBech32: data size mismatch")
 	}
-	bc32, _ := address.ToBech32(&address.Bech32{bech32.Prefix, bech32.Version, bech32.Data})
+	bc32, _ := address.ToBech32(&address.Bech32{bech32.Prefix, bech32.Version, bech32.Program})
 	if bc32 != bech32address {
 		t.Errorf("TestToBech32: wrong anddress")
 	}

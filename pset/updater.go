@@ -13,11 +13,19 @@ package pset
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/psbt"
+	"github.com/vulpemventures/go-elements/address"
+	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/transaction"
+)
+
+const (
+	NonConfidentialReissuanceTokenFlag = 0
+	ConfidentialReissuanceTokenFlag    = 1
 )
 
 // Updater encapsulates the role 'Updater' as specified in BIP174; it accepts
@@ -376,4 +384,116 @@ func (p *Updater) AddInput(txInput *transaction.TxInput) {
 func (p *Updater) AddOutput(txOutput *transaction.TxOutput) {
 	p.Upsbt.UnsignedTx.AddOutput(txOutput)
 	p.Upsbt.Outputs = append(p.Upsbt.Outputs, POutput{})
+}
+
+type AddIssuanceArg struct {
+	Precision    uint
+	Contract     *transaction.IssuanceContract
+	AssetAmount  float64
+	TokenAmount  float64
+	AssetAddress string
+	TokenAddress string
+	TokenFlag    uint
+	Net          network.Network
+}
+
+//AddIssuance adds non-confidential issuance to the transaction
+func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
+	if len(p.Upsbt.UnsignedTx.Inputs) == 0 {
+		return errors.New("transaction must contain at least one input")
+	}
+
+	if arg.AssetAmount == 0 {
+		return errors.New("asset amount must be greater then 0")
+	}
+
+	if arg.AssetAddress == "" {
+		return errors.New("destination address for issued asset must" +
+			" be provided")
+	}
+
+	if arg.TokenAmount > 0 {
+		if arg.TokenAmount > 0 && arg.TokenAddress == "" {
+			return errors.New("destination address for reissuance token " +
+				"must be provided")
+		}
+
+		if arg.TokenFlag != NonConfidentialReissuanceTokenFlag &&
+			arg.TokenFlag != ConfidentialReissuanceTokenFlag {
+			return errors.New("token flag must be 0 or 1")
+		}
+	}
+
+	issuance, err := transaction.NewTxIssuance(
+		arg.AssetAmount,
+		arg.TokenAmount,
+		arg.Precision,
+	)
+	if err != nil {
+		return err
+	}
+
+	var prevoutIndex uint32
+	var inputIndex int
+	var prevoutHash [32]byte
+	for i, input := range p.Upsbt.UnsignedTx.Inputs {
+		if input.Issuance == nil {
+			prevoutIndex = input.Index
+			inputIndex = i
+			copy(prevoutHash[:], input.Hash)
+			break
+		}
+	}
+
+	err = issuance.GenerateEntropy(prevoutHash[:], prevoutIndex, arg.Contract)
+	if err != nil {
+		return err
+	}
+
+	p.Upsbt.UnsignedTx.Inputs[inputIndex].Issuance = &transaction.TxIssuance{
+		AssetEntropy:       issuance.ContractHash,
+		AssetAmount:        issuance.TxIssuance.AssetAmount,
+		TokenAmount:        issuance.TxIssuance.TokenAmount,
+		AssetBlindingNonce: issuance.TxIssuance.AssetBlindingNonce,
+	}
+
+	assetHash, err := issuance.GenerateAsset()
+	if err != nil {
+		return err
+	}
+	// prepend with a 0x01 prefix
+	assetHash = append([]byte{0x01}, assetHash...)
+
+	script, err := address.ToOutputScript(arg.AssetAddress, arg.Net)
+	if err != nil {
+		return err
+	}
+
+	output := transaction.NewTxOutput(
+		assetHash,
+		issuance.TxIssuance.AssetAmount,
+		script,
+	)
+	p.AddOutput(output)
+
+	if arg.TokenAmount > 0 {
+		tokenHash, err := issuance.GenerateReissuanceToken(arg.TokenFlag)
+		if err != nil {
+			return err
+		}
+		tokenHash = append([]byte{byte(1)}, tokenHash...)
+		script, err := address.ToOutputScript(arg.TokenAddress, arg.Net)
+		if err != nil {
+			return err
+		}
+
+		output := transaction.NewTxOutput(
+			tokenHash,
+			issuance.TxIssuance.TokenAmount,
+			script,
+		)
+		p.AddOutput(output)
+	}
+
+	return nil
 }

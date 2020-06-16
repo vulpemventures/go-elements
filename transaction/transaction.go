@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
-
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
 const (
@@ -407,10 +406,12 @@ func (tx *Transaction) Copy() *Transaction {
 			newInput.InflationRangeProof = copyBytes(input.InflationRangeProof)
 		}
 		if input.Issuance != nil {
-			newInput.Issuance.AssetAmount = copyBytes(input.Issuance.AssetAmount)
-			newInput.Issuance.AssetEntropy = copyBytes(input.Issuance.AssetEntropy)
-			newInput.Issuance.AssetBlindingNonce = copyBytes(input.Issuance.AssetBlindingNonce)
-			newInput.Issuance.TokenAmount = copyBytes(input.Issuance.TokenAmount)
+			newInput.Issuance = &TxIssuance{
+				AssetAmount:        copyBytes(input.Issuance.AssetAmount),
+				AssetEntropy:       copyBytes(input.Issuance.AssetEntropy),
+				AssetBlindingNonce: copyBytes(input.Issuance.AssetBlindingNonce),
+				TokenAmount:        copyBytes(input.Issuance.TokenAmount),
+			}
 		}
 		newTx.Inputs = append(newTx.Inputs, &newInput)
 	}

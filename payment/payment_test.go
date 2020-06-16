@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/stretchr/testify/assert"
+	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"testing"
@@ -53,13 +54,21 @@ func TestScriptHash(t *testing.T) {
 }
 
 func TestP2WSH(t *testing.T) {
-	redeemScript := "52410479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b84104c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee51ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a52ae"
+	redeemScript := "52410479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959" +
+		"f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d0" +
+		"8ffb10d4b84104c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09" +
+		"b95c709ee51ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950" +
+		"cfe52a52ae"
 	redeemScriptBytes, err := hex.DecodeString(redeemScript)
 	if err != nil {
 		t.Error(err)
 	}
 
-	p2ms, err := payment.FromScript(redeemScriptBytes, &network.Regtest, nil)
+	p2ms, err := payment.FromScript(
+		redeemScriptBytes,
+		&network.Regtest,
+		nil,
+	)
 	if err != nil {
 		t.Error(err)
 	}
@@ -73,7 +82,8 @@ func TestP2WSH(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if p2wshAddress != "ert1q2z45rh444qmeand48lq0wp3jatxs2nzh492ds9s5yscv2pplxwesajz7q3" {
+	if p2wshAddress != "ert1q2z45rh444qmeand48lq0wp3jatxs2nzh"+
+		"492ds9s5yscv2pplxwesajz7q3" {
 		t.Errorf("TestSegwitAddress: error when encoding segwit")
 	}
 }
@@ -92,7 +102,9 @@ func TestFromPublicKeys(t *testing.T) {
 		t.Error(err)
 	}
 
-	if hex.EncodeToString(p2ms.Script) != "5121036f5646ed688b9279369da0a4ad78953ae7e6d300436ca8a3264360efe38236e321023c61f59e9a3a3eb01c3ed0cf967ad217153944bcf2498a8fd6e70b27c7ab6ee652ae" {
+	if hex.EncodeToString(p2ms.Script) != "5121036f5646ed688b9279369da0a4ad78"+
+		"953ae7e6d300436ca8a3264360efe38236e321023c61f59e9a3a3eb01c3ed0cf967a"+
+		"d217153944bcf2498a8fd6e70b27c7ab6ee652ae" {
 		t.Error("hex value of p2ms script not as expected")
 	}
 
@@ -105,7 +117,8 @@ func TestFromPublicKeys(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if p2wshAddress != "ert1q484pt3gqgthcxa35nl4t6utpd0uf7tkm240hlxe6k4newkydwcqs5sjc4c" {
+	if p2wshAddress != "ert1q484pt3gqgthcxa35nl4t6utpd0uf7tkm240hlxe6k4newky"+
+		"dwcqs5sjc4c" {
 		t.Errorf("TestSegwitAddress: error when encoding segwit")
 	}
 
@@ -210,7 +223,8 @@ func TestConfidentialWitnessScriptHash(t *testing.T) {
 	expected := "lq1qqvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq" +
 		"r5x3lrzmrq2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hq6f9r3gz0h4tn"
 
-	script, err := hex.DecodeString("0014d0d1f8c5b1815bc471aef4f4720c64ecac38dfa501c0aac94f1434a866a02ae0")
+	script, err := hex.DecodeString("0014d0d1f8c5b1815bc471aef4f4720c64eca" +
+		"c38dfa501c0aac94f1434a866a02ae0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,4 +250,224 @@ func TestConfidentialWitnessScriptHash(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, addr)
+}
+
+func TestDecodeAddressTypeP2Pkh(t *testing.T) {
+	privKey1, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pay := payment.FromPublicKey(
+		privKey1.PubKey(),
+		&network.Liquid,
+		nil,
+	)
+	p2pkhAddress := pay.PubKeyHash()
+
+	addressType, err := address.DecodeType(
+		p2pkhAddress,
+		network.Liquid,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Pkh, addressType)
+}
+
+func TestDecodeAddressTypeP2sh(t *testing.T) {
+	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
+	p2wpkh := payment.FromPublicKey(publicKey, &network.Liquid, nil)
+	pay, err := payment.FromPayment(p2wpkh)
+	p2shAddress, err := pay.ScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+
+	addressType, err := address.DecodeType(
+		p2shAddress,
+		network.Liquid,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Sh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2Pkh(t *testing.T) {
+	privKey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blindingPrivKey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pay := payment.FromPublicKey(
+		privKey.PubKey(),
+		&network.Liquid,
+		blindingPrivKey.PubKey(),
+	)
+	confidentialP2pkhAddress := pay.ConfidentialPubKeyHash()
+
+	addressType, err := address.DecodeType(
+		confidentialP2pkhAddress,
+		network.Liquid,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Pkh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2sh(t *testing.T) {
+	privKey1, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privKey2, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pay := payment.FromPublicKey(
+		privKey1.PubKey(),
+		&network.Liquid,
+		privKey2.PubKey(),
+	)
+	confidentialP2shAddress := pay.ConfidentialScriptHash()
+
+	addressType, err := address.DecodeType(
+		confidentialP2shAddress,
+		network.Liquid,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Sh, addressType)
+}
+
+func TestDecodeAddressTypeP2wpkh(t *testing.T) {
+	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
+
+	pay := payment.FromPublicKey(publicKey, &network.Liquid, nil)
+	p2wpkhAddress, err := pay.WitnessPubKeyHash()
+	if err != nil {
+		t.Error(err)
+	}
+
+	addressType, err := address.DecodeType(
+		p2wpkhAddress,
+		network.Liquid,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Wpkh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2wpkh(t *testing.T) {
+	privKey1, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privKey2, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pay := payment.FromPublicKey(
+		privKey1.PubKey(),
+		&network.Liquid,
+		privKey2.PubKey(),
+	)
+	confidentialP2wpkh, err := pay.ConfidentialWitnessPubKeyHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addressType, err := address.DecodeType(
+		confidentialP2wpkh,
+		network.Liquid,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Wpkh, addressType)
+}
+
+func TestDecodeAddressTypeP2wsh(t *testing.T) {
+	redeemScript := "52410479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f" +
+		"2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08f" +
+		"fb10d4b84104c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95" +
+		"c709ee51ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe5" +
+		"2a52ae"
+	redeemScriptBytes, err := hex.DecodeString(redeemScript)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2ms, err := payment.FromScript(
+		redeemScriptBytes,
+		&network.Regtest,
+		nil,
+	)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2wsh, err := payment.FromPayment(p2ms)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2wshAddress, err := p2wsh.WitnessScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+
+	addressType, err := address.DecodeType(
+		p2wshAddress,
+		network.Regtest,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Wsh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2wsh(t *testing.T) {
+	script, err := hex.DecodeString("0014d0d1f8c5b1815bc471aef4" +
+		"f4720c64ecac38dfa501c0aac94f1434a866a02ae0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privKey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pay, err := payment.FromScript(script, &network.Liquid, privKey.PubKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	confidentialP2Wsh, err := pay.ConfidentialWitnessScriptHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addressType, err := address.DecodeType(
+		confidentialP2Wsh,
+		network.Liquid,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Wsh, addressType)
 }

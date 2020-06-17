@@ -85,13 +85,16 @@ func TestCreateBlindAndBroadcast(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updater.AddInSighashType(txscript.SigHashAll, 0)
+	err = updater.AddInSighashType(txscript.SigHashAll, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
-	updater.AddInWitnessUtxo(witnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	//blind outputs
 	blindingPrivKeys := [][]byte{{}}
@@ -110,11 +113,16 @@ func TestCreateBlindAndBroadcast(t *testing.T) {
 	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
 	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
 
-	blinder, err := NewBlinder(p, blindingPrivKeys, blindingPubKeys, nil)
+	blinder, err := NewBlinder(
+		p,
+		blindingPrivKeys,
+		blindingPubKeys,
+		nil,
+		nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = blinder.BlindOutputs()
+	err = blinder.BlindTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,9 +140,6 @@ func TestCreateBlindAndBroadcast(t *testing.T) {
 	}
 
 	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Update the pset adding the input signature script and the pubkey.
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
@@ -248,7 +253,7 @@ func TestCreateBlindSignBroadcastWithConfidentialInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updater.AddInSighashType(txscript.SigHashAll, 0)
+	err = updater.AddInSighashType(txscript.SigHashAll, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,8 +284,10 @@ func TestCreateBlindSignBroadcastWithConfidentialInput(t *testing.T) {
 		RangeProof:      trx.Outputs[txInputIndex].RangeProof,
 		SurjectionProof: trx.Outputs[txInputIndex].SurjectionProof,
 	}
-	updater.AddInWitnessUtxo(witnessUtxo, 0)
-
+	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	//blind outputs
 	blindingPrivKeys := [][]byte{blindingPrivateKey.Serialize()}
 
@@ -298,11 +305,16 @@ func TestCreateBlindSignBroadcastWithConfidentialInput(t *testing.T) {
 	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
 	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
 
-	blinder, err := NewBlinder(p, blindingPrivKeys, blindingPubKeys, nil)
+	blinder, err := NewBlinder(
+		p,
+		blindingPrivKeys,
+		blindingPubKeys,
+		nil,
+		nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = blinder.BlindOutputs()
+	err = blinder.BlindTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,9 +343,6 @@ func TestCreateBlindSignBroadcastWithConfidentialInput(t *testing.T) {
 	}
 
 	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Update the pset adding the input signature script and the pubkey.
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)

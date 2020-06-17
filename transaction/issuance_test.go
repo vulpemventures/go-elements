@@ -38,7 +38,12 @@ func TestIssuanceGeneration(t *testing.T) {
 			contract = &c
 		}
 
-		issuance, err := NewTxIssuance(assetAmount, tokenAmount, precision)
+		issuance, err := NewTxIssuance(
+			assetAmount,
+			tokenAmount,
+			precision,
+			contract,
+		)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -55,7 +60,7 @@ func TestIssuanceGeneration(t *testing.T) {
 		assert.Equal(t, uint64(v["expectedAssetAmount"].(float64)), resAssetAmount)
 		assert.Equal(t, uint64(v["expectedTokenAmount"].(float64)), resTokenAmount)
 
-		err = issuance.GenerateEntropy(bufferutil.ReverseBytes(inTxHash), inIndex, contract)
+		err = issuance.GenerateEntropy(bufferutil.ReverseBytes(inTxHash), inIndex)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}

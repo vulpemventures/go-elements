@@ -13,15 +13,27 @@ import (
 type randomNumberGenerator func() ([]byte, error)
 
 type blinder struct {
-	pset             *Pset
-	blindingPrivkeys [][]byte
-	blindingPubkeys  [][]byte
-	rng              randomNumberGenerator
+	pset                        *Pset
+	blindingPrivkeys            [][]byte
+	blindingPubkeys             [][]byte
+	rng                         randomNumberGenerator
+	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys
+}
+
+type IssuanceBlindingPrivateKeys struct {
+	AssetKey []byte
+	TokenKey []byte
 }
 
 // NewBlinder returns a new instance of blinder, if the passed Pset struct is
 // in a valid form, else an error.
-func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte, rng randomNumberGenerator) (
+func NewBlinder(
+	pset *Pset,
+	blindingPrivkeys,
+	blindingPubkeys [][]byte,
+	rng randomNumberGenerator,
+	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
+) (
 	*blinder,
 	error,
 ) {
@@ -37,15 +49,26 @@ func NewBlinder(pset *Pset, blindingPrivkeys, blindingPubkeys [][]byte, rng rand
 	}
 
 	return &blinder{
-		pset:             pset,
-		blindingPrivkeys: blindingPrivkeys,
-		blindingPubkeys:  blindingPubkeys,
-		rng:              gen,
+		pset:                        pset,
+		blindingPrivkeys:            blindingPrivkeys,
+		blindingPubkeys:             blindingPubkeys,
+		rng:                         gen,
+		issuanceBlindingPrivateKeys: issuanceBlindingPrivateKeys,
 	}, nil
 }
 
+//BlindOutputs method blinds pset's inputs if issuance's are added and outputs
+//it will only blind inputs if issuanceBlindingPrivateKeys are provided
+func (b *blinder) BlindTransaction() error {
+	err := b.blindInputs()
+	if err != nil {
+		return err
+	}
+	return b.blindOutputs()
+}
+
 //BlindOutputs method blinds pset's output
-func (b *blinder) BlindOutputs() error {
+func (b *blinder) blindOutputs() error {
 	err := b.validate()
 	if err != nil {
 		return err
@@ -99,7 +122,7 @@ func (b *blinder) BlindOutputs() error {
 		return err
 	}
 
-	err = b.blindOutputs(
+	err = b.createBlindedOutputs(
 		outputValues,
 		outputAbfs,
 		outputVbfs,
@@ -110,6 +133,178 @@ func (b *blinder) BlindOutputs() error {
 		return err
 	}
 
+	return nil
+}
+
+//BlindOutputs method blinds pset's issuance pseudo input
+func (b *blinder) blindInputs() error {
+	for index, input := range b.pset.UnsignedTx.Inputs {
+		if input.Issuance != nil {
+			if b.issuanceBlindingPrivateKeys == nil {
+				return nil
+			}
+
+			newIssuance := transaction.NewTxIssuanceFromContractHash(
+				input.Issuance.AssetEntropy,
+			)
+
+			err := newIssuance.GenerateEntropy(input.Hash, input.Index)
+			if err != nil {
+				return err
+			}
+
+			err = b.blindAsset(index, input, newIssuance)
+			if err != nil {
+				return err
+			}
+
+			if len(input.Issuance.TokenAmount) > 0 {
+				err = b.blindToken(index, input, newIssuance)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+	}
+	return nil
+}
+
+func (b *blinder) blindAsset(
+	index int,
+	input *transaction.TxInput,
+	newIssuance *transaction.TxIssuanceExtended,
+) error {
+	asset, err := newIssuance.GenerateAsset()
+	if err != nil {
+		return err
+	}
+
+	abf, err := generateRandomNumber()
+	if err != nil {
+		return err
+	}
+
+	assetAmount := input.Issuance.AssetAmount
+	assetCommitment, err := confidential.AssetCommitment(
+		asset,
+		abf,
+	)
+	if err != nil {
+		return err
+	}
+
+	vbf, err := generateRandomNumber()
+	if err != nil {
+		return err
+	}
+	amount := [9]byte{}
+	copy(amount[:], assetAmount)
+	assetAmountSatoshi, err := confidential.ElementsToSatoshiValue(amount)
+	valueCommitment, err := confidential.ValueCommitment(
+		assetAmountSatoshi,
+		assetCommitment[:],
+		vbf,
+	)
+	if err != nil {
+		return err
+	}
+
+	var vbf32 [32]byte
+	copy(vbf32[:], vbf)
+
+	var nonce [32]byte
+	copy(nonce[:], b.issuanceBlindingPrivateKeys[index].AssetKey[:])
+
+	rangeProofInput := confidential.RangeProofInput{
+		Value:               assetAmountSatoshi,
+		Nonce:               nonce,
+		Asset:               asset,
+		AssetBlindingFactor: abf,
+		ValueBlindFactor:    vbf32,
+		ValueCommit:         valueCommitment[:],
+		ScriptPubkey:        []byte{},
+		MinValue:            1,
+		Exp:                 0,
+		MinBits:             52,
+	}
+	rangeProof, err := confidential.RangeProof(rangeProofInput)
+	if err != nil {
+		return err
+	}
+
+	b.pset.UnsignedTx.Inputs[index].
+		Issuance.AssetAmount = assetCommitment[:]
+	b.pset.UnsignedTx.Inputs[index].IssuanceRangeProof = rangeProof
+	return nil
+}
+
+func (b *blinder) blindToken(
+	index int,
+	input *transaction.TxInput,
+	newIssuance *transaction.TxIssuanceExtended,
+) error {
+	token, err := newIssuance.GenerateReissuanceToken(
+		ConfidentialReissuanceTokenFlag,
+	)
+	if err != nil {
+		return err
+	}
+
+	abf, err := generateRandomNumber()
+	if err != nil {
+		return err
+	}
+	tokenAmount := input.Issuance.TokenAmount
+	assetCommitment, err := confidential.AssetCommitment(
+		token,
+		abf,
+	)
+	if err != nil {
+		return err
+	}
+
+	vbf, err := generateRandomNumber()
+	if err != nil {
+		return err
+	}
+	amount := [9]byte{}
+	copy(amount[:], tokenAmount)
+	tokenAmountSatoshi, err := confidential.ElementsToSatoshiValue(amount)
+	valueCommitment, err := confidential.ValueCommitment(
+		tokenAmountSatoshi,
+		assetCommitment[:],
+		vbf,
+	)
+	if err != nil {
+		return err
+	}
+
+	var vbf32 [32]byte
+	copy(vbf32[:], vbf)
+
+	var nonce [32]byte
+	copy(nonce[:], b.issuanceBlindingPrivateKeys[index].TokenKey[:])
+
+	rangeProofInput := confidential.RangeProofInput{
+		Value:               tokenAmountSatoshi,
+		Nonce:               nonce,
+		Asset:               token,
+		AssetBlindingFactor: abf,
+		ValueBlindFactor:    vbf32,
+		ValueCommit:         valueCommitment[:],
+		ScriptPubkey:        []byte{},
+		MinValue:            1,
+		Exp:                 0,
+		MinBits:             52,
+	}
+	rangeProof, err := confidential.RangeProof(rangeProofInput)
+	if err != nil {
+		return err
+	}
+	b.pset.UnsignedTx.Inputs[index].Issuance.
+		TokenAmount = valueCommitment[:]
+	b.pset.UnsignedTx.Inputs[index].InflationRangeProof = rangeProof
 	return nil
 }
 
@@ -236,7 +431,7 @@ func (b *blinder) generateOutputBlindingFactors(
 	return outputVbfs, outputAbfs, nil
 }
 
-func (b *blinder) blindOutputs(
+func (b *blinder) createBlindedOutputs(
 	outputValues []uint64,
 	outputAbfs [][]byte,
 	outputVbfs [][]byte,
@@ -275,6 +470,9 @@ func (b *blinder) blindOutputs(
 			assetCommitment[:],
 			outputVbfs[outputIndex],
 		)
+		if err != nil {
+			return err
+		}
 
 		outVbf := [32]byte{}
 		copy(outVbf[:], outputVbfs[outputIndex])

@@ -106,14 +106,6 @@ func (b *blinder) validate() error {
 		)
 	}
 
-	if numIssuances := b.pset.UnsignedTx.CountIssuances(); numIssuances != 0 {
-		if keys := b.issuanceBlindingPrivateKeys; keys == nil ||
-			len(keys) != numIssuances {
-			return errors.New(
-				"issuance blinding private keys do not match the number of issuances",
-			)
-		}
-	}
 	return nil
 }
 

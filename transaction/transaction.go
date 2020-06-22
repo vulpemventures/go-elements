@@ -76,7 +76,7 @@ func NewTxInput(hash []byte, index uint32) *TxInput {
 // transaction input.
 func (in *TxInput) SerializeSize() int {
 	size := 40 + bufferutil.VarSliceSerializeSize(in.Script)
-	if in.Issuance != nil {
+	if in.HasIssuance() {
 		size += 64 + len(in.Issuance.AssetAmount) + len(in.Issuance.TokenAmount)
 	}
 	return size
@@ -431,7 +431,7 @@ func (tx *Transaction) Copy() *Transaction {
 		if len(input.InflationRangeProof) != 0 {
 			newInput.InflationRangeProof = copyBytes(input.InflationRangeProof)
 		}
-		if input.Issuance != nil {
+		if input.HasIssuance() {
 			newInput.Issuance = &TxIssuance{
 				AssetAmount:        copyBytes(input.Issuance.AssetAmount),
 				AssetEntropy:       copyBytes(input.Issuance.AssetEntropy),
@@ -611,7 +611,7 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 	s.WriteVarSlice(prevoutScript)
 	s.WriteSlice(value)
 	s.WriteUint32(input.Sequence)
-	if input.Issuance != nil {
+	if input.HasIssuance() {
 		s.WriteSlice(input.Issuance.AssetBlindingNonce)
 		s.WriteSlice(input.Issuance.AssetEntropy)
 		s.WriteSlice(input.Issuance.AssetAmount)
@@ -771,7 +771,7 @@ func calcTxSequencesHash(ins []*TxInput) [32]byte {
 func calcTxIssuancesHash(ins []*TxInput) [32]byte {
 	s, _ := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
-		if in.Issuance != nil {
+		if in.HasIssuance() {
 			s.WriteSlice(in.Issuance.AssetBlindingNonce)
 			s.WriteSlice(in.Issuance.AssetEntropy)
 			s.WriteSlice(in.Issuance.AssetAmount)

@@ -16,8 +16,8 @@ type blinder struct {
 	pset                        *Pset
 	blindingPrivkeys            [][]byte
 	blindingPubkeys             [][]byte
-	rng                         randomNumberGenerator
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys
+	rng                         randomNumberGenerator
 }
 
 type IssuanceBlindingPrivateKeys struct {
@@ -31,8 +31,8 @@ func NewBlinder(
 	pset *Pset,
 	blindingPrivkeys,
 	blindingPubkeys [][]byte,
-	rng randomNumberGenerator,
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
+	rng randomNumberGenerator,
 ) (
 	*blinder,
 	error,
@@ -52,8 +52,8 @@ func NewBlinder(
 		pset:                        pset,
 		blindingPrivkeys:            blindingPrivkeys,
 		blindingPubkeys:             blindingPubkeys,
-		rng:                         gen,
 		issuanceBlindingPrivateKeys: issuanceBlindingPrivateKeys,
+		rng:                         gen,
 	}, nil
 }
 

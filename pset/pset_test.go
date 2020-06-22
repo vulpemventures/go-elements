@@ -814,7 +814,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		blindingPrivKeys,
 		blindingPubKeys,
 		nil,
-		nil, // issuanceBlindingPrivateKeys,
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -982,8 +982,8 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		p,
 		blindingPrivKeys,
 		blindingPubKeys,
-		nil,
 		issuanceBlindingPrivateKeys,
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -14,7 +14,7 @@ const (
 	ElementsUnconfidentialValueLength = 9
 )
 
-type UnblindInput struct {
+type UnblindOutputArg struct {
 	Nonce        [32]byte
 	Rangeproof   []byte
 	ValueCommit  secp256k1.Commitment
@@ -52,7 +52,7 @@ func NonceHash(pubKey, privKey []byte) (
 }
 
 //UnblindOutput method unblinds confidential transaction output
-func UnblindOutput(input UnblindInput) (*UnblindOutputResult, error) {
+func UnblindOutput(input UnblindOutputArg) (*UnblindOutputResult, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -81,7 +81,7 @@ func UnblindOutput(input UnblindInput) (*UnblindOutputResult, error) {
 	}, nil
 }
 
-type FinalValueBlindingFactorInput struct {
+type FinalValueBlindingFactorArg struct {
 	InValues      []uint64
 	OutValues     []uint64
 	InGenerators  [][]byte
@@ -91,7 +91,7 @@ type FinalValueBlindingFactorInput struct {
 }
 
 //FinalValueBlindingFactor method generates blind sum
-func FinalValueBlindingFactor(input FinalValueBlindingFactorInput) (
+func FinalValueBlindingFactor(input FinalValueBlindingFactorArg) (
 	[32]byte,
 	error,
 ) {
@@ -154,7 +154,7 @@ func ValueCommitment(value uint64, generator []byte, factor []byte) (
 	return
 }
 
-type RangeProofInput struct {
+type RangeProofArg struct {
 	Value               uint64
 	Nonce               [32]byte
 	Asset               []byte
@@ -168,7 +168,7 @@ type RangeProofInput struct {
 }
 
 //RangeProof method calculates range proof
-func RangeProof(input RangeProofInput) ([]byte, error) {
+func RangeProof(input RangeProofArg) ([]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -224,7 +224,7 @@ func RangeProof(input RangeProofInput) ([]byte, error) {
 	)
 }
 
-type SurjectionProofInput struct {
+type SurjectionProofArg struct {
 	OutputAsset               []byte
 	OutputAssetBlindingFactor []byte
 	InputAssets               [][]byte
@@ -233,7 +233,7 @@ type SurjectionProofInput struct {
 }
 
 //SurjectionProof method generates surjection proof
-func SurjectionProof(input SurjectionProofInput) ([]byte, error) {
+func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -345,4 +345,13 @@ func ElementsToSatoshiValue(val [ElementsUnconfidentialValueLength]byte) (
 	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer[:]))
 	result, err = d.ReadUint64()
 	return
+}
+
+// CommitmentFromBytes parses a raw commitment.
+// This should be moved into go-secp256k1-zkp library, check out
+// https://github.com/vulpemventures/go-elements/pull/79#discussion_r435315406
+func CommitmentFromBytes(commit []byte) (*secp256k1.Commitment, error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+	return secp256k1.CommitmentParse(ctx, commit)
 }

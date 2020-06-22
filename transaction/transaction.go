@@ -82,6 +82,11 @@ func (in *TxInput) SerializeSize() int {
 	return size
 }
 
+// HasIssuance returns whether the input contains an issuance
+func (in *TxInput) HasIssuance() bool {
+	return in.Issuance != nil
+}
+
 // TxWitness defines the witness for a TxIn. A witness is to be interpreted as
 // a slice of byte slices, or a stack with one or many elements.
 type TxWitness [][]byte
@@ -116,6 +121,11 @@ func NewTxOutput(asset, value, script []byte) *TxOutput {
 // transaction output.
 func (out *TxOutput) SerializeSize() int {
 	return len(out.Asset) + len(out.Value) + len(out.Nonce) + bufferutil.VarSliceSerializeSize(out.Script)
+}
+
+// IsConfidential returns whether the output is a confidential one
+func (out *TxOutput) IsConfidential() bool {
+	return len(out.RangeProof) > 0 && len(out.SurjectionProof) > 0
 }
 
 // Transaction defines an elements transaction message.
@@ -342,6 +352,22 @@ func (tx *Transaction) WitnessHash() chainhash.Hash {
 		return chainhash.DoubleHashH(buf)
 	}
 	return tx.TxHash()
+}
+
+// CountIssuances returns the number of inputs containing an issuance
+func (tx *Transaction) CountIssuances() int {
+	if len(tx.Inputs) == 0 {
+		return 0
+	}
+
+	count := 0
+	for _, in := range tx.Inputs {
+		if in.HasIssuance() {
+			count++
+		}
+	}
+
+	return count
 }
 
 // Weight returns the total weight in bytes of the transaction

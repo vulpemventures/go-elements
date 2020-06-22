@@ -76,10 +76,15 @@ func NewTxInput(hash []byte, index uint32) *TxInput {
 // transaction input.
 func (in *TxInput) SerializeSize() int {
 	size := 40 + bufferutil.VarSliceSerializeSize(in.Script)
-	if in.Issuance != nil {
+	if in.HasIssuance() {
 		size += 64 + len(in.Issuance.AssetAmount) + len(in.Issuance.TokenAmount)
 	}
 	return size
+}
+
+// HasIssuance returns whether the input contains an issuance
+func (in *TxInput) HasIssuance() bool {
+	return in.Issuance != nil
 }
 
 // TxWitness defines the witness for a TxIn. A witness is to be interpreted as
@@ -116,6 +121,11 @@ func NewTxOutput(asset, value, script []byte) *TxOutput {
 // transaction output.
 func (out *TxOutput) SerializeSize() int {
 	return len(out.Asset) + len(out.Value) + len(out.Nonce) + bufferutil.VarSliceSerializeSize(out.Script)
+}
+
+// IsConfidential returns whether the output is a confidential one
+func (out *TxOutput) IsConfidential() bool {
+	return len(out.RangeProof) > 0 && len(out.SurjectionProof) > 0
 }
 
 // Transaction defines an elements transaction message.
@@ -344,6 +354,22 @@ func (tx *Transaction) WitnessHash() chainhash.Hash {
 	return tx.TxHash()
 }
 
+// CountIssuances returns the number of inputs containing an issuance
+func (tx *Transaction) CountIssuances() int {
+	if len(tx.Inputs) == 0 {
+		return 0
+	}
+
+	count := 0
+	for _, in := range tx.Inputs {
+		if in.HasIssuance() {
+			count++
+		}
+	}
+
+	return count
+}
+
 // Weight returns the total weight in bytes of the transaction
 func (tx *Transaction) Weight() int {
 	base := tx.SerializeSize(false, false)
@@ -405,7 +431,7 @@ func (tx *Transaction) Copy() *Transaction {
 		if len(input.InflationRangeProof) != 0 {
 			newInput.InflationRangeProof = copyBytes(input.InflationRangeProof)
 		}
-		if input.Issuance != nil {
+		if input.HasIssuance() {
 			newInput.Issuance = &TxIssuance{
 				AssetAmount:        copyBytes(input.Issuance.AssetAmount),
 				AssetEntropy:       copyBytes(input.Issuance.AssetEntropy),
@@ -585,7 +611,7 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 	s.WriteVarSlice(prevoutScript)
 	s.WriteSlice(value)
 	s.WriteUint32(input.Sequence)
-	if input.Issuance != nil {
+	if input.HasIssuance() {
 		s.WriteSlice(input.Issuance.AssetBlindingNonce)
 		s.WriteSlice(input.Issuance.AssetEntropy)
 		s.WriteSlice(input.Issuance.AssetAmount)
@@ -745,7 +771,7 @@ func calcTxSequencesHash(ins []*TxInput) [32]byte {
 func calcTxIssuancesHash(ins []*TxInput) [32]byte {
 	s, _ := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
-		if in.Issuance != nil {
+		if in.HasIssuance() {
 			s.WriteSlice(in.Issuance.AssetBlindingNonce)
 			s.WriteSlice(in.Issuance.AssetEntropy)
 			s.WriteSlice(in.Issuance.AssetAmount)

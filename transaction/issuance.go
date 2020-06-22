@@ -41,23 +41,59 @@ type TxIssuanceExtended struct {
 	ContractHash []byte
 }
 
-// NewTxIssuance returns a new empty issuance instance
-func NewTxIssuance(assetAmount, tokenAmount float64, precision uint) (*TxIssuanceExtended, error) {
+// NewTxIssuance returns a new issuance instance from contract hash
+func NewTxIssuanceFromContractHash(contractHash []byte) *TxIssuanceExtended {
+	return &TxIssuanceExtended{ContractHash: contractHash}
+}
+
+// NewTxIssuance returns a new issuance instance
+func NewTxIssuance(
+	assetAmount,
+	tokenAmount float64,
+	precision uint,
+	contract *IssuanceContract,
+) (*TxIssuanceExtended, error) {
 	if assetAmount < 0 {
 		return nil, errors.New("invalid asset amount")
 	}
 	if tokenAmount < 0 {
 		return nil, errors.New("invalid token amount")
 	}
+
 	if precision < 0 || precision > 8 {
 		return nil, errors.New("invalid precision")
 	}
 
-	confAssetAmount, err := toConfidentialAssetAmount(assetAmount, precision)
+	// Use the default `0x00..00` 32-byte array if contract is not set
+	contractHash := make([]byte, 32)
+	if contract != nil {
+		if contract.Precision != precision {
+			return nil, errors.New(
+				"precision declared in contract does not match the one" +
+					"set as argument",
+			)
+		}
+
+		serializedContract, err := json.Marshal(contract)
+		if err != nil {
+			return nil, err
+		}
+
+		contractHash = chainhash.HashB(serializedContract)
+
+	}
+
+	confAssetAmount, err := toConfidentialAssetAmount(
+		assetAmount,
+		precision,
+	)
 	if err != nil {
 		return nil, err
 	}
-	confTokenAmount, err := toConfidentialTokenAmount(tokenAmount, precision)
+	confTokenAmount, err := toConfidentialTokenAmount(
+		tokenAmount,
+		precision,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -69,32 +105,17 @@ func NewTxIssuance(assetAmount, tokenAmount float64, precision uint) (*TxIssuanc
 	}
 
 	return &TxIssuanceExtended{
-		TxIssuance: issuance,
-		Precision:  precision,
+		TxIssuance:   issuance,
+		Precision:    precision,
+		ContractHash: contractHash,
 	}, nil
 }
 
 // GenerateEntropy generates the entropy from which the hash of the asset and
 // of the reissuance token are calculated
-func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex uint32, contract *IssuanceContract) error {
+func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex uint32) error {
 	if len(inTxHash) != 32 {
 		return errors.New("invalid tx hash length")
-	}
-
-	// Use the default `0x00..00` 32-byte array if contract is not set
-	contractHash := make([]byte, 32)
-	if contract != nil {
-		if contract.Precision != issuance.Precision {
-			return errors.New(
-				"precision declared in contract does not match the one" +
-					"set for the issuance",
-			)
-		}
-		serializedContract, err := json.Marshal(contract)
-		if err != nil {
-			return err
-		}
-		contractHash = chainhash.HashB(serializedContract)
 	}
 
 	s, err := bufferutil.NewSerializer(nil)
@@ -113,10 +134,9 @@ func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex u
 	}
 
 	buf := chainhash.DoubleHashB(s.Bytes())
-	buf = append(buf, contractHash...)
+	buf = append(buf, issuance.ContractHash...)
 	entropy := fastsha256.MidState256(buf)
 
-	issuance.ContractHash = contractHash
 	issuance.TxIssuance.AssetEntropy = entropy[:]
 	return nil
 }

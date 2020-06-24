@@ -15,9 +15,17 @@ Go support for confidential transactions on Elements-based blockchains
 ## Install
 
 ```sh
-# Install latest tagged release 
+# Install latest tagged release
 $ go get github.com/vulpemventures/go-elements@latest
 ```
+
+## 👀 Examples
+
+- [Broadcast unblinded transaction](pset/pset_test.go#L82)
+- [Broadcast blinded transaction - with unblinded input](pset/pset_test.go#L335)
+- [Broadcast blinded transaction - with blinded input](pset/pset_test.go#L490)
+- [Broadcast issuance transaction - with unblinded inputs, unblinded issuance, blinded outputs](pset/pset_test.go#L689)
+- [Broadcast issuance transaction - with unblinded inputs, blinded issuance, blinded outputs](pset/pset_test.go#L867)
 
 ## 🛣 Roadmap
 
@@ -34,9 +42,10 @@ $ go get github.com/vulpemventures/go-elements@latest
 - [x] [PSET / Bip174 for Elements](https://github.com/vulpemventures/go-elements/tree/master/pset)
 - [x] [Blech32](https://github.com/vulpemventures/go-elements/tree/master/blech32)
 - [x] [CGO bindings for secp256k1-zkp](https://github.com/vulpemventures/go-secp256k1-zkp)
-- [x] Blinding outs/ Unblinding ins
+- [x] Unblinding ins / Blinding outs / Blinding issuance ins
 - [x] Signing a confidential input (use 0 value amounts to produce the hash for the signature)
-- [ ] Asset issuance
+- [x] Asset issuance
+- [ ] Asset re-issuance
 - [ ] Slip77
 
 ## 🖥 Development
@@ -57,7 +66,7 @@ $ go get -t -v ./...
 * Run tests
 
 > For running tests it is required to have a running [Nigiri](https://github.com/vulpemventures/nigiri) locally, or at least a remote one reachable from the outside.  
- To run the tests it is mandatory to export an `API_URL` environment variable pointing to the URL of `nigiri-chopsticks`. 
+ To run the tests it is mandatory to export an `API_URL` environment variable pointing to the URL of `nigiri-chopsticks`.
 
 ```
 $ nigiri start --liquid
@@ -65,10 +74,10 @@ $ export API_URL=http://localhost:3001
 $ go test ./... -v
 ```
 
-## 👷‍♂️ Contributors 
+## 👷‍♂️ Contributors
 
-* [@tiero](https://github.com/tiero)
-* [@altafan](https://github.com/altafan)
-* [@sekulicd](https://github.com/sekulicd)
+- [@tiero](https://github.com/tiero)
+- [@altafan](https://github.com/altafan)
+- [@sekulicd](https://github.com/sekulicd)
 
 ## License [MIT](https://github.com/vulpemventures/go-elements/blob/master/LICENSE)

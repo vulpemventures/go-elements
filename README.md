@@ -19,6 +19,14 @@ Go support for confidential transactions on Elements-based blockchains
 $ go get github.com/vulpemventures/go-elements@latest
 ```
 
+## 👀 Examples
+
+- [Broadcast unblinded transaction](pset/pset_test.go#L82)
+- [Broadcast blinded transaction - with unblinded input](pset/pset_test.go#L335)
+- [Broadcast blinded transaction - with blinded input](pset/pset_test.go#L490)
+- [Broadcast issuance transaction - with unblinded inputs, unblinded issuance, blinded outputs](pset/pset_test.go#L689)
+- [Broadcast issuance transaction - with unblinded inputs, blinded issuance, blinded outputs](pset/pset_test.go#L867)
+
 ## 🛣 Roadmap
 
 - [x] Chain parameters (prefixes, magic numbers, …)
@@ -65,14 +73,6 @@ $ nigiri start --liquid
 $ export API_URL=http://localhost:3001
 $ go test ./... -v
 ```
-
-## 👀 Examples
-
-- [Broadcast unblinded transaction](pset/pset_test.go#L82)
-- [Broadcast blinded transaction - with unblinded input](pset/pset_test.go#L335)
-- [Broadcast blinded transaction - with blinded input](pset/pset_test.go#L490)
-- [Broadcast issuance transaction - with unblinded inputs, unblinded issuance, blinded outputs](pset/pset_test.go#L689)
-- [Broadcast issuance transaction - with unblinded inputs, blinded issuance, blinded outputs](pset/pset_test.go#L867)
 
 ## 👷‍♂️ Contributors
 

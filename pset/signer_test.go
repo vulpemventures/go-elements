@@ -29,11 +29,11 @@ func TestSigner(t *testing.T) {
 			updater.Sign(inIndex, signature, pubkey, p.Inputs[inIndex].RedeemScript, p.Inputs[inIndex].WitnessScript)
 		}
 
-		base64Res, err := updater.Upsbt.ToBase64()
+		base64Res, err := updater.Upset.ToBase64()
 		if err != nil {
 			t.Fatal(err)
 		}
-		hexRes, err := updater.Upsbt.ToHex()
+		hexRes, err := updater.Upset.ToHex()
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -169,7 +169,7 @@ func (l binaryFreeList) PutUint64(w io.Writer, byteOrder binary.ByteOrder, val u
 	return err
 }
 
-// binarySerializer provides a free list of buffers to use for serializing and
+// BinarySerializer provides a free list of buffers to use for serializing and
 // deserializing primitive integer values to and from io.Readers and io.Writers.
 var BinarySerializer binaryFreeList = make(chan []byte, binaryFreeListMaxItems)
 
@@ -261,7 +261,7 @@ func readVarInt(r io.Reader) (uint64, error) {
 	return rv, nil
 }
 
-// varIntSerializeSize returns the number of bytes it would take to serialize
+// VarIntSerializeSize returns the number of bytes it would take to serialize
 // val as a variable length integer.
 func VarIntSerializeSize(val uint64) int {
 	// The value is small enough to be represented by itself, so it's
@@ -284,20 +284,22 @@ func VarIntSerializeSize(val uint64) int {
 	return 9
 }
 
-// varSlizeSerializeSize returns the number of bytes it would take to serialize
+// VarSliceSerializeSize returns the number of bytes it would take to serialize
 // val as a variable length byte slice.
 func VarSliceSerializeSize(val []byte) int {
 	return VarIntSerializeSize(uint64(len(val))) + len(val)
 }
 
-// ReverseBytes returns the given byte slice with elems in reverse order.
+// ReverseBytes returns a copy of the given byte slice with elems in reverse order.
 func ReverseBytes(buf []byte) []byte {
 	if len(buf) < 1 {
 		return buf
 	}
-	for i := len(buf)/2 - 1; i >= 0; i-- {
-		j := len(buf) - 1 - i
-		buf[i], buf[j] = buf[j], buf[i]
+	tmp := make([]byte, len(buf))
+	copy(tmp, buf)
+	for i := len(tmp)/2 - 1; i >= 0; i-- {
+		j := len(tmp) - 1 - i
+		tmp[i], tmp[j] = tmp[j], tmp[i]
 	}
-	return buf
+	return tmp
 }

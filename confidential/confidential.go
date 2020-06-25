@@ -339,10 +339,8 @@ func ElementsToSatoshiValue(val [ElementsUnconfidentialValueLength]byte) (
 		err = errors.New("invalid prefix")
 		return
 	}
-	reverseValueBuffer := [ElementsUnconfidentialValueLength - 1]byte{}
-	copy(reverseValueBuffer[:], val[1:])
-	bufferutil.ReverseBytes(reverseValueBuffer[:])
-	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer[:]))
+	reverseValueBuffer := bufferutil.ReverseBytes(val[1:])
+	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer))
 	result, err = d.ReadUint64()
 	return
 }

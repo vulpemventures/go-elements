@@ -80,7 +80,7 @@ func TestUnblindOutput(t *testing.T) {
 			t.FailNow()
 		}
 
-		input := UnblindInput{
+		input := UnblindOutputArg{
 			Nonce:        nonce,
 			Rangeproof:   rangeproof,
 			ValueCommit:  *commitment,
@@ -182,7 +182,7 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 			outFactors = append(outFactors, gen)
 		}
 
-		input := FinalValueBlindingFactorInput{
+		input := FinalValueBlindingFactorArg{
 			InValues:      inValues,
 			OutValues:     outValues,
 			InGenerators:  inGenerators,
@@ -334,7 +334,7 @@ func TestRangeProof(t *testing.T) {
 			t.FailNow()
 		}
 
-		input := RangeProofInput{
+		input := RangeProofArg{
 			Value:               value,
 			Nonce:               nonce,
 			Asset:               asset,
@@ -405,7 +405,7 @@ func TestSurjectionProof(t *testing.T) {
 			inputAssetBlindingFactors = append(inputAssetBlindingFactors, a)
 		}
 
-		input := SurjectionProofInput{
+		input := SurjectionProofArg{
 			OutputAsset:               outputAsset,
 			OutputAssetBlindingFactor: outputAssetBlindingFactor,
 			InputAssets:               inputAssets,

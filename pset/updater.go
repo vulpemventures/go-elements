@@ -428,6 +428,7 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
 		arg.AssetAmount,
 		arg.TokenAmount,
 		arg.Precision,
+		arg.Contract,
 	)
 	if err != nil {
 		return err
@@ -445,7 +446,7 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
 		}
 	}
 
-	err = issuance.GenerateEntropy(prevoutHash[:], prevoutIndex, arg.Contract)
+	err = issuance.GenerateEntropy(prevoutHash[:], prevoutIndex)
 	if err != nil {
 		return err
 	}

@@ -4,13 +4,14 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"hash"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
 	"golang.org/x/crypto/ripemd160"
-	"hash"
 )
 
 // Payment defines the structure that holds the information different addresses
@@ -275,7 +276,7 @@ func (p *Payment) ConfidentialWitnessScriptHash() (string, error) {
 		p.Network.Blech32,
 		version,
 		p.BlindingKey.SerializeCompressed(),
-		p.Hash,
+		p.WitnessHash,
 	}
 	addr, err := address.ToBlech32(payload)
 	if err != nil {

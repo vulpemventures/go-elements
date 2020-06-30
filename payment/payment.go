@@ -4,29 +4,27 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"hash"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
 	"golang.org/x/crypto/ripemd160"
-	"hash"
 )
 
 // Payment defines the structure that holds the information different addresses
 type Payment struct {
-	Network     *network.Network
-	PublicKey   *btcec.PublicKey
-	Hash        []byte
-	BlindingKey *btcec.PublicKey
-	Redeem      *Payment
-	Script      []byte
-	WitnessHash []byte
+	Hash          []byte
+	WitnessHash   []byte
+	Script        []byte
+	WitnessScript []byte
+	Redeem        *Payment
+	PublicKey     *btcec.PublicKey
+	BlindingKey   *btcec.PublicKey
+	Network       *network.Network
 }
-
-//target mail duty exit light void budget zone senior tag rude wisdom
-// priv 1cc080a4cd371eafcad489a29664af6a7276b362fe783443ce036552482b971d
-// pub 036f5646ed688b9279369da0a4ad78953ae7e6d300436ca8a3264360efe38236e3
 
 // FromPublicKey creates a Payment struct from a btcec.publicKey
 func FromPublicKey(
@@ -41,11 +39,19 @@ func FromPublicKey(
 		tmpNet = net
 	}
 	publicKeyBytes := pubkey.SerializeCompressed()
-	pkHash := hash160(publicKeyBytes)[:ripemd160.Size]
-	script := make([]byte, 0)
-	script = append([]byte{txscript.OP_0, byte(len(pkHash))}, pkHash...)
-	witnessHash := sha256.Sum256(script)
-	return &Payment{tmpNet, pubkey, pkHash, blindingKey, nil, script, witnessHash[:]}
+	pkHash := hash160(publicKeyBytes)
+	script := buildScript(pkHash, "p2pkh")
+	witnessScript := buildScript(pkHash, "p2wpkh")
+
+	return &Payment{
+		Hash:          pkHash,
+		WitnessHash:   pkHash,
+		Script:        script,
+		WitnessScript: witnessScript,
+		Network:       tmpNet,
+		PublicKey:     pubkey,
+		BlindingKey:   blindingKey,
+	}
 }
 
 // FromPublicKeys creates a multi-signature Payment struct from list of public key's
@@ -94,28 +100,32 @@ func FromPayment(payment *Payment) (*Payment, error) {
 	if payment.Script == nil || len(payment.Script) == 0 {
 		return nil, errors.New("payment's script can't be empty or nil")
 	}
-	redeem := &Payment{
-		payment.Network,
-		payment.PublicKey,
-		payment.Hash,
-		payment.BlindingKey,
-		payment.Redeem,
-		payment.Script,
-		payment.WitnessHash,
+
+	redeem := payment.copy()
+	scriptToHash := make([]byte, 0)
+	// the only case where the witnessScript is null is when wrapping multisig
+	if len(redeem.WitnessScript) > 0 {
+		scriptToHash = redeem.WitnessScript
+	} else {
+		scriptToHash = redeem.Script
 	}
-	witnessHash := sha256.Sum256(redeem.Script)
+	scriptHash := hash160(scriptToHash)
+	witnessScriptHash := sha256.Sum256(scriptToHash)
+	script := buildScript(scriptHash, "p2sh")
+	witnessScript := buildScript(witnessScriptHash[:], "p2wsh")
+
 	return &Payment{
-		payment.Network,
-		payment.PublicKey,
-		hash160(payment.Script),
-		payment.BlindingKey,
-		redeem,
-		payment.Script,
-		witnessHash[:],
+		Hash:          scriptHash,
+		WitnessHash:   witnessScriptHash[:],
+		Script:        script,
+		WitnessScript: witnessScript,
+		Redeem:        redeem,
+		Network:       redeem.Network,
+		BlindingKey:   redeem.BlindingKey,
 	}, nil
 }
 
-// FromPayment creates a nested Payment struct from script
+// FromScript creates parses a script into a Payment struct
 func FromScript(
 	script []byte,
 	net *network.Network,
@@ -124,6 +134,7 @@ func FromScript(
 	if script == nil || len(script) == 0 {
 		return nil, errors.New("payment's script can't be empty or nil")
 	}
+
 	var tmpNet *network.Network
 	if net == nil {
 		tmpNet = &network.Liquid
@@ -132,39 +143,60 @@ func FromScript(
 	}
 
 	scriptHash := make([]byte, 0)
-	if script[0] == txscript.OP_0 {
-		scriptHash = append(scriptHash, script[2:]...)
-	}
-	if script[0] == txscript.OP_HASH160 {
+	witnessScriptHash := make([]byte, 0)
+	_script := make([]byte, 0)
+	witnessScript := make([]byte, 0)
+	switch script[0] {
+	// p2wpkh / p2wsh
+	case txscript.OP_0:
+		// in case the script is a p2wpkh, we need to set also the legacy script
+		if len(script[2:]) == 20 {
+			scriptHash = append(scriptHash, script[2:]...)
+		}
+		witnessScriptHash = append(scriptHash, script[2:]...)
+		witnessScript = script
+	// p2sh
+	case txscript.OP_HASH160:
 		scriptHash = append(scriptHash, script[2:len(script)-1]...)
+		_script = script
+	// p2pkh
+	case txscript.OP_DUP:
+		scriptHash = append(scriptHash, script[3:len(script)-2]...)
+		_script = script
+	// multisig, here we do not calculate the hashes because this payment
+	// must be wrapped into another one
+	default:
+		_script = script
 	}
 
 	return &Payment{
-		Network:     tmpNet,
-		Hash:        scriptHash,
-		Script:      script,
-		BlindingKey: blindingKey,
+		Hash:          scriptHash,
+		WitnessHash:   witnessScriptHash,
+		Script:        _script,
+		WitnessScript: witnessScript,
+		Network:       tmpNet,
+		BlindingKey:   blindingKey,
 	}, nil
 }
 
 // PubKeyHash is a method of the Payment struct to derive a base58 p2pkh address
-func (p *Payment) PubKeyHash() string {
+func (p *Payment) PubKeyHash() (string, error) {
 	if p.Hash == nil || len(p.Hash) == 0 {
-		errors.New("payment's hash can't be empty or nil")
+		return "", errors.New("payment's hash can't be empty or nil")
 	}
 	payload := &address.Base58{p.Network.PubKeyHash, p.Hash}
 	addr := address.ToBase58(payload)
-	return addr
+	return addr, nil
 }
 
 // ConfidentialPubKeyHash is a method of the Payment struct to derive a
 //base58 confidential p2pkh address
-func (p *Payment) ConfidentialPubKeyHash() string {
+func (p *Payment) ConfidentialPubKeyHash() (string, error) {
 	if p.Hash == nil || len(p.Hash) == 0 {
-		errors.New("payment's hash can't be empty or nil")
+		return "", errors.New("payment's hash can't be empty or nil")
 	}
 	if p.BlindingKey == nil {
-		errors.New("payment's blinding key can't be nil")
+		return "", errors.New("payment's blinding key can't be nil")
 	}
 
 	prefix := [1]byte{p.Network.PubKeyHash}
@@ -175,7 +207,7 @@ func (p *Payment) ConfidentialPubKeyHash() string {
 		),
 		p.Hash...,
 	)
-	return base58.CheckEncode(confidentialAddress, p.Network.Confidential)
+	return base58.CheckEncode(confidentialAddress, p.Network.Confidential), nil
 }
 
 // ScriptHash is a method of the Payment struct to derive a base58 p2sh address
@@ -190,12 +222,12 @@ func (p *Payment) ScriptHash() (string, error) {
 
 // ConfidentialScriptHash is a method of the Payment struct to derive a
 //base58 confidential p2sh address
-func (p *Payment) ConfidentialScriptHash() string {
+func (p *Payment) ConfidentialScriptHash() (string, error) {
 	if p.Hash == nil || len(p.Hash) == 0 {
-		errors.New("payment's hash can't be empty or nil")
+		return "", errors.New("payment's hash can't be empty or nil")
 	}
 	if p.BlindingKey == nil {
-		errors.New("payment's blinding key can't be nil")
+		return "", errors.New("payment's blinding key can't be nil")
 	}
 
 	prefix := [1]byte{p.Network.ScriptHash}
@@ -206,17 +238,17 @@ func (p *Payment) ConfidentialScriptHash() string {
 		),
 		p.Hash...,
 	)
-	return base58.CheckEncode(confidentialAddress, p.Network.Confidential)
+	return base58.CheckEncode(confidentialAddress, p.Network.Confidential), nil
 }
 
 // WitnessPubKeyHash is a method of the Payment struct to derive a base58 p2wpkh address
 func (p *Payment) WitnessPubKeyHash() (string, error) {
-	if p.Hash == nil || len(p.Hash) == 0 {
+	if p.WitnessHash == nil || len(p.WitnessHash) == 0 {
 		return "", errors.New("payment's hash can't be empty or nil")
 	}
 	//Here the Version for wpkh is always 0
 	version := byte(0x00)
-	payload := &address.Bech32{p.Network.Bech32, version, p.Hash}
+	payload := &address.Bech32{p.Network.Bech32, version, p.WitnessHash}
 	addr, err := address.ToBech32(payload)
 	if err != nil {
 		return "", nil
@@ -227,7 +259,7 @@ func (p *Payment) WitnessPubKeyHash() (string, error) {
 // ConfidentialWitnessPubKeyHash is a method of the Payment struct to derive
 //a confidential blech32 p2wpkh address
 func (p *Payment) ConfidentialWitnessPubKeyHash() (string, error) {
-	if p.Hash == nil || len(p.Hash) == 0 {
+	if p.WitnessHash == nil || len(p.WitnessHash) == 0 {
 		return "", errors.New("payment's hash can't be empty or nil")
 	}
 	//Here the Version for wpkh is always 0
@@ -236,7 +268,7 @@ func (p *Payment) ConfidentialWitnessPubKeyHash() (string, error) {
 		p.Network.Blech32,
 		version,
 		p.BlindingKey.SerializeCompressed(),
-		p.Hash,
+		p.WitnessHash,
 	}
 	addr, err := address.ToBlech32(payload)
 	if err != nil {
@@ -247,9 +279,6 @@ func (p *Payment) ConfidentialWitnessPubKeyHash() (string, error) {
 
 // WitnessScriptHash is a method of the Payment struct to derive a base58 p2wsh address
 func (p *Payment) WitnessScriptHash() (string, error) {
-	if p.Script == nil || len(p.Script) == 0 {
-		return "", errors.New("payment's script can't be empty or nil")
-	}
 	if p.WitnessHash == nil || len(p.WitnessHash) == 0 {
 		return "", errors.New("payment's witnessHash can't be empty or nil")
 	}
@@ -266,7 +295,7 @@ func (p *Payment) WitnessScriptHash() (string, error) {
 // ConfidentialWitnessScriptHash is a method of the Payment struct to derive
 //a confidential blech32 p2wsh address
 func (p *Payment) ConfidentialWitnessScriptHash() (string, error) {
-	if p.Hash == nil || len(p.Hash) == 0 {
+	if p.WitnessHash == nil || len(p.WitnessHash) == 0 {
 		return "", errors.New("payment's hash can't be empty or nil")
 	}
 	//Here the Version for wpkh is always 0
@@ -275,13 +304,41 @@ func (p *Payment) ConfidentialWitnessScriptHash() (string, error) {
 		p.Network.Blech32,
 		version,
 		p.BlindingKey.SerializeCompressed(),
-		p.Hash,
+		p.WitnessHash,
 	}
 	addr, err := address.ToBlech32(payload)
 	if err != nil {
 		return "", nil
 	}
 	return addr, nil
+}
+
+func (p *Payment) copy() *Payment {
+	var redeem *Payment
+	var pubkey *btcec.PublicKey
+	var blindkey *btcec.PublicKey
+	if p.Redeem != nil {
+		redeem = &Payment{}
+		*redeem = *p.Redeem
+	}
+	if p.PublicKey != nil {
+		pubkey = &btcec.PublicKey{}
+		*pubkey = *p.PublicKey
+	}
+	if p.BlindingKey != nil {
+		blindkey = &btcec.PublicKey{}
+		*blindkey = *p.BlindingKey
+	}
+	return &Payment{
+		Hash:          p.Hash,
+		WitnessHash:   p.WitnessHash,
+		Script:        p.Script,
+		WitnessScript: p.WitnessScript,
+		Redeem:        redeem,
+		PublicKey:     pubkey,
+		BlindingKey:   blindkey,
+		Network:       p.Network,
+	}
 }
 
 // Calculate the hash of hasher over buf.
@@ -293,4 +350,23 @@ func calcHash(buf []byte, hasher hash.Hash) []byte {
 // Hash160 calculates the hash ripemd160(sha256(b)).
 func hash160(buf []byte) []byte {
 	return calcHash(calcHash(buf, sha256.New()), ripemd160.New())
+}
+
+// buildScript returns the requested scriptType script with the provided hash
+func buildScript(hash []byte, scriptType string) []byte {
+	builder := txscript.NewScriptBuilder()
+
+	switch scriptType {
+	case "p2pkh":
+		builder.AddOp(txscript.OP_DUP).AddOp(txscript.OP_HASH160)
+		builder.AddData(hash)
+		builder.AddOp(txscript.OP_EQUALVERIFY).AddOp(txscript.OP_CHECKSIG)
+	case "p2sh":
+		builder.AddOp(txscript.OP_HASH160).AddData(hash).AddOp(txscript.OP_EQUAL)
+	case "p2wpkh", "p2wsh":
+		builder.AddOp(txscript.OP_0).AddData(hash)
+	}
+
+	script, _ := builder.Script()
+	return script
 }

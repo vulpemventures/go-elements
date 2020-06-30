@@ -3,6 +3,7 @@ package payment_test
 import (
 	"encoding/hex"
 	"fmt"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
@@ -18,7 +19,8 @@ var privateKeyBytes, _ = hex.DecodeString(privateKeyHex)
 func ExampleFromPublicKey() {
 	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
 	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
-	fmt.Printf("P2PKH address %v\n:", pay.PubKeyHash())
+	addr, _ := pay.PubKeyHash()
+	fmt.Printf("P2PKH address %v\n:", addr)
 }
 
 //This examples shows how nested payment can be done in order to create non native SegWit(P2SH-P2WPKH) address

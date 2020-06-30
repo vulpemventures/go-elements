@@ -84,14 +84,9 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	* This test attempts to broadcast a transaction composed by 1 input and 3
 	* outputs. The input of the transaction will be a native segwit input, thus
 	* locked by a p2wpkh script, while the outputs will be a legacy p2sh for the
-	* receiver and a segwit p2wpkh for the change.
+	* receiver and the same segwit p2wpkh for the change.
 	* The 3rd output is for the fees, that in Elements side chains are explicits.
-	*
-	* This is intended to test that all methods provided let one to manage a
-	* partial unblinded transaction from its creatation to the extraction of
-	* the final tranasction so that it can be correctly broadcasted to the
-	* network and included in the blockchain.
-	 */
+	**/
 
 	// Generate sender random key pair.
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
@@ -120,13 +115,16 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225")
+	lbtc, _ := hex.DecodeString(
+		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
+
 	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
-	changeScript := p2wpkh.Script
+	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
@@ -153,7 +151,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	updater.AddInWitnessUtxo(witnessUtxo, 0)
 
 	// The signing of the input is done by retrieving the proper hash of the serialization
@@ -161,8 +159,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	// UnsignedTx.
 	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
 	// when serializing the transaction.
-	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
-	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +205,15 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 }
 
 func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
-	// Generate sender random key pair.
+	/**
+	* This test attempts to broadcast an issuance transaction composed by 1
+	* P2WPKH input and 3 outputs. The input of the transaction will contain a new
+	* unblinded asset issuance with a defined reissuance token. The outputs will
+	* be a p2wpkh for both the asset and the relative token and another p2wpkh
+	* for the change (same of the sender for simplicity). A 4th unblinded output
+	* is for the fees, that in Elements side chains are explicits.
+	**/
+
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
@@ -235,11 +240,12 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3" +
-		"cf33c0419ca290e0751b225")
+	lbtc, _ := hex.DecodeString(
+		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 
-	changeScript := p2wpkh.Script
+	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := confidential.SatoshiToElementsValue(99999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
@@ -288,13 +294,12 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
-	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -335,18 +340,11 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 func TestBroadcastBlindedTx(t *testing.T) {
 	/**
 	* This test attempts to broadcast a confidential transaction composed by 1
-	* input and 3 outputs. The input of the transaction will be an unblinded
-	* native segwit input, thus locked by a p2wpkh script, while the outputs
-	* will be a legacy p2sh for the receiver and a segwit p2wpkh for the change.
-	* The 3rd output is for the fees, that in Elements side chains are explicits.
-	*
-	* This is intended to test that all methods provided let one to manage a
-	* partial transaction from its creation to the extraction of the final
-	* tranasction so that it can be correctly broadcasted to the network and
-	* included in the blockchain.
-	 */
+	* P2WPKH unbinded input and 2 blinded outputs. The outputs will be a
+	* confidential p2sh for the receiver and a confidential p2wpkh for the
+	* change. A 3rd unblinded output is for the fees with empty script.
+	**/
 
-	// Generate sender random key pair.
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
@@ -373,13 +371,15 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225")
+	lbtc, _ := hex.DecodeString(
+		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
-	changeScript := p2wpkh.Script
+	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
@@ -406,7 +406,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -443,13 +443,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The signing of the input is done by retrieving the proper hash of the serialization
-	// of the transaction (the BIP-0143 segwit version in this case) directly from the pset's
-	// UnsignedTx.
-	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
-	// when serializing the transaction.
-	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
-	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -490,33 +484,22 @@ func TestBroadcastBlindedTx(t *testing.T) {
 func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	/**
 	* This test attempts to broadcast a confidential transaction composed by 1
-	* confidential input and 3 outputs.
-	* The input of the transaction will be a blinded native segwit input, thus
-	* locked by a p2wpkh script, while the outputs will be a legacy p2sh for the
-	* receiver and a segwit p2wpkh for the change.
-	* The 3rd output is for the fees, that in Elements side chains are explicits.
-	*
-	* This is intended to test that all methods provided let one to manage a
-	* partial transaction from its creatation to the extraction of the final
-	* tranasction so that it can be correctly broadcasted to the network and
-	* included in the blockchain.
-	 */
+	* P2WPKH confidential input and 2 confidential outputs. The outputs will be a
+	* confidetial p2sh for the receiver and a confidential p2wpkh for the change.
+	* The 3rd output is for the fees, that in Elements side chains are explicit.
+	**/
 
-	// Generate sender random key pair.
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
-
 	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
 	}
 	blindingPublicKey := blindingPrivateKey.PubKey()
-
 	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
-
 	confidentialAddress, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
 
 	// Fund sender address.
@@ -537,13 +520,15 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225")
+	lbtc, _ := hex.DecodeString(
+		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
-	changeScript := p2wpkh.Script
+	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
@@ -591,7 +576,7 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	witnessUtxo := &transaction.TxOutput{
 		Asset:           assetCommitment,
 		Value:           valueCommitment,
-		Script:          p2wpkh.Script,
+		Script:          p2wpkh.WitnessScript,
 		Nonce:           trx.Outputs[txInputIndex].Nonce,
 		RangeProof:      trx.Outputs[txInputIndex].RangeProof,
 		SurjectionProof: trx.Outputs[txInputIndex].SurjectionProof,
@@ -622,7 +607,8 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 		blindingPrivKeys,
 		blindingPubKeys,
 		nil,
-		nil)
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -631,21 +617,9 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The signing of the input is done by retrieving the proper hash of the
-	//serialization of the transaction (the BIP-0143 segwit version in this
-	//case) directly from the pset's UnsignedTx.
-	//NOTE: to correctly sign an utxo locked by a p2wpkh script,
-	//we must use the legacy pubkey script when serializing the transaction.
-	legacyScript := append(
-		append(
-			[]byte{0x76, 0xa9, 0x14},
-			p2wpkh.Hash...,
-		),
-		[]byte{0x88, 0xac}...,
-	)
 	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(
 		0,
-		legacyScript,
+		p2wpkh.Script,
 		witnessUtxo.Value,
 		txscript.SigHashAll,
 	)
@@ -687,7 +661,14 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 }
 
 func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
-	// Generate sender random key pair.
+	/**
+	* This test attempts to broadcast a confidential issuance transaction
+	* composed by 1 P2WPKH unblinded  input and 3 confidentialoutputs. The
+	* outputs will be a confidetial p2wpkh for both the issued asset and the
+	* relative token, and another confidential p2wpkh for the change. A 4th
+	* unblinded output is for the fees, with empty script.
+	**/
+
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
@@ -760,14 +741,14 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Add change and fees
-	changeScript := p2wpkh.Script
+	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := confidential.SatoshiToElementsValue(99996000)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 	updater.AddOutput(changeOutput)
@@ -824,8 +805,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
-	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -865,7 +845,14 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 }
 
 func TestBroadcastBlindedIssuanceTx(t *testing.T) {
-	// Generate sender random key pair.
+	/**
+	* This test attempts to broadcast a confidential issuance transaction
+	* composed by 1 P2WPKH confidential input and 3 confidential outputs. The
+	* outputs will be a confidetial p2wpkh for both the issued asset and the
+	* relative token, and another confidential p2wpkh for the change. A 4th
+	* unblinded output is for the fees, with empty script.
+	**/
+
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
@@ -929,14 +916,14 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.Script)
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Add change and fees
-	changeScript := p2wpkh.Script
+	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := confidential.SatoshiToElementsValue(99996000)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 	updater.AddOutput(changeOutput)
@@ -993,8 +980,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	legacyScript := append(append([]byte{0x76, 0xa9, 0x14}, p2wpkh.Hash...), []byte{0x88, 0xac}...)
-	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, legacyScript, witValue[:], txscript.SigHashAll)
+	witHash := updater.Upsbt.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)

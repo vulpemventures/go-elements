@@ -562,7 +562,7 @@ func (tx *Transaction) HashForSignature(
 	if err != nil {
 		return [32]byte{}, err
 	}
-	buf = append(buf, []byte{0x00, 0x00, 0x00, byte(hashType)}...)
+	buf = append(buf, []byte{byte(hashType), 0x00, 0x00, 0x00}...)
 	return chainhash.DoubleHashH(buf), nil
 }
 

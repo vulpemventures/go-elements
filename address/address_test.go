@@ -2,8 +2,11 @@ package address_test
 
 import (
 	"encoding/hex"
-	"github.com/vulpemventures/go-elements/address"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/vulpemventures/go-elements/address"
+	"github.com/vulpemventures/go-elements/network"
 )
 
 const (
@@ -156,4 +159,81 @@ func TestFromBlech32_P2WSH(t *testing.T) {
 	if hex.EncodeToString(resProgram) != witProg2 {
 		t.Error("TestFromBlech32_P2WSH: wrong witness program")
 	}
+}
+
+func TestDecodeAddressTypeP2Pkh(t *testing.T) {
+	addr := "Q9863Eah5byyxdBX8zghpooS2x4Ey8XZyc"
+	addressType, err := address.DecodeType(addr, network.Liquid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Pkh, addressType)
+}
+
+func TestDecodeAddressTypeP2sh(t *testing.T) {
+	addr := "H5RCjtzndKyzFnVe41yg62T3WViWguyz4M"
+	addressType, err := address.DecodeType(addr, network.Liquid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Sh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2Pkh(t *testing.T) {
+	addr := "VTpuLYhJwE8CFm6h1A6DASCaJuRQqkBt6qGfbebSHAUxGXsJMo8wtRvLZYZSWWXt8" +
+		"9jG55pCF4YfxMjh"
+	addressType, err := address.DecodeType(addr, network.Liquid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Pkh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2sh(t *testing.T) {
+	addr := "VJLDHFUbw8oPUcwzmf9jw4tZdN57rEfAusRmWy6knHAF2a4rLGenJz5WPVuyggVzQ" +
+		"PHY6JjzKuw31B6e"
+	addressType, err := address.DecodeType(addr, network.Liquid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Sh, addressType)
+}
+
+func TestDecodeAddressTypeP2wpkh(t *testing.T) {
+	addr := "ex1qlg343tpldc4wvjxn3jdq2qs35r8j5yd5vqrmu3"
+
+	addressType, err := address.DecodeType(addr, network.Liquid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Wpkh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2wpkh(t *testing.T) {
+	addr := "lq1qqwrdmhm69vsq3qfym06tlyhfze9ltauay9tv4r34ueplfwtjx0q27dk2c4d3a" +
+		"9ms6wum04efclqph7dg4unwcmwmw4vnqreq3"
+	addressType, err := address.DecodeType(addr, network.Liquid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Wpkh, addressType)
+}
+
+func TestDecodeAddressTypeP2wsh(t *testing.T) {
+	addr := "ert1q2z45rh444qmeand48lq0wp3jatxs2nzh492ds9s5yscv2pplxwesajz7q3"
+	addressType, err := address.DecodeType(addr, network.Regtest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.P2Wsh, addressType)
+}
+
+func TestDecodeAddressTypeConfidentialP2wsh(t *testing.T) {
+	addr := "lq1qq2akvug2el2rg6lt6aewh9rzy7dglf9ajdmrkknnwwl3jwxgfkh985x3lrzmr" +
+		"q2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hqnhgwv394ycf8"
+	addressType, err := address.DecodeType(addr, network.Liquid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, address.ConfidentialP2Wsh, addressType)
 }

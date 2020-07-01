@@ -130,20 +130,16 @@ func (b *blinder) unblindInputs() (
 		// to the unblindedPrevOuts list, otherwise push to just add the unblided
 		// unblinded input with 0-value blinding factors
 		if prevout.IsConfidential() {
-			commitmentValue, err := confidential.CommitmentFromBytes(prevout.Value)
-			if err != nil {
-				return nil, nil, err
-			}
 			nonce, err := confidential.NonceHash(
 				prevout.Nonce,
 				b.blindingPrivkeys[index],
 			)
 			unblindOutputArg := confidential.UnblindOutputArg{
-				Nonce:        nonce,
-				Rangeproof:   prevout.RangeProof,
-				ValueCommit:  *commitmentValue,
-				Asset:        prevout.Asset,
-				ScriptPubkey: prevout.Script,
+				Nonce:           nonce,
+				Rangeproof:      prevout.RangeProof,
+				ValueCommitment: prevout.Value,
+				AssetCommitment: prevout.Asset,
+				ScriptPubkey:    prevout.Script,
 			}
 
 			output, err := confidential.UnblindOutput(unblindOutputArg)

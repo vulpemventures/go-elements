@@ -383,13 +383,9 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
-	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-
-	// Create a new pset.
+	// Create a new pset with all the outputs that need to be blinded first
 	inputs := []*transaction.TxInput{txInput}
-	outputs := []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}
+	outputs := []*transaction.TxOutput{receiverOutput, changeOutput}
 	p, err := New(inputs, outputs, 2, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -434,7 +430,8 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		blindingPrivKeys,
 		blindingPubKeys,
 		nil,
-		nil)
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -442,6 +439,12 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Add the unblinded outputs now, that's only the fee output in this case
+	feeScript := []byte{}
+	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	updater.AddOutput(feeOutput)
 
 	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
@@ -532,13 +535,9 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
-	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-
 	// Create a new pset.
 	inputs := []*transaction.TxInput{txInput}
-	outputs := []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}
+	outputs := []*transaction.TxOutput{receiverOutput, changeOutput}
 	p, err := New(inputs, outputs, 2, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -616,6 +615,11 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	feeScript := []byte{}
+	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	updater.AddOutput(feeOutput)
 
 	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(
 		0,
@@ -753,11 +757,6 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 	updater.AddOutput(changeOutput)
 
-	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(4000)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-	updater.AddOutput(feeOutput)
-
 	//blind outputs
 	blindingPrivKeys := [][]byte{{}}
 	blindingPubKeys := make([][]byte, 0)
@@ -804,6 +803,11 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	feeScript := []byte{}
+	feeValue, _ := confidential.SatoshiToElementsValue(4000)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	updater.AddOutput(feeOutput)
 
 	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
@@ -928,11 +932,6 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 	updater.AddOutput(changeOutput)
 
-	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(4000)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-	updater.AddOutput(feeOutput)
-
 	//blind outputs
 	blindingPrivKeys := [][]byte{{}}
 	blindingPubKeys := make([][]byte, 0)
@@ -979,6 +978,11 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	feeScript := []byte{}
+	feeValue, _ := confidential.SatoshiToElementsValue(4000)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	updater.AddOutput(feeOutput)
 
 	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])

@@ -100,7 +100,7 @@ func (b *blinder) validate() error {
 		)
 	}
 
-	if len(b.blindingPubkeys) != (len(b.pset.Outputs) - 1) {
+	if len(b.blindingPubkeys) != len(b.pset.Outputs) {
 		return errors.New(
 			"blinding public keys do not match the number of outputs (fee excluded)",
 		)
@@ -380,7 +380,7 @@ func (b *blinder) generateOutputBlindingFactors(
 	inputAbfs [][]byte,
 	inputVbfs [][]byte,
 ) ([][]byte, [][]byte, error) {
-	numOutputs := len(b.pset.Outputs) - 1
+	numOutputs := len(b.pset.Outputs)
 	outputAbfs := make([][]byte, 0)
 	for i := 0; i < numOutputs; i++ {
 		rand, err := b.rng()

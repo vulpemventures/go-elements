@@ -159,7 +159,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	// UnsignedTx.
 	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
 	// when serializing the transaction.
-	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
+	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	}
 
 	// Finalize the partial transaction.
-	p = updater.Upset
+	p = updater.Data
 	err = FinalizeAll(p)
 	if err != nil {
 		t.Fatal(err)
@@ -299,7 +299,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
+	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -314,7 +314,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	}
 
 	// Finalize the partial transaction.
-	p = updater.Upset
+	p = updater.Data
 	err = FinalizeAll(p)
 	if err != nil {
 		t.Fatal(err)
@@ -446,7 +446,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
-	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
+	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -461,7 +461,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	}
 
 	// Finalize the partial transaction.
-	p = updater.Upset
+	p = updater.Data
 	err = FinalizeAll(p)
 	if err != nil {
 		t.Fatal(err)
@@ -621,7 +621,7 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
-	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(
+	witHash := updater.Data.UnsignedTx.HashForWitnessV0(
 		0,
 		p2wpkh.Script,
 		witnessUtxo.Value,
@@ -641,7 +641,7 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	}
 
 	// Finalize the partial transaction.
-	p = updater.Upset
+	p = updater.Data
 	err = FinalizeAll(p)
 	if err != nil {
 		t.Fatal(err)
@@ -809,7 +809,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
-	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
+	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -824,7 +824,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	}
 
 	// Finalize the partial transaction.
-	p = updater.Upset
+	p = updater.Data
 	err = FinalizeAll(p)
 	if err != nil {
 		t.Fatal(err)
@@ -984,7 +984,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
-	witHash := updater.Upset.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
+	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
 	sig, err := privkey.Sign(witHash[:])
 	if err != nil {
 		t.Fatal(err)
@@ -999,7 +999,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	}
 
 	// Finalize the partial transaction.
-	p = updater.Upset
+	p = updater.Data
 	err = FinalizeAll(p)
 	if err != nil {
 		t.Fatal(err)

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vulpemventures/go-secp256k1-zkp"
 )
 
 var tests map[string]interface{}
@@ -60,7 +59,7 @@ func TestUnblindOutput(t *testing.T) {
 			t.FailNow()
 		}
 
-		commitment, err := secp256k1.CommitmentFromString(valueCommitmentStr)
+		commitment, err := hex.DecodeString(valueCommitmentStr)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -81,11 +80,11 @@ func TestUnblindOutput(t *testing.T) {
 		}
 
 		input := UnblindOutputArg{
-			Nonce:        nonce,
-			Rangeproof:   rangeproof,
-			ValueCommit:  *commitment,
-			Asset:        assetGenerator,
-			ScriptPubkey: scriptPubkey,
+			Nonce:           nonce,
+			Rangeproof:      rangeproof,
+			ValueCommitment: commitment,
+			AssetCommitment: assetGenerator,
+			ScriptPubkey:    scriptPubkey,
 		}
 
 		output, err := UnblindOutput(input)

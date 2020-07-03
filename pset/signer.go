@@ -29,7 +29,7 @@ import (
 func (p *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	redeemScript []byte, witnessScript []byte) (psbt.SignOutcome, error) {
 
-	if isFinalized(p.Upsbt, inIndex) {
+	if isFinalized(p.Data, inIndex) {
 		return psbt.SignFinalized, nil
 	}
 
@@ -57,9 +57,9 @@ func (p *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	// Case 1: if witnessScript is present, it must be of type witness;
 	// if not, signature insertion will of course fail.
 	switch {
-	case p.Upsbt.Inputs[inIndex].WitnessScript != nil:
-		if p.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
-			err := nonWitnessToWitness(p.Upsbt, inIndex)
+	case p.Data.Inputs[inIndex].WitnessScript != nil:
+		if p.Data.Inputs[inIndex].WitnessUtxo == nil {
+			err := nonWitnessToWitness(p.Data, inIndex)
 			if err != nil {
 				return psbt.SignInvalid, err
 			}
@@ -72,13 +72,13 @@ func (p *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 
 	// Case 2: no witness script, only redeem script; can be legacy p2sh or
 	// p2sh-wrapped p2wkh.
-	case p.Upsbt.Inputs[inIndex].RedeemScript != nil:
+	case p.Data.Inputs[inIndex].RedeemScript != nil:
 		// We only need to decide if the input is witness, and we don't
 		// rely on the witnessutxo/nonwitnessutxo in the PSBT, instead
 		// we check the redeemScript content.
 		if txscript.IsWitnessProgram(redeemScript) {
-			if p.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
-				err := nonWitnessToWitness(p.Upsbt, inIndex)
+			if p.Data.Inputs[inIndex].WitnessUtxo == nil {
+				err := nonWitnessToWitness(p.Data, inIndex)
 				if err != nil {
 					return psbt.SignInvalid, err
 				}
@@ -96,12 +96,12 @@ func (p *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	// non-p2sh. To check if it's segwit, check the scriptPubKey of the
 	// output.
 	default:
-		if p.Upsbt.Inputs[inIndex].WitnessUtxo == nil {
-			outIndex := p.Upsbt.UnsignedTx.Inputs[inIndex].Index
-			script := p.Upsbt.Inputs[inIndex].NonWitnessUtxo.Outputs[outIndex].Script
+		if p.Data.Inputs[inIndex].WitnessUtxo == nil {
+			outIndex := p.Data.UnsignedTx.Inputs[inIndex].Index
+			script := p.Data.Inputs[inIndex].NonWitnessUtxo.Outputs[outIndex].Script
 
 			if txscript.IsWitnessProgram(script) {
-				err := nonWitnessToWitness(p.Upsbt, inIndex)
+				err := nonWitnessToWitness(p.Data, inIndex)
 				if err != nil {
 					return psbt.SignInvalid, err
 				}
@@ -128,7 +128,7 @@ func nonWitnessToWitness(p *Pset, inIndex int) error {
 	// Remove the non-witness first, else sanity check will not pass:
 	p.Inputs[inIndex].NonWitnessUtxo = nil
 	u := Updater{
-		Upsbt: p,
+		Data: p,
 	}
 
 	return u.AddInWitnessUtxo(txout, inIndex)

@@ -100,9 +100,11 @@ func (b *blinder) validate() error {
 		)
 	}
 
-	if len(b.blindingPubkeys) != (len(b.pset.Outputs) - 1) {
+	if len(b.blindingPubkeys) != len(b.pset.Outputs) {
 		return errors.New(
-			"blinding public keys do not match the number of outputs (fee excluded)",
+			"blinding public keys do not match the number of outputs. Note that " +
+				"fee and outputs that are not meant to be blinded should be added " +
+				"after blinder.Blind()",
 		)
 	}
 
@@ -130,20 +132,16 @@ func (b *blinder) unblindInputs() (
 		// to the unblindedPrevOuts list, otherwise push to just add the unblided
 		// unblinded input with 0-value blinding factors
 		if prevout.IsConfidential() {
-			commitmentValue, err := confidential.CommitmentFromBytes(prevout.Value)
-			if err != nil {
-				return nil, nil, err
-			}
 			nonce, err := confidential.NonceHash(
 				prevout.Nonce,
 				b.blindingPrivkeys[index],
 			)
 			unblindOutputArg := confidential.UnblindOutputArg{
-				Nonce:        nonce,
-				Rangeproof:   prevout.RangeProof,
-				ValueCommit:  *commitmentValue,
-				Asset:        prevout.Asset,
-				ScriptPubkey: prevout.Script,
+				Nonce:           nonce,
+				Rangeproof:      prevout.RangeProof,
+				ValueCommitment: prevout.Value,
+				AssetCommitment: prevout.Asset,
+				ScriptPubkey:    prevout.Script,
 			}
 
 			output, err := confidential.UnblindOutput(unblindOutputArg)
@@ -384,7 +382,7 @@ func (b *blinder) generateOutputBlindingFactors(
 	inputAbfs [][]byte,
 	inputVbfs [][]byte,
 ) ([][]byte, [][]byte, error) {
-	numOutputs := len(b.pset.Outputs) - 1
+	numOutputs := len(b.pset.Outputs)
 	outputAbfs := make([][]byte, 0)
 	for i := 0; i < numOutputs; i++ {
 		rand, err := b.rng()

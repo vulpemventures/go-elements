@@ -102,7 +102,9 @@ func (b *blinder) validate() error {
 
 	if len(b.blindingPubkeys) != len(b.pset.Outputs) {
 		return errors.New(
-			"blinding public keys do not match the number of outputs (fee excluded)",
+			"blinding public keys do not match the number of outputs. Note that " +
+				"fee and outputs that are not meant to be blinded should be added " +
+				"after blinder.Blind()",
 		)
 	}
 

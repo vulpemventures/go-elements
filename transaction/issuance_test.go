@@ -25,8 +25,8 @@ func TestIssuanceGeneration(t *testing.T) {
 
 		inTxHash, _ := hex.DecodeString(v["txHash"].(string))
 		inIndex := uint32(v["index"].(float64))
-		assetAmount := v["assetAmount"].(float64)
-		tokenAmount := v["tokenAmount"].(float64)
+		assetAmount := uint64(v["assetAmount"].(float64))
+		tokenAmount := uint64(v["tokenAmount"].(float64))
 		tokenFlag := uint(v["tokenFlag"].(float64))
 		precision := uint(v["precision"].(float64))
 

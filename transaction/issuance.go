@@ -48,8 +48,8 @@ func NewTxIssuanceFromContractHash(contractHash []byte) *TxIssuanceExtended {
 
 // NewTxIssuance returns a new issuance instance
 func NewTxIssuance(
-	assetAmount,
-	tokenAmount float64,
+	assetAmount uint64,
+	tokenAmount uint64,
 	precision uint,
 	contract *IssuanceContract,
 ) (*TxIssuanceExtended, error) {
@@ -170,8 +170,8 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 	return token[:], nil
 }
 
-func toConfidentialAssetAmount(assetAmount float64, precision uint) ([]byte, error) {
-	amount := uint64(assetAmount * math.Pow10(int(8+precision)))
+func toConfidentialAssetAmount(assetAmount uint64, precision uint) ([]byte, error) {
+	amount := assetAmount * uint64(math.Pow10(int(8+precision)))
 	confAmount, err := confidential.SatoshiToElementsValue(amount)
 	if err != nil {
 		return nil, err
@@ -179,12 +179,12 @@ func toConfidentialAssetAmount(assetAmount float64, precision uint) ([]byte, err
 	return confAmount[:], nil
 }
 
-func toConfidentialTokenAmount(tokenAmount float64, precision uint) ([]byte, error) {
+func toConfidentialTokenAmount(tokenAmount uint64, precision uint) ([]byte, error) {
 	if tokenAmount == 0 {
 		return []byte{0x00}, nil
 	}
 
-	amount := uint64(tokenAmount * math.Pow10(int(8+precision)))
+	amount := tokenAmount * uint64(math.Pow10(int(8+precision)))
 	confAmount, err := confidential.SatoshiToElementsValue(amount)
 	if err != nil {
 		return nil, err

@@ -904,7 +904,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	arg := AddIssuanceArg{
 		Precision:    0,
 		AssetAmount:  2000,
-		TokenAmount:  0.5,
+		TokenAmount:  1,
 		AssetAddress: address,
 		TokenAddress: address,
 		TokenFlag:    1,

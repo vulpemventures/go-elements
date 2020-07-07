@@ -7,8 +7,8 @@
       "index": 68,
       "tokenFlag": 0,
       "precision": 4,
-      "expectedAssetAmount": 10000000,
-      "expectedTokenAmount": 10000,
+      "expectedAssetAmount": 1000000000000000,
+      "expectedTokenAmount": 1000000000000,
       "expectedEntropy": "3db9d8b4a9da087b42f29f34431412aaa24d63750bb31b9a2e263797248135e0",
       "expectedAsset": "dedf795f74e8b52c6ff8a9ad390850a87b18aeb2be9d1967038308290093a893",
       "expectedToken": "fa1074db60b598cf1d6d0318655125c26a2afc9fe57fb2bdff8d8f7408f8814d"

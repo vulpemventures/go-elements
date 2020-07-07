@@ -171,7 +171,7 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 }
 
 func toConfidentialAssetAmount(assetAmount float64, precision uint) ([]byte, error) {
-	amount := uint64(assetAmount * math.Pow10(int(8-precision)))
+	amount := uint64(assetAmount * math.Pow10(int(8+precision)))
 	confAmount, err := confidential.SatoshiToElementsValue(amount)
 	if err != nil {
 		return nil, err
@@ -184,7 +184,7 @@ func toConfidentialTokenAmount(tokenAmount float64, precision uint) ([]byte, err
 		return []byte{0x00}, nil
 	}
 
-	amount := uint64(tokenAmount * math.Pow10(int(8-precision)))
+	amount := uint64(tokenAmount * math.Pow10(int(8+precision)))
 	confAmount, err := confidential.SatoshiToElementsValue(amount)
 	if err != nil {
 		return nil, err

@@ -389,8 +389,8 @@ func (p *Updater) AddOutput(txOutput *transaction.TxOutput) {
 type AddIssuanceArg struct {
 	Precision    uint
 	Contract     *transaction.IssuanceContract
-	AssetAmount  float64
-	TokenAmount  float64
+	AssetAmount  uint64
+	TokenAmount  uint64
 	AssetAddress string
 	TokenAddress string
 	TokenFlag    uint

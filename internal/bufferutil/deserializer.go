@@ -84,6 +84,11 @@ func (d *Deserializer) ReadElementsValue() ([]byte, error) {
 		return nil, err
 	}
 
+	// special case: if issuance token amount is not defined it's encoded as 0x00
+	if version == 0 {
+		return []byte{version}, nil
+	}
+
 	buf := []byte{version}
 	nextBytes := []byte{}
 	if version == 1 {

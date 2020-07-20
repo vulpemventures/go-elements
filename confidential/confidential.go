@@ -14,21 +14,6 @@ const (
 	ElementsUnconfidentialValueLength = 9
 )
 
-type UnblindOutputArg struct {
-	Nonce        [32]byte
-	Rangeproof   []byte
-	ValueCommit  secp256k1.Commitment
-	Asset        []byte
-	ScriptPubkey []byte
-}
-
-type UnblindOutputResult struct {
-	Value               uint64
-	Asset               []byte
-	ValueBlindingFactor []byte
-	AssetBlindingFactor []byte
-}
-
 //NonceHash method generates hashed secret based on ecdh
 func NonceHash(pubKey, privKey []byte) (
 	result [32]byte,
@@ -51,19 +36,39 @@ func NonceHash(pubKey, privKey []byte) (
 	return
 }
 
+type UnblindOutputArg struct {
+	Nonce           [32]byte
+	Rangeproof      []byte
+	ValueCommitment []byte
+	AssetCommitment []byte
+	ScriptPubkey    []byte
+}
+
+type UnblindOutputResult struct {
+	Value               uint64
+	Asset               []byte
+	ValueBlindingFactor []byte
+	AssetBlindingFactor []byte
+}
+
 //UnblindOutput method unblinds confidential transaction output
 func UnblindOutput(input UnblindOutputArg) (*UnblindOutputResult, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	gen, err := secp256k1.GeneratorFromBytes(input.Asset)
+	valueCommit, err := secp256k1.CommitmentParse(ctx, input.ValueCommitment)
+	if err != nil {
+		return nil, err
+	}
+
+	gen, err := secp256k1.GeneratorFromBytes(input.AssetCommitment)
 	if err != nil {
 		return nil, err
 	}
 
 	rewind, value, _, _, message, err := secp256k1.RangeProofRewind(
 		ctx,
-		&input.ValueCommit,
+		valueCommit,
 		input.Rangeproof,
 		input.Nonce,
 		input.ScriptPubkey,
@@ -339,10 +344,8 @@ func ElementsToSatoshiValue(val [ElementsUnconfidentialValueLength]byte) (
 		err = errors.New("invalid prefix")
 		return
 	}
-	reverseValueBuffer := [ElementsUnconfidentialValueLength - 1]byte{}
-	copy(reverseValueBuffer[:], val[1:])
-	bufferutil.ReverseBytes(reverseValueBuffer[:])
-	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer[:]))
+	reverseValueBuffer := bufferutil.ReverseBytes(val[1:])
+	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer))
 	result, err = d.ReadUint64()
 	return
 }

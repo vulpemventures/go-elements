@@ -56,11 +56,11 @@ func TestUpdater(t *testing.T) {
 			updater.AddOutRedeemScript(redeemScript, outIndex)
 		}
 
-		base64Res, err := updater.Upsbt.ToBase64()
+		base64Res, err := updater.Data.ToBase64()
 		if err != nil {
 			t.Fatal(err)
 		}
-		hexRes, err := updater.Upsbt.ToHex()
+		hexRes, err := updater.Data.ToHex()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,13 +98,13 @@ func TestUpdaterAddInput(t *testing.T) {
 		Index: 2,
 	}
 
-	assert.Equal(t, 0, len(updater.Upsbt.UnsignedTx.Inputs))
-	assert.Equal(t, 0, len(updater.Upsbt.Inputs))
+	assert.Equal(t, 0, len(updater.Data.UnsignedTx.Inputs))
+	assert.Equal(t, 0, len(updater.Data.Inputs))
 
 	updater.AddInput(&txInput)
 
-	assert.Equal(t, 1, len(updater.Upsbt.UnsignedTx.Inputs))
-	assert.Equal(t, 1, len(updater.Upsbt.Inputs))
+	assert.Equal(t, 1, len(updater.Data.UnsignedTx.Inputs))
+	assert.Equal(t, 1, len(updater.Data.Inputs))
 }
 
 func TestUpdaterAddOutput(t *testing.T) {
@@ -137,11 +137,11 @@ func TestUpdaterAddOutput(t *testing.T) {
 		Script: script,
 	}
 
-	assert.Equal(t, 0, len(updater.Upsbt.UnsignedTx.Outputs))
-	assert.Equal(t, 0, len(updater.Upsbt.Outputs))
+	assert.Equal(t, 0, len(updater.Data.UnsignedTx.Outputs))
+	assert.Equal(t, 0, len(updater.Data.Outputs))
 
 	updater.AddOutput(&txOutput)
 
-	assert.Equal(t, 1, len(updater.Upsbt.UnsignedTx.Outputs))
-	assert.Equal(t, 1, len(updater.Upsbt.Outputs))
+	assert.Equal(t, 1, len(updater.Data.UnsignedTx.Outputs))
+	assert.Equal(t, 1, len(updater.Data.Outputs))
 }

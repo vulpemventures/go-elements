@@ -152,6 +152,7 @@ func FromScript(
 		// in case the script is a p2wpkh, we need to set also the legacy script
 		if len(script[2:]) == 20 {
 			scriptHash = append(scriptHash, script[2:]...)
+			_script = buildScript(scriptHash, "p2pkh")
 		}
 		witnessScriptHash = append(scriptHash, script[2:]...)
 		witnessScript = script

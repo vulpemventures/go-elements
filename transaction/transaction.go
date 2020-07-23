@@ -176,7 +176,7 @@ func NewTxFromBuffer(buf *bytes.Buffer) (*Transaction, error) {
 		isPegin := false
 		var issuance *TxIssuance
 		if index != MinusOne {
-			if (index & OutpointIssuanceFlag) == 1 {
+			if index&OutpointIssuanceFlag == OutpointIssuanceFlag {
 				assetBlindingNonce, err := d.ReadSlice(32)
 				if err != nil {
 					return nil, err
@@ -200,7 +200,7 @@ func NewTxFromBuffer(buf *bytes.Buffer) (*Transaction, error) {
 					tokenAmount,
 				}
 			}
-			if (index & OutpointPeginFlag) == 1 {
+			if index&OutpointPeginFlag == OutpointPeginFlag {
 				isPegin = true
 			}
 			index &= OutpointIndexMask

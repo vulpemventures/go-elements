@@ -335,7 +335,8 @@ func (p *Pset) validatePartialSignature(
 		return false, err
 	}
 
-	//TODO
+	//TODO: check if this is valid only for P2PKH and P2WPKH since we
+	//should not be able to compare script hash with public key hash
 	valid, err := p.verifyScripForPubKey(script, partialSignature.PubKey)
 	if err != nil {
 		return false, err

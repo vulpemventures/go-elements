@@ -27,6 +27,12 @@ const (
 	P2Wsh
 	ConfidentialP2Wpkh
 	ConfidentialP2Wsh
+
+	P2PkhScript      = 1
+	P2ShScript       = 2
+	P2MultiSigScript = 3
+	P2WpkhScript     = 4
+	P2WshScript      = 5
 )
 
 // Base58 type defines the structure of an address legacy or wrapped segwit
@@ -325,6 +331,22 @@ func ToOutputScript(address string, net network.Network) ([]byte, error) {
 			Script()
 	default:
 		return nil, errors.New("unsupported address type")
+	}
+}
+
+func GetScriptType(script []byte) int {
+	switch script[0] {
+	case txscript.OP_0:
+		if len(script[2:]) == 20 {
+			return P2WpkhScript
+		}
+		return P2WshScript
+	case txscript.OP_HASH160:
+		return P2ShScript
+	case txscript.OP_DUP:
+		return P2PkhScript
+	default:
+		return P2MultiSigScript
 	}
 }
 

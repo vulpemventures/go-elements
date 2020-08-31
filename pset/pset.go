@@ -19,6 +19,12 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/address"
+	"github.com/vulpemventures/go-elements/network"
+	"github.com/vulpemventures/go-elements/payment"
 	"io"
 
 	"github.com/btcsuite/btcd/wire"
@@ -281,6 +287,193 @@ func (p *Pset) SanityCheck() error {
 	}
 
 	return nil
+}
+
+func (p *Pset) ValidateAllSignatures() (bool, error) {
+	for i := range p.Inputs {
+		valid, err := p.ValidateInputSignatures(i)
+		if err != nil {
+			return false, err
+		}
+		if !valid {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (p *Pset) ValidateInputSignatures(inputIndex int) (bool, error) {
+	for _, partialSig := range p.Inputs[inputIndex].PartialSigs {
+		valid, err := p.validatePartialSignature(inputIndex, partialSig)
+		if err != nil {
+			return false, err
+		}
+		if !valid {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (p *Pset) validatePartialSignature(
+	inputIndex int,
+	partialSignature *psbt.PartialSig,
+) (bool, error) {
+	if partialSignature.PubKey == nil {
+		return false, errors.New("no pub key for partial signature")
+	}
+
+	signatureLen := len(partialSignature.Signature)
+	sigHashType := partialSignature.Signature[signatureLen-1]
+	signatureDer := partialSignature.Signature[:signatureLen-1]
+
+	sigHash, script, err := p.getHashAndScriptForSignature(
+		inputIndex,
+		uint32(sigHashType),
+	)
+	if err != nil {
+		return false, err
+	}
+
+	//TODO
+	p.verifyScripForPubKey(script, partialSignature.PubKey)
+
+	pSig, err := btcec.ParseDERSignature(signatureDer, btcec.S256())
+	if err != nil {
+		return false, nil
+	}
+
+	pubKey, err := btcec.ParsePubKey(partialSignature.PubKey, btcec.S256())
+	if err != nil {
+		return false, nil
+	}
+
+	return pSig.Verify(sigHash[:], pubKey), nil
+}
+
+func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) (
+	[]byte,
+	[]byte,
+	error,
+) {
+	var hash [32]byte
+	var script []byte
+
+	input := p.Inputs[inputIndex]
+
+	if input.NonWitnessUtxo != nil {
+		prevoutHash := p.UnsignedTx.Inputs[inputIndex].Hash
+		utxoHash := input.NonWitnessUtxo.WitnessHash()
+
+		if bytes.Compare(prevoutHash, utxoHash.CloneBytes()) == 1 {
+			return nil, nil,
+				errors.New("mon-witness utxo hash for input doesnt match the " +
+					"hash specified in the prevout")
+		}
+
+		prevoutIndex := p.UnsignedTx.Inputs[inputIndex].Index
+		prevout := input.NonWitnessUtxo.Outputs[prevoutIndex]
+		if input.RedeemScript != nil {
+			script = input.RedeemScript
+		} else {
+			script = prevout.Script
+		}
+
+		switch address.GetScriptType(script) {
+
+		case address.P2WshScript:
+			hash = p.UnsignedTx.HashForWitnessV0(
+				inputIndex,
+				input.WitnessScript,
+				prevout.Value,
+				txscript.SigHashType(sigHashType),
+			)
+			script = input.WitnessScript
+
+		case address.P2WpkhScript:
+			pay, err := payment.FromScript(
+				script,
+				&network.Liquid,
+				nil,
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+			hash = p.UnsignedTx.HashForWitnessV0(
+				inputIndex,
+				pay.Script,
+				input.WitnessUtxo.Value,
+				txscript.SigHashType(sigHashType),
+			)
+		default:
+			var err error
+			hash, err = p.UnsignedTx.HashForSignature(
+				inputIndex,
+				script,
+				txscript.SigHashType(sigHashType),
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+	} else if input.WitnessUtxo != nil {
+		if input.RedeemScript != nil {
+			script = input.RedeemScript
+		} else {
+			script = input.WitnessUtxo.Script
+		}
+		switch address.GetScriptType(script) {
+
+		case address.P2WpkhScript:
+			pay, err := payment.FromScript(
+				script,
+				&network.Liquid,
+				nil,
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+			hash = p.UnsignedTx.HashForWitnessV0(
+				inputIndex,
+				pay.Script,
+				input.WitnessUtxo.Value,
+				txscript.SigHashType(sigHashType),
+			)
+		case address.P2WshScript:
+			hash = p.UnsignedTx.HashForWitnessV0(
+				inputIndex,
+				input.WitnessScript,
+				input.WitnessUtxo.Value,
+				txscript.SigHashType(sigHashType),
+			)
+			script = input.WitnessScript
+		default:
+			return nil, nil, errors.New("inputhas witnessUtxo but non-segwit script")
+		}
+
+	} else {
+		return nil, nil, errors.New("need a utxo input item for signing")
+	}
+
+	return hash[:], script, nil
+}
+
+//TODO: check if this is valid only for P2PKH and P2WPKH since we
+//should not be able to compare script hash with public key hash
+func (p *Pset) verifyScripForPubKey(script []byte, pubKey []byte) (bool, error) {
+	pay, err := payment.FromScript(script, &network.Liquid, nil)
+	if err != nil {
+		return false, err
+	}
+
+	pkh := payment.Hash160(pubKey)
+	res := bytes.Compare(pay.Hash, pkh)
+
+	if res == 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // Serialize creates a binary serialization of the referenced Pset struct

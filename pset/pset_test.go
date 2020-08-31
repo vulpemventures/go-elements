@@ -166,14 +166,19 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	}
 
 	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Update the pset adding the input signature script and the pubkey.
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	valid, err := updater.Data.ValidateAllSignatures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal(errors.New("invalid signatures"))
 	}
 
 	// Finalize the partial transaction.
@@ -311,6 +316,14 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	valid, err := updater.Data.ValidateAllSignatures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal(errors.New("invalid signatures"))
 	}
 
 	// Finalize the partial transaction.
@@ -458,6 +471,14 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	valid, err := updater.Data.ValidateAllSignatures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal(errors.New("invalid signatures"))
 	}
 
 	// Finalize the partial transaction.
@@ -638,6 +659,14 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	valid, err := updater.Data.ValidateAllSignatures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal(errors.New("invalid signatures"))
 	}
 
 	// Finalize the partial transaction.
@@ -823,6 +852,14 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	valid, err := updater.Data.ValidateAllSignatures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal(errors.New("invalid signatures"))
+	}
+
 	// Finalize the partial transaction.
 	p = updater.Data
 	err = FinalizeAll(p)
@@ -996,6 +1033,14 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	valid, err := updater.Data.ValidateAllSignatures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal(errors.New("invalid signatures"))
 	}
 
 	// Finalize the partial transaction.

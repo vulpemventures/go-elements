@@ -336,7 +336,13 @@ func (p *Pset) validatePartialSignature(
 	}
 
 	//TODO
-	p.verifyScripForPubKey(script, partialSignature.PubKey)
+	valid, err := p.verifyScripForPubKey(script, partialSignature.PubKey)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, nil
+	}
 
 	pSig, err := btcec.ParseDERSignature(signatureDer, btcec.S256())
 	if err != nil {

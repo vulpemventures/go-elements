@@ -148,10 +148,8 @@ func FromScript(
 	witnessScript := make([]byte, 0)
 	switch address.GetScriptType(script) {
 	case address.P2WpkhScript:
-		if len(script[2:]) == 20 {
-			scriptHash = append(scriptHash, script[2:]...)
-			_script = buildScript(scriptHash, "p2pkh")
-		}
+		scriptHash = append(scriptHash, script[2:]...)
+		_script = buildScript(scriptHash, "p2pkh")
 		witnessScriptHash = append(scriptHash, script[2:]...)
 		witnessScript = script
 	case address.P2WshScript:

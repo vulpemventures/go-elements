@@ -289,9 +289,9 @@ func (p *Pset) SanityCheck() error {
 	return nil
 }
 
-func (p *Pset) ValidateAllSignatures() (bool, error) {
+func (p *Pset) ValidateAllSignatures(net *network.Network) (bool, error) {
 	for i := range p.Inputs {
-		valid, err := p.ValidateInputSignatures(i)
+		valid, err := p.ValidateInputSignatures(i, net)
 		if err != nil {
 			return false, err
 		}
@@ -302,22 +302,29 @@ func (p *Pset) ValidateAllSignatures() (bool, error) {
 	return true, nil
 }
 
-func (p *Pset) ValidateInputSignatures(inputIndex int) (bool, error) {
-	for _, partialSig := range p.Inputs[inputIndex].PartialSigs {
-		valid, err := p.validatePartialSignature(inputIndex, partialSig)
-		if err != nil {
-			return false, err
+func (p *Pset) ValidateInputSignatures(inputIndex int, net *network.Network) (
+	bool,
+	error,
+) {
+	if len(p.Inputs[inputIndex].PartialSigs) > 0 {
+		for _, partialSig := range p.Inputs[inputIndex].PartialSigs {
+			valid, err := p.validatePartialSignature(inputIndex, partialSig, net)
+			if err != nil {
+				return false, err
+			}
+			if !valid {
+				return false, nil
+			}
 		}
-		if !valid {
-			return false, nil
-		}
+		return true, nil
 	}
-	return true, nil
+	return false, nil
 }
 
 func (p *Pset) validatePartialSignature(
 	inputIndex int,
 	partialSignature *psbt.PartialSig,
+	net *network.Network,
 ) (bool, error) {
 	if partialSignature.PubKey == nil {
 		return false, errors.New("no pub key for partial signature")
@@ -337,7 +344,7 @@ func (p *Pset) validatePartialSignature(
 
 	//TODO: check if this is valid only for P2PKH and P2WPKH since we
 	//should not be able to compare script hash with public key hash
-	valid, err := p.verifyScripForPubKey(script, partialSignature.PubKey)
+	valid, err := p.verifyScriptForPubKey(script, partialSignature.PubKey, net)
 	if err != nil {
 		return false, err
 	}
@@ -374,7 +381,7 @@ func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) 
 
 		if bytes.Compare(prevoutHash, utxoHash.CloneBytes()) == 1 {
 			return nil, nil,
-				errors.New("mon-witness utxo hash for input doesnt match the " +
+				errors.New("non-witness utxo hash for input doesnt match the " +
 					"hash specified in the prevout")
 		}
 
@@ -389,6 +396,10 @@ func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) 
 		switch address.GetScriptType(script) {
 
 		case address.P2WshScript:
+			if input.WitnessScript == nil {
+				return nil, nil,
+					errors.New("segwit input needs witnessScript if not p2wpkh")
+			}
 			hash = p.UnsignedTx.HashForWitnessV0(
 				inputIndex,
 				input.WitnessScript,
@@ -400,7 +411,7 @@ func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) 
 		case address.P2WpkhScript:
 			pay, err := payment.FromScript(
 				script,
-				&network.Liquid,
+				nil,
 				nil,
 			)
 			if err != nil {
@@ -434,7 +445,7 @@ func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) 
 		case address.P2WpkhScript:
 			pay, err := payment.FromScript(
 				script,
-				&network.Liquid,
+				nil,
 				nil,
 			)
 			if err != nil {
@@ -467,8 +478,12 @@ func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) 
 
 //TODO: check if this is valid only for P2PKH and P2WPKH since we
 //should not be able to compare script hash with public key hash
-func (p *Pset) verifyScripForPubKey(script []byte, pubKey []byte) (bool, error) {
-	pay, err := payment.FromScript(script, &network.Liquid, nil)
+func (p *Pset) verifyScriptForPubKey(
+	script []byte,
+	pubKey []byte,
+	net *network.Network,
+) (bool, error) {
+	pay, err := payment.FromScript(script, net, nil)
 	if err != nil {
 		return false, err
 	}

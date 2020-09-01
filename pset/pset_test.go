@@ -173,7 +173,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures(&network.Liquid)
+	valid, err := updater.Data.ValidateAllSignatures()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures(&network.Liquid)
+	valid, err := updater.Data.ValidateAllSignatures()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +473,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures(&network.Liquid)
+	valid, err := updater.Data.ValidateAllSignatures()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -661,7 +661,7 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures(&network.Liquid)
+	valid, err := updater.Data.ValidateAllSignatures()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -852,7 +852,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures(&network.Liquid)
+	valid, err := updater.Data.ValidateAllSignatures()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1035,7 +1035,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures(&network.Liquid)
+	valid, err := updater.Data.ValidateAllSignatures()
 	if err != nil {
 		t.Fatal(err)
 	}

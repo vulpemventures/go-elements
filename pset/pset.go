@@ -23,9 +23,9 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/address"
-	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"io"
+	"strings"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil/psbt"
@@ -289,9 +289,9 @@ func (p *Pset) SanityCheck() error {
 	return nil
 }
 
-func (p *Pset) ValidateAllSignatures(net *network.Network) (bool, error) {
+func (p *Pset) ValidateAllSignatures() (bool, error) {
 	for i := range p.Inputs {
-		valid, err := p.ValidateInputSignatures(i, net)
+		valid, err := p.ValidateInputSignatures(i)
 		if err != nil {
 			return false, err
 		}
@@ -302,13 +302,13 @@ func (p *Pset) ValidateAllSignatures(net *network.Network) (bool, error) {
 	return true, nil
 }
 
-func (p *Pset) ValidateInputSignatures(inputIndex int, net *network.Network) (
+func (p *Pset) ValidateInputSignatures(inputIndex int) (
 	bool,
 	error,
 ) {
 	if len(p.Inputs[inputIndex].PartialSigs) > 0 {
 		for _, partialSig := range p.Inputs[inputIndex].PartialSigs {
-			valid, err := p.validatePartialSignature(inputIndex, partialSig, net)
+			valid, err := p.validatePartialSignature(inputIndex, partialSig)
 			if err != nil {
 				return false, err
 			}
@@ -324,7 +324,6 @@ func (p *Pset) ValidateInputSignatures(inputIndex int, net *network.Network) (
 func (p *Pset) validatePartialSignature(
 	inputIndex int,
 	partialSignature *psbt.PartialSig,
-	net *network.Network,
 ) (bool, error) {
 	if partialSignature.PubKey == nil {
 		return false, errors.New("no pub key for partial signature")
@@ -342,9 +341,7 @@ func (p *Pset) validatePartialSignature(
 		return false, err
 	}
 
-	//TODO: check if this is valid only for P2PKH and P2WPKH since we
-	//should not be able to compare script hash with public key hash
-	valid, err := p.verifyScriptForPubKey(script, partialSignature.PubKey, net)
+	valid, err := p.verifyScriptForPubKey(script, partialSignature.PubKey)
 	if err != nil {
 		return false, err
 	}
@@ -476,22 +473,30 @@ func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) 
 	return hash[:], script, nil
 }
 
-//TODO: check if this is valid only for P2PKH and P2WPKH since we
-//should not be able to compare script hash with public key hash
 func (p *Pset) verifyScriptForPubKey(
 	script []byte,
 	pubKey []byte,
-	net *network.Network,
 ) (bool, error) {
-	pay, err := payment.FromScript(script, net, nil)
+
+	pk, err := btcec.ParsePubKey(pubKey, btcec.S256())
 	if err != nil {
 		return false, err
 	}
 
-	pkh := payment.Hash160(pubKey)
-	res := bytes.Compare(pay.Hash, pkh)
+	pkHash := payment.Hash160(pubKey)
 
-	if res == 0 {
+	scriptAsm, err := txscript.DisasmString(script)
+	if err != nil {
+		return false, err
+	}
+
+	if strings.Contains(
+		scriptAsm,
+		hex.EncodeToString(pk.SerializeCompressed()),
+	) || strings.Contains(
+		scriptAsm,
+		hex.EncodeToString(pkHash),
+	) {
 		return true, nil
 	}
 

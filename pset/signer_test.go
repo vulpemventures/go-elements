@@ -3,7 +3,6 @@ package pset
 import (
 	"encoding/hex"
 	"encoding/json"
-	"github.com/vulpemventures/go-elements/network"
 	"io/ioutil"
 	"testing"
 )
@@ -28,7 +27,7 @@ func TestSigner(t *testing.T) {
 			signature, _ := hex.DecodeString(in["signature"].(string))
 			pubkey, _ := hex.DecodeString(in["pubkey"].(string))
 			updater.Sign(inIndex, signature, pubkey, p.Inputs[inIndex].RedeemScript, p.Inputs[inIndex].WitnessScript)
-			valid, err := updater.Data.ValidateAllSignatures(&network.Liquid)
+			valid, err := updater.Data.ValidateInputSignatures(inIndex)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -39,7 +39,7 @@ func FromPublicKey(
 		tmpNet = net
 	}
 	publicKeyBytes := pubkey.SerializeCompressed()
-	pkHash := hash160(publicKeyBytes)
+	pkHash := Hash160(publicKeyBytes)
 	script := buildScript(pkHash, "p2pkh")
 	witnessScript := buildScript(pkHash, "p2wpkh")
 
@@ -109,7 +109,7 @@ func FromPayment(payment *Payment) (*Payment, error) {
 	} else {
 		scriptToHash = redeem.Script
 	}
-	scriptHash := hash160(scriptToHash)
+	scriptHash := Hash160(scriptToHash)
 	witnessScriptHash := sha256.Sum256(scriptToHash)
 	script := buildScript(scriptHash, "p2sh")
 	witnessScript := buildScript(witnessScriptHash[:], "p2wsh")
@@ -146,22 +146,19 @@ func FromScript(
 	witnessScriptHash := make([]byte, 0)
 	_script := make([]byte, 0)
 	witnessScript := make([]byte, 0)
-	switch script[0] {
-	// p2wpkh / p2wsh
-	case txscript.OP_0:
-		// in case the script is a p2wpkh, we need to set also the legacy script
-		if len(script[2:]) == 20 {
-			scriptHash = append(scriptHash, script[2:]...)
-			_script = buildScript(scriptHash, "p2pkh")
-		}
+	switch address.GetScriptType(script) {
+	case address.P2WpkhScript:
+		scriptHash = append(scriptHash, script[2:]...)
+		_script = buildScript(scriptHash, "p2pkh")
 		witnessScriptHash = append(scriptHash, script[2:]...)
 		witnessScript = script
-	// p2sh
-	case txscript.OP_HASH160:
+	case address.P2WshScript:
+		witnessScriptHash = append(scriptHash, script[2:]...)
+		witnessScript = script
+	case address.P2ShScript:
 		scriptHash = append(scriptHash, script[2:len(script)-1]...)
 		_script = script
-	// p2pkh
-	case txscript.OP_DUP:
+	case address.P2PkhScript:
 		scriptHash = append(scriptHash, script[3:len(script)-2]...)
 		_script = script
 	// multisig, here we do not calculate the hashes because this payment
@@ -349,7 +346,7 @@ func calcHash(buf []byte, hasher hash.Hash) []byte {
 }
 
 // Hash160 calculates the hash ripemd160(sha256(b)).
-func hash160(buf []byte) []byte {
+func Hash160(buf []byte) []byte {
 	return calcHash(calcHash(buf, sha256.New()), ripemd160.New())
 }
 

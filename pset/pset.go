@@ -20,15 +20,15 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/vulpemventures/go-elements/address"
-	"github.com/vulpemventures/go-elements/payment"
 	"io"
 	"strings"
 
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil/psbt"
+	"github.com/vulpemventures/go-elements/address"
+	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -374,7 +374,7 @@ func (p *Pset) getHashAndScriptForSignature(inputIndex int, sigHashType uint32) 
 
 	if input.NonWitnessUtxo != nil {
 		prevoutHash := p.UnsignedTx.Inputs[inputIndex].Hash
-		utxoHash := input.NonWitnessUtxo.WitnessHash()
+		utxoHash := input.NonWitnessUtxo.TxHash()
 
 		if bytes.Compare(prevoutHash, utxoHash.CloneBytes()) == 1 {
 			return nil, nil,

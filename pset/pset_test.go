@@ -79,6 +79,238 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+func TestBroadcastBlindedSwapTx(t *testing.T) {
+	/**
+	* This test attempts to broadcast a confidential swap transaction
+	* composed by 2 P2WPKH confidential input and 3 confidential outputs. The
+	* outputs will be a confidential p2wpkh for both the asset, the
+	* L-BTC, and another confidential p2wpkh for the change. A 4th
+	* unblinded output is for the fees, with empty script.
+	**/
+
+	// Generating Alices Keys and Address
+	privkeyAlice, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubkeyAlice := privkeyAlice.PubKey()
+	p2wpkhAlice := payment.FromPublicKey(pubkeyAlice, &network.Regtest, nil)
+	addressAlice, _ := p2wpkhAlice.WitnessPubKeyHash()
+
+	// Generating Bobs Keys and Address
+	privkeyBob, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubkeyBob := privkeyBob.PubKey()
+	p2wpkhBob := payment.FromPublicKey(pubkeyBob, &network.Regtest, nil)
+	addressBob, _ := p2wpkhBob.WitnessPubKeyHash()
+
+	// Fund Alice address with LBTC.
+	_, err = faucet(addressAlice)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Fund Bob address with an asset.
+	_, err = mint(addressBob, 1000, "VULPEM", "VLP")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve Alice utxos.
+	utxosAlice, err := unspents(addressAlice)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve Bob utxos.
+	utxosBob, err := unspents(addressBob)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The transaction will have 2 input and 3 outputs.
+	// Input From Alice
+	txInputHashAlice, _ := hex.DecodeString(utxosAlice[0]["txid"].(string))
+	txInputHashAlice = bufferutil.ReverseBytes(txInputHashAlice)
+	txInputIndexAlice := uint32(utxosAlice[0]["vout"].(float64))
+	txInputAlice := transaction.NewTxInput(txInputHashAlice, txInputIndexAlice)
+	// Input From Bob
+	txInputHashBob, _ := hex.DecodeString(utxosBob[0]["txid"].(string))
+	txInputHashBob = bufferutil.ReverseBytes(txInputHashBob)
+	txInputIndexBob := uint32(utxosBob[0]["vout"].(float64))
+	txInputBob := transaction.NewTxInput(txInputHashBob, txInputIndexBob)
+
+	//// Outputs from Alice
+	// LBTC to Bob
+	lbtc, _ := hex.DecodeString(
+		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	)
+	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
+	aliceToBobValue, _ := confidential.SatoshiToElementsValue(60000000)
+	aliceToBobScript := p2wpkhBob.WitnessScript
+	aliceToBobOutput := transaction.NewTxOutput(lbtc, aliceToBobValue[:], aliceToBobScript)
+	// Change from/to Alice
+	changeScriptAlice := p2wpkhAlice.WitnessScript
+	changeValueAlice, _ := confidential.SatoshiToElementsValue(39999500)
+	changeOutputAlice := transaction.NewTxOutput(lbtc, changeValueAlice[:], changeScriptAlice)
+
+	// Asset hex
+	asset, _ := hex.DecodeString(
+		utxosBob[0]["asset"].(string),
+	)
+	asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
+
+	//// Outputs from Bob
+	// Asset to Alice
+	bobToAliceValue, _ := confidential.SatoshiToElementsValue(100000000000)
+	bobToAliceScript := p2wpkhAlice.WitnessScript
+	bobToAliceOutput := transaction.NewTxOutput(asset, bobToAliceValue[:], bobToAliceScript)
+
+	// Create a new pset with all the outputs that need to be blinded first
+	inputs := []*transaction.TxInput{txInputAlice, txInputBob}
+	outputs := []*transaction.TxOutput{aliceToBobOutput, changeOutputAlice, bobToAliceOutput}
+	p, err := New(inputs, outputs, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add sighash type and witness utxos to the partial input.
+	updater, err := NewUpdater(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = updater.AddInSighashType(txscript.SigHashAll, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	witValueAlice, _ := confidential.SatoshiToElementsValue(uint64(utxosAlice[0]["value"].(float64)))
+	witnessUtxoAlice := transaction.NewTxOutput(lbtc, witValueAlice[:], p2wpkhAlice.WitnessScript)
+	err = updater.AddInWitnessUtxo(witnessUtxoAlice, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = updater.AddInSighashType(txscript.SigHashAll, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	witValueBob, _ := confidential.SatoshiToElementsValue(uint64(utxosBob[0]["value"].(float64)))
+	witnessUtxoBob := transaction.NewTxOutput(asset, witValueBob[:], p2wpkhBob.WitnessScript)
+	err = updater.AddInWitnessUtxo(witnessUtxoBob, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//blind outputs
+	blindingPubKeys := make([][]byte, 0)
+
+	pk, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindingpubkey := pk.PubKey().SerializeCompressed()
+	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
+
+	pk1, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
+	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
+
+	pk2, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindingpubkey2 := pk2.PubKey().SerializeCompressed()
+	blindingPubKeys = append(blindingPubKeys, blindingpubkey2)
+
+	blindingPrivKeys := [][]byte{pk.Serialize(), pk1.Serialize()}
+
+	blinder, err := NewBlinder(
+		p,
+		blindingPrivKeys,
+		blindingPubKeys,
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = blinder.Blind()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add the unblinded outputs now, that's only the fee output in this case
+	feeScript := []byte{}
+	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	updater.AddOutput(feeOutput)
+
+	// Generate Alices Signature
+	witHashAlice := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkhAlice.Script, witValueAlice[:], txscript.SigHashAll)
+	sigAlice, err := privkeyAlice.Sign(witHashAlice[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	sigWithHashTypeAlice := append(sigAlice.Serialize(), byte(txscript.SigHashAll))
+
+	// Update the pset adding Alices input signature script and the pubkey.
+	_, err = updater.Sign(0, sigWithHashTypeAlice, pubkeyAlice.SerializeCompressed(), nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Generate Bobs Signature
+	witHashBob := updater.Data.UnsignedTx.HashForWitnessV0(1, p2wpkhBob.Script, witValueBob[:], txscript.SigHashAll)
+	sigBob, err := privkeyBob.Sign(witHashBob[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	sigWithHashTypeBob := append(sigBob.Serialize(), byte(txscript.SigHashAll))
+
+	// Update the pset adding Bobs input signature script and the pubkey.
+	_, err = updater.Sign(1, sigWithHashTypeBob, pubkeyBob.SerializeCompressed(), nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	valid, err := updater.Data.ValidateAllSignatures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal(errors.New("invalid signatures"))
+	}
+
+	// Finalize the partial transaction.
+	p = updater.Data
+	err = FinalizeAll(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Extract the final signed transaction from the Pset wrapper.
+	finalTx, err := Extract(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Serialize the transaction and try to broadcast.
+	txHex, err := finalTx.ToHex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = broadcast(txHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBroadcastUnblindedTxP2PKH(t *testing.T) {
 	/**
 	* This test attempts to broadcast a transaction composed by 1 input and 3
@@ -245,8 +477,6 @@ func TestBroadcastUnblindedTxP2PKH2Inputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Println(utxos)
 
 	// The transaction will have 1 input and 3 outputs.
 	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
@@ -652,7 +882,6 @@ func TestBroadcastUnblindedIssuanceTxP2PKH(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println((*(updater.Data.Inputs[0].PartialSigs[0])))
 	valid, err = updater.Data.ValidateInputSignatures(1)
 	if err != nil {
 		t.Fatal(err)
@@ -1710,6 +1939,31 @@ func faucet(address string) (string, error) {
 	}
 
 	return respBody["txId"], nil
+}
+
+func mint(address string, quantity int, name string, ticker string) (string, error) {
+	baseUrl, ok := os.LookupEnv("API_URL")
+	if !ok {
+		return "", errors.New("API_URL environment variable is not set")
+	}
+	url := baseUrl + "/mint"
+	payload := map[string]interface{}{"address": address, "quantity": quantity, "name": name, "ticker": ticker}
+	body, _ := json.Marshal(payload)
+	resp, err := http.Post(url, "appliation/json", bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	respBody := map[string]interface{}{}
+
+	err = json.Unmarshal(data, &respBody)
+	if err != nil {
+		return "", err
+	}
+	return respBody["txId"].(string), nil
 }
 
 func unspents(address string) ([]map[string]interface{}, error) {

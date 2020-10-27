@@ -14,7 +14,6 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// A modification of the BIP-174 standard for Partial Signed Elements Transaction.
 package pset
 
 import (

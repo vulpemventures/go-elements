@@ -29,7 +29,7 @@ func ROLE_1_Creator() *PSET_PACKAGE { return nil }
 // The updater can be instantiated by calling the NewUpdater factory function passing a partial transasction object.
 func ROLE_2_Updater() *PSET_PACKAGE { return nil }
 
-// At the moment the blinder role is designed to blind ALL the outputs of the partial transaction, but
+// At the moment the blinder role is designed to blind ALL the outputs of the partial transaction but
 // this will change soon, letting one to blind only the set of outputs he wants.
 // Also, this version of the blinder requires that all the private keys necessary
 // to unblind all the confidential inputs used must be provided.

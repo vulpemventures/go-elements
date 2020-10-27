@@ -43,3 +43,23 @@ func TestFinalizer(t *testing.T) {
 		}
 	}
 }
+
+func ExampleMaybeFinalize() {
+	p = updater.Data
+	boolean = MaybeFinalize(p, 0)
+}
+
+func ExampleMaybeFinalizeAll() {
+	p = updater.Data
+	err = FinalizeAll(p)
+}
+
+func ExampleFinalizeAll() {
+	p = updater.Data
+	err = FinalizeAll(p)
+}
+
+func ExampleFinalize() {
+	p := updater.Data
+	err := FinalizeAll(p)
+}

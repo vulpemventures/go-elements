@@ -35,3 +35,8 @@ func TestExtractor(t *testing.T) {
 		}
 	}
 }
+
+func ExampleExtract() {
+	p := updater.Data
+	finalTx, err := Extract(p)
+}

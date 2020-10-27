@@ -12,6 +12,7 @@ import (
 
 type randomNumberGenerator func() ([]byte, error)
 
+// blinder is designed to blind ALL the outputs of the partial transaction.
 type blinder struct {
 	pset                        *Pset
 	blindingPrivkeys            [][]byte
@@ -20,6 +21,7 @@ type blinder struct {
 	rng                         randomNumberGenerator
 }
 
+// IssuanceBlindingPrivateKeys stores the AssetKey and TokenKey that will be used in the Blinder.
 type IssuanceBlindingPrivateKeys struct {
 	AssetKey []byte
 	TokenKey []byte

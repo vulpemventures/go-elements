@@ -62,3 +62,10 @@ func TestCreator(t *testing.T) {
 		}
 	}
 }
+
+func ExampleNew() {
+	inputs := []*transaction.TxInput{txInputAlice, txInputBob}
+	outputs := []*transaction.TxOutput{aliceToBobOutput, changeOutputAlice, bobToAliceOutput}
+
+	p, err := New(inputs, outputs, 2, 0)
+}

@@ -145,3 +145,7 @@ func TestUpdaterAddOutput(t *testing.T) {
 	assert.Equal(t, 1, len(updater.Data.UnsignedTx.Outputs))
 	assert.Equal(t, 1, len(updater.Data.Outputs))
 }
+
+func ExampleNewUpdater() {
+	updater, err := NewUpdater(p)
+}

@@ -1742,3 +1742,21 @@ func fetchTx(txId string) ([]byte, error) {
 
 	return data, nil
 }
+
+func ExampleNewPsetFromUnsignedTx() {
+	tx := &Transaction{}
+	tx.AddInput(txIn)
+	tx.AddOutput(txOut)
+
+	p, err := NewPsetFromUnsignedTx(tx)
+}
+
+func ExampleNewPsetFromHex() {
+	psetHex, err := pset.ToHex()
+	p, err := NewPsetFromHex(psetHex)
+}
+
+func ExampleNewPsetFromBase64() {
+	pset64, err := pset.ToBase64()
+	p, err := NewPsetFromHex(pset64)
+}

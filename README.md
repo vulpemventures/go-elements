@@ -74,6 +74,14 @@ $ export API_URL=http://localhost:3001
 $ go test ./... -v
 ```
 
+* More detailed documentation
+
+```
+$ godoc -http ":8080"
+```
+
+> http://localhost:8080/pkg/github.com/vulpemventures/go-elements/
+
 ## 👷‍♂️ Contributors
 
 - [@tiero](https://github.com/tiero)

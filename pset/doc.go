@@ -24,7 +24,7 @@ type PSET_PACKAGE int
 //   func New(inputs []*transaction.TxInput, outputs []*transaction.TxOutput, version int32, nLockTime uint32) (*Pset, error) {}
 // The role of this function is to simply create an unsigned partial transaction with the given inputs, outputs, version and locktime.
 // The unblinded asset and amounts of the outputs are encoded into the "unsigned tx" field of the partial transaction.
-func Creator() *PSET_PACKAGE {}
+func Creator() *PSET_PACKAGE { return nil }
 
 /*
 This is a simple exemplification on how to perform a basic P2PKH transaction using the PSET package
@@ -154,4 +154,4 @@ Finally, our transaction is ready to be serialized and broadcasted to the networ
 		t.Fatal(err)
 	}
 */
-func P2WPKH_TX() *PSET_PACKAGE {}
+func P2WPKH_TX() *PSET_PACKAGE { return nil }

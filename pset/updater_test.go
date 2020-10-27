@@ -147,5 +147,9 @@ func TestUpdaterAddOutput(t *testing.T) {
 }
 
 func ExampleNewUpdater() {
+	inputs := []*transaction.TxInput{}
+	outputs := []*transaction.TxOutput{}
+	p, err := New(inputs, outputs, 2, 0)
+
 	updater, err := NewUpdater(p)
 }

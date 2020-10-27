@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"testing"
+
+	"github.com/vulpemventures/go-elements/transaction"
 )
 
 func TestExtractor(t *testing.T) {
@@ -37,6 +39,11 @@ func TestExtractor(t *testing.T) {
 }
 
 func ExampleExtract() {
-	p := updater.Data
-	finalTx, err := Extract(p)
+	inputs := []*transaction.TxInput{}
+	outputs := []*transaction.TxOutput{}
+	p, err := New(inputs, outputs, 2, 0)
+	updater, err := NewUpdater(p)
+	pset := updater.Data
+
+	finalTx, err := Extract(pset)
 }

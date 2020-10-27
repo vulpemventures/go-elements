@@ -87,5 +87,6 @@ $ godoc -http ":8080"
 - [@tiero](https://github.com/tiero)
 - [@altafan](https://github.com/altafan)
 - [@sekulicd](https://github.com/sekulicd)
+- [@francismars](https://github.com/francismars)
 
 ## License [MIT](https://github.com/vulpemventures/go-elements/blob/master/LICENSE)

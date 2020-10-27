@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"testing"
-
-	"github.com/vulpemventures/go-elements/transaction"
 )
 
 func TestFinalizer(t *testing.T) {
@@ -44,44 +42,4 @@ func TestFinalizer(t *testing.T) {
 			t.Fatalf("Got: %s, expected: %s", hexRes, expectedHex)
 		}
 	}
-}
-
-func ExampleMaybeFinalize() {
-	inputs := []*transaction.TxInput{}
-	outputs := []*transaction.TxOutput{}
-	p, err := New(inputs, outputs, 2, 0)
-	updater, err := NewUpdater(p)
-	pset := updater.Data
-
-	boolean = MaybeFinalize(pset, 0)
-}
-
-func ExampleMaybeFinalizeAll() {
-	inputs := []*transaction.TxInput{}
-	outputs := []*transaction.TxOutput{}
-	p, err := New(inputs, outputs, 2, 0)
-	updater, err := NewUpdater(p)
-	pset := updater.Data
-
-	err = FinalizeAll(pset)
-}
-
-func ExampleFinalizeAll() {
-	inputs := []*transaction.TxInput{}
-	outputs := []*transaction.TxOutput{}
-	p, err := New(inputs, outputs, 2, 0)
-	updater, err := NewUpdater(p)
-	pset := updater.Data
-
-	err = FinalizeAll(pset)
-}
-
-func ExampleFinalize() {
-	inputs := []*transaction.TxInput{}
-	outputs := []*transaction.TxOutput{}
-	p, err := New(inputs, outputs, 2, 0)
-	updater, err := NewUpdater(p)
-	pset := updater.Data
-
-	err := FinalizeAll(pset)
 }

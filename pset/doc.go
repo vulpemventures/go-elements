@@ -3,9 +3,6 @@
 // notifications and/or internal descriptions of the file that you do not want
 // to show.
 
-// Package godoctricks is a tutorial that deals with tricks for making your
-// godoc organized and neat. This is a compilation of tricks I've collected and
-// couldn't find a comprehensive guide for.
 package pset
 
 // A modification of the BIP-174 standard for Partial Signed Elements Transaction
@@ -27,7 +24,7 @@ type PSET_PACKAGE int
 //   func New(inputs []*transaction.TxInput, outputs []*transaction.TxOutput, version int32, nLockTime uint32) (*Pset, error) {}
 // The role of this function is to simply create an unsigned partial transaction with the given inputs, outputs, version and locktime.
 // The unblinded asset and amounts of the outputs are encoded into the "unsigned tx" field of the partial transaction.
-func Creator() *PSET_PACKAGE
+func Creator() *PSET_PACKAGE {}
 
 /*
 This is a simple exemplification on how to perform a basic P2PKH transaction using the PSET package
@@ -157,15 +154,4 @@ Finally, our transaction is ready to be serialized and broadcasted to the networ
 		t.Fatal(err)
 	}
 */
-func P2WPKH_TX() *PSET_PACKAGE
-
-// Methods are attached to their receiver type in the godoc, regardless of
-// their physical location in the code.
-func (Methods) Foo() {}
-
-// Pointer receivers are also associated in the same way.
-func (*Methods) Foo2() {}
-
-// Functions that construct an instance of a type (or a pointer to it) are
-// associated with the returned type.
-func NewMethods() *Methods { return nil }
+func P2WPKH_TX() *PSET_PACKAGE {}

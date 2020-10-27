@@ -145,11 +145,3 @@ func TestUpdaterAddOutput(t *testing.T) {
 	assert.Equal(t, 1, len(updater.Data.UnsignedTx.Outputs))
 	assert.Equal(t, 1, len(updater.Data.Outputs))
 }
-
-func ExampleNewUpdater() {
-	inputs := []*transaction.TxInput{}
-	outputs := []*transaction.TxOutput{}
-	p, err := New(inputs, outputs, 2, 0)
-
-	updater, err := NewUpdater(p)
-}

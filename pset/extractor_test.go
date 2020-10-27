@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"testing"
-
-	"github.com/vulpemventures/go-elements/transaction"
 )
 
 func TestExtractor(t *testing.T) {
@@ -36,14 +34,4 @@ func TestExtractor(t *testing.T) {
 			t.Fatalf("Got: %s, expected: %s", res, expectedTxHex)
 		}
 	}
-}
-
-func ExampleExtract() {
-	inputs := []*transaction.TxInput{}
-	outputs := []*transaction.TxOutput{}
-	p, err := New(inputs, outputs, 2, 0)
-	updater, err := NewUpdater(p)
-	pset := updater.Data
-
-	finalTx, err := Extract(pset)
 }

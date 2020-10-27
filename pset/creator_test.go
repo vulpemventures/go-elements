@@ -62,10 +62,3 @@ func TestCreator(t *testing.T) {
 		}
 	}
 }
-
-func ExampleNew() {
-	inputs := []*transaction.TxInput{}
-	outputs := []*transaction.TxOutput{}
-
-	p, err := New(inputs, outputs, 2, 0)
-}

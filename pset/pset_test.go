@@ -108,12 +108,14 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 
 	// Fund Alice address with LBTC.
 	_, err = faucet(addressAlice)
+	time.Sleep(time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Fund Bob address with an asset.
 	_, err = mint(addressBob, 1000, "VULPEM", "VLP")
+	time.Sleep(time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

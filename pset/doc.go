@@ -61,6 +61,9 @@ func ROLE_6_Extractor() *PSET_PACKAGE { return nil }
 /*
 This is a simple exemplification on how to perform a basic P2PKH transaction using the PSET package
 
+You can run this example with the command:
+  $ go test ./pset -v -count 1 -run TestBroadcastBlindedSwapTx
+
 First, we will need a Private Key and derive a Public key from it. We'll follow by generating a P2PKH address.
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
 		if err != nil {
@@ -190,6 +193,9 @@ func TX_P2PKH() *PSET_PACKAGE { return nil }
 
 /*
 This is a exemplification on how to perform a P2WPKH transaction with Blinded Outputs using the PSET package
+
+You can run this example with the command:
+  $ go test ./pset -v -count 1 -run TestBroadcastBlindedTx
 
 First, we will need a Private Key and derive a Public key from it. We'll follow by generating a P2WPKH address.
 	privkey, err := btcec.NewPrivateKey(btcec.S256())

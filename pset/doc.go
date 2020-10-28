@@ -54,8 +54,8 @@ func ROLE_4_Signer() *PSET_PACKAGE { return nil }
 // an error is returned. A handy FinalizeAll that runs the above method for every input of the provided *Pset is also exported.
 func ROLE_5_Finalizer() *PSET_PACKAGE { return nil }
 
-// The extractor is a simple Extract function expecting a finalized partial transaction that returns the final signed transaction
-// by adding the signatures of the partial inputs to the underlying unsigned transaction.
+// The extractor is a simple Extract function expecting a finalized partial transaction that returns the final signed
+// transaction by adding the signatures of the partial inputs to the underlying unsigned transaction.
 func ROLE_6_Extractor() *PSET_PACKAGE { return nil }
 
 /*

@@ -63,6 +63,7 @@ func ROLE_6_Extractor() *PSET_PACKAGE { return nil }
 
 /*
 This is an exemplification on how to perform a P2WPKH transaction using the PSET package
+with the assistance of vulpemventures/nigiri for funding the address, retrieving the UTXOs and broadcasting.
 
     	privkey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
@@ -72,13 +73,13 @@ This is an exemplification on how to perform a P2WPKH transaction using the PSET
 	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, nil)
 	address, _ := p2wpkh.WitnessPubKeyHash()
 
-	// Fund sender address.
+	// Fund sender address. This function calls the API of vulpemventures/nigiri.
 	_, err = faucet(address)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Retrieve sender utxos.
+	// Retrieve sender utxos. This function calls the API of vulpemventures/nigiri.
 	utxos, err := unspents(address)
 	if err != nil {
 		t.Fatal(err)
@@ -170,6 +171,7 @@ This is an exemplification on how to perform a P2WPKH transaction using the PSET
 	if err != nil {
 		t.Fatal(err)
 	}
+	// This function calls the API of vulpemventures/nigiri.
 	txid, err := broadcast(txHex)
 	if err != nil {
 		t.Fatal(err)

@@ -4,9 +4,10 @@
 
 /*
 This is a exemplification on how to perform a P2WPKH transaction with Blinded Outputs using the PSET package
+with the assistance of vulpemventures/nigiri for funding the address, retrieving the UTXOs and broadcasting.
 
 You can run this example with this command.
-Check its behaviour on the Liquid's Block Explorer on your browser (http://localhost:5001/).
+Check its behaviour on Nigiri's Esplora (http://localhost:5001/).
   $ go test ./pset -v -count 1 -run TestBroadcastBlindedTx
 
 First, we will need a Private Key and derive a Public key from it. We'll follow by generating a P2WPKH address.
@@ -18,6 +19,7 @@ First, we will need a Private Key and derive a Public key from it. We'll follow 
 	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, nil)
 	address, _ := p2wpkh.WitnessPubKeyHash()
 Secondly, we need to fund the address with some UTXOs we can use as inputs.
+This functions require Nigiri Chopsticks for the API calls.
 	_, err = faucet(address)
 	if err != nil {
 		t.Fatal(err)
@@ -151,6 +153,7 @@ extracted from the Pset wrapper. This is implented in the Extractor Role.
 		t.Fatal(err)
 	}
 Finally, our transaction is ready to be serialized and broadcasted to the network.
+The Broadcast function require Nigiri Chopsticks for the API call.
 	txHex, err := finalTx.ToHex()
 	if err != nil {
 		t.Fatal(err)

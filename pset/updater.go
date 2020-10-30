@@ -386,6 +386,8 @@ func (p *Updater) AddOutput(txOutput *transaction.TxOutput) {
 	p.Data.Outputs = append(p.Data.Outputs, POutput{})
 }
 
+// AddIssuanceArg is a struct encapsulating all the issuance data that
+// can be attached to any specific transaction of the PSBT.
 type AddIssuanceArg struct {
 	Precision    uint
 	Contract     *transaction.IssuanceContract

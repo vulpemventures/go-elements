@@ -5,8 +5,11 @@
 # go-elements
 
 [![Build Status](https://travis-ci.com/vulpemventures/go-elements.svg?branch=master)](https://travis-ci.com/vulpemventures/go-elements)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/vulpemventures/go-elements)](https://pkg.go.dev/github.com/vulpemventures/go-elements)
+[![Release](https://img.shields.io/github/release/vulpemventures/go-elements.svg?style=flat-square)](https://github.com/vulpemventures/go-elements/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vulpemventures/go-elements)](https://goreportcard.com/report/github.com/vulpemventures/go-elements)
 [![Bitcoin Donate](https://badgen.net/badge/Bitcoin/Donate/F7931A?icon=bitcoin)](https://blockstream.info/address/3MdERN32qiMnQ68bSSee5CXQkrSGx1iStr)
+
 
 Go support for confidential transactions on Elements-based blockchains
 
@@ -46,7 +49,7 @@ $ go get github.com/vulpemventures/go-elements@latest
 - [x] Signing a confidential input (use 0 value amounts to produce the hash for the signature)
 - [x] Asset issuance
 - [ ] Asset re-issuance
-- [ ] Slip77
+- [x] Slip77
 
 ## 🖥 Development
 

@@ -56,6 +56,7 @@ func TestRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 		res, err := p.ToBase64()
+		fmt.Print(res)
 		if err != nil {
 			t.Fatal(err)
 		}

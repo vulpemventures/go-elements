@@ -246,7 +246,11 @@ func (p *Pset) ToBase64() (string, error) {
 		return "", err
 	}
 
-	return base64.StdEncoding.EncodeToString(buf), nil
+	// convert bytes + add '=' symbols
+	convertedBytes := convertByte(buf, 8, 6, true)
+	base64String := uintBufferToBase64String(convertedBytes)
+
+	return base64String, nil
 }
 
 // ToHex returns the hex encoding of the serialization of
@@ -562,4 +566,48 @@ func (p *Pset) serialize() ([]byte, error) {
 	}
 
 	return buffer.Bytes(), nil
+}
+
+func convertByte(bytes []byte, fromBase uint, toBase uint, pad bool) []uint {
+	result := make([]uint, 0)
+
+	maxValue := uint((1 << toBase) - 1)
+	maxAcc := uint((1 << (fromBase + toBase - 1)) - 1)
+
+	var bits uint = 0
+	var acc uint = 0
+
+	for _, b := range bytes {
+		acc = uint(((acc << fromBase) | uint(b)) & maxAcc)
+		bits += fromBase
+		for bits >= toBase {
+			bits -= toBase
+			value := (acc >> bits) & maxValue
+			result = append(result, value)
+		}
+	}
+
+	if pad {
+		if bits > 0 {
+			value := (acc << (toBase - bits)) & maxValue
+			result = append(result, value)
+		}
+	}
+
+	return result
+}
+
+func uintBufferToBase64String(buffer []uint) string {
+	const base64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	str := ""
+
+	for _, value := range buffer {
+		str += string(base64chars[value])
+	}
+
+	for len(str)%4 != 0 {
+		str += "="
+	}
+
+	return str
 }

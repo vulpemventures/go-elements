@@ -93,32 +93,41 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	blindPrivkeyAlice, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
 	pubkeyAlice := privkeyAlice.PubKey()
-	p2wpkhAlice := payment.FromPublicKey(pubkeyAlice, &network.Regtest, nil)
-	addressAlice, _ := p2wpkhAlice.WitnessPubKeyHash()
+	blindPubkeyAlice := blindPrivkeyAlice.PubKey()
+	p2wpkhAlice := payment.FromPublicKey(pubkeyAlice, &network.Regtest, blindPubkeyAlice)
+	addressAlice, _ := p2wpkhAlice.ConfidentialWitnessPubKeyHash()
 
 	// Generating Bobs Keys and Address
 	privkeyBob, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
 	}
+	blindPrivkeyBob, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
 	pubkeyBob := privkeyBob.PubKey()
-	p2wpkhBob := payment.FromPublicKey(pubkeyBob, &network.Regtest, nil)
-	addressBob, _ := p2wpkhBob.WitnessPubKeyHash()
+	blindPubkeyBob := blindPrivkeyBob.PubKey()
+	p2wpkhBob := payment.FromPublicKey(pubkeyBob, &network.Regtest, blindPubkeyBob)
+	addressBob, _ := p2wpkhBob.ConfidentialWitnessPubKeyHash()
 
 	// Fund Alice address with LBTC.
 	_, err = faucet(addressAlice)
-	time.Sleep(time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Fund Bob address with an asset.
-	_, err = mint(addressBob, 1000, "VULPEM", "VLP")
-	time.Sleep(time.Second)
+	_, mintedAsset, err := mint(addressBob, 1000, "VULPEM", "VLP")
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(2 * time.Second)
 
 	// Retrieve Alice utxos.
 	utxosAlice, err := unspents(addressAlice)
@@ -159,9 +168,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	changeOutputAlice := transaction.NewTxOutput(lbtc, changeValueAlice[:], changeScriptAlice)
 
 	// Asset hex
-	asset, _ := hex.DecodeString(
-		utxosBob[0]["asset"].(string),
-	)
+	asset, _ := hex.DecodeString(mintedAsset)
 	asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
 
 	//// Outputs from Bob
@@ -188,8 +195,29 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValueAlice, _ := confidential.SatoshiToElementsValue(uint64(utxosAlice[0]["value"].(float64)))
-	witnessUtxoAlice := transaction.NewTxOutput(lbtc, witValueAlice[:], p2wpkhAlice.WitnessScript)
+	prevTxHexAlice, err := fetchTx(utxosAlice[0]["txid"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	prevTxAlice, err := transaction.NewTxFromHex(string(prevTxHexAlice))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assetCommitmentAlice, _ := hex.DecodeString(utxosAlice[0]["assetcommitment"].(string))
+	valueCommitmentAlice, _ := hex.DecodeString(utxosAlice[0]["valuecommitment"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	witnessUtxoAlice := &transaction.TxOutput{
+		Asset:           assetCommitmentAlice,
+		Value:           valueCommitmentAlice,
+		Script:          p2wpkhAlice.WitnessScript,
+		Nonce:           prevTxAlice.Outputs[txInputIndexAlice].Nonce,
+		RangeProof:      prevTxAlice.Outputs[txInputIndexAlice].RangeProof,
+		SurjectionProof: prevTxAlice.Outputs[txInputIndexAlice].SurjectionProof,
+	}
 	err = updater.AddInWitnessUtxo(witnessUtxoAlice, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -199,38 +227,45 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValueBob, _ := confidential.SatoshiToElementsValue(uint64(utxosBob[0]["value"].(float64)))
-	witnessUtxoBob := transaction.NewTxOutput(asset, witValueBob[:], p2wpkhBob.WitnessScript)
+	prevTxHexBob, err := fetchTx(utxosBob[0]["txid"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	prevTxBob, err := transaction.NewTxFromHex(string(prevTxHexBob))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assetCommitmentBob, _ := hex.DecodeString(utxosBob[0]["assetcommitment"].(string))
+	valueCommitmentBob, _ := hex.DecodeString(utxosBob[0]["valuecommitment"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	witnessUtxoBob := &transaction.TxOutput{
+		Asset:           assetCommitmentBob,
+		Value:           valueCommitmentBob,
+		Script:          p2wpkhBob.WitnessScript,
+		Nonce:           prevTxBob.Outputs[txInputIndexBob].Nonce,
+		RangeProof:      prevTxBob.Outputs[txInputIndexBob].RangeProof,
+		SurjectionProof: prevTxBob.Outputs[txInputIndexBob].SurjectionProof,
+	}
 	err = updater.AddInWitnessUtxo(witnessUtxoBob, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	//blind outputs
-	blindingPubKeys := make([][]byte, 0)
-
-	pk, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
+	blindingPubKeys := [][]byte{
+		blindPubkeyBob.SerializeCompressed(),
+		blindPubkeyAlice.SerializeCompressed(),
+		blindPubkeyAlice.SerializeCompressed(),
 	}
-	blindingpubkey := pk.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
 
-	pk1, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
+	blindingPrivKeys := [][]byte{
+		blindPrivkeyAlice.Serialize(),
+		blindPrivkeyBob.Serialize(),
 	}
-	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
-
-	pk2, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	blindingpubkey2 := pk2.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey2)
-
-	blindingPrivKeys := [][]byte{pk.Serialize(), pk1.Serialize()}
 
 	blinder, err := NewBlinder(
 		p,
@@ -242,9 +277,14 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = blinder.Blind()
-	if err != nil {
-		t.Fatal(err)
+	for {
+		if err := blinder.Blind(); err != nil {
+			if err != ErrGenerateSurjectionProof {
+				t.Fatal(err)
+			}
+			continue
+		}
+		break
 	}
 
 	// Add the unblinded outputs now, that's only the fee output in this case
@@ -254,7 +294,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	updater.AddOutput(feeOutput)
 
 	// Generate Alices Signature
-	witHashAlice := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkhAlice.Script, witValueAlice[:], txscript.SigHashAll)
+	witHashAlice := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkhAlice.Script, witnessUtxoAlice.Value, txscript.SigHashAll)
 	sigAlice, err := privkeyAlice.Sign(witHashAlice[:])
 	if err != nil {
 		t.Fatal(err)
@@ -268,7 +308,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	}
 
 	// Generate Bobs Signature
-	witHashBob := updater.Data.UnsignedTx.HashForWitnessV0(1, p2wpkhBob.Script, witValueBob[:], txscript.SigHashAll)
+	witHashBob := updater.Data.UnsignedTx.HashForWitnessV0(1, p2wpkhBob.Script, witnessUtxoBob.Value, txscript.SigHashAll)
 	sigBob, err := privkeyBob.Sign(witHashBob[:])
 	if err != nil {
 		t.Fatal(err)
@@ -993,9 +1033,14 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = blinder.Blind()
-	if err != nil {
-		t.Fatal(err)
+	for {
+		if err := blinder.Blind(); err != nil {
+			if err != ErrGenerateSurjectionProof {
+				t.Fatal(err)
+			}
+			continue
+		}
+		break
 	}
 
 	// Add the unblinded outputs now, that's only the fee output in this case
@@ -1177,9 +1222,16 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = blinder.Blind()
-	if err != nil {
-		t.Fatal(err)
+
+	for {
+		if err := blinder.Blind(); err != nil {
+			if err != ErrGenerateSurjectionProof {
+				t.Fatal(err)
+			}
+			fmt.Println(err)
+			continue
+		}
+		break
 	}
 
 	feeScript := []byte{}
@@ -1373,9 +1425,14 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = blinder.Blind()
-	if err != nil {
-		t.Fatal(err)
+	for {
+		if err := blinder.Blind(); err != nil {
+			if err != ErrGenerateSurjectionProof {
+				t.Fatal(err)
+			}
+			continue
+		}
+		break
 	}
 
 	feeScript := []byte{}
@@ -1556,9 +1613,15 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = blinder.Blind()
-	if err != nil {
-		t.Fatal(err)
+	for {
+		if err := blinder.Blind(); err != nil {
+			if err != ErrGenerateSurjectionProof {
+				t.Fatal(err)
+			}
+			fmt.Println(err)
+			continue
+		}
+		break
 	}
 
 	feeScript := []byte{}
@@ -1638,29 +1701,29 @@ func faucet(address string) (string, error) {
 	return respBody["txId"], nil
 }
 
-func mint(address string, quantity int, name string, ticker string) (string, error) {
+func mint(address string, quantity int, name string, ticker string) (string, string, error) {
 	baseUrl, ok := os.LookupEnv("API_URL")
 	if !ok {
-		return "", errors.New("API_URL environment variable is not set")
+		return "", "", errors.New("API_URL environment variable is not set")
 	}
 	url := baseUrl + "/mint"
 	payload := map[string]interface{}{"address": address, "quantity": quantity, "name": name, "ticker": ticker}
 	body, _ := json.Marshal(payload)
 	resp, err := http.Post(url, "appliation/json", bytes.NewBuffer(body))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	respBody := map[string]interface{}{}
 
 	err = json.Unmarshal(data, &respBody)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return respBody["txId"].(string), nil
+	return respBody["txId"].(string), respBody["asset"].(string), nil
 }
 
 func unspents(address string) ([]map[string]interface{}, error) {

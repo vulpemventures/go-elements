@@ -412,10 +412,8 @@ func TestSurjectionProof(t *testing.T) {
 			Seed:                      seed,
 		}
 
-		factor, err := SurjectionProof(input)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		factor, ok := SurjectionProof(input)
+		assert.Equal(t, true, ok)
 
 		expectedFactor := v["expected"].(string)
 		assert.Equal(t, expectedFactor, hex.EncodeToString(factor[:]))

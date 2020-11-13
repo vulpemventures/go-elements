@@ -10,6 +10,14 @@ import (
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
+var (
+	// ErrGenerateSurjectionProof is returned if the computation of the
+	// surjection proof fails.
+	ErrGenerateSurjectionProof = errors.New(
+		"failed to generate surjection proof, please retry",
+	)
+)
+
 type randomNumberGenerator func() ([]byte, error)
 
 // blinder is designed to blind ALL the outputs of the partial transaction.
@@ -431,9 +439,15 @@ func (b *blinder) createBlindedOutputs(
 	inputAgs [][]byte,
 	inputAbfs [][]byte,
 ) error {
-	for outputIndex, _ := range b.pset.Outputs {
-		outputAsset := b.pset.UnsignedTx.Outputs[outputIndex].Asset[1:]
-		outputScript := b.pset.UnsignedTx.Outputs[outputIndex].Script
+	assetCommitments := make([][]byte, 0, len(b.pset.Outputs))
+	valueCommitments := make([][]byte, 0, len(b.pset.Outputs))
+	nonceCommitments := make([][]byte, 0, len(b.pset.Outputs))
+	rangeProofs := make([][]byte, 0, len(b.pset.Outputs))
+	surjectionProofs := make([][]byte, 0, len(b.pset.Outputs))
+
+	for outputIndex, out := range b.pset.UnsignedTx.Outputs {
+		outputAsset := out.Asset[1:]
+		outputScript := out.Script
 		if len(outputScript) == 0 {
 			continue
 		}
@@ -503,19 +517,28 @@ func (b *blinder) createBlindedOutputs(
 			Seed:                      randomSeed,
 		}
 
-		surjectionProof, err := confidential.SurjectionProof(
+		surjectionProof, ok := confidential.SurjectionProof(
 			surjectionProofInput,
 		)
-		if err != nil {
-			return err
+		if !ok {
+			return ErrGenerateSurjectionProof
 		}
 
-		b.pset.UnsignedTx.Outputs[outputIndex].Asset = assetCommitment[:]
-		b.pset.UnsignedTx.Outputs[outputIndex].Value = valueCommitment[:]
-		b.pset.UnsignedTx.Outputs[outputIndex].Nonce = outputNonce.SerializeCompressed()
-		b.pset.UnsignedTx.Outputs[outputIndex].RangeProof = rangeProof
-		b.pset.UnsignedTx.Outputs[outputIndex].SurjectionProof = surjectionProof
+		assetCommitments = append(assetCommitments, assetCommitment[:])
+		valueCommitments = append(valueCommitments, valueCommitment[:])
+		nonceCommitments = append(nonceCommitments, outputNonce.SerializeCompressed())
+		rangeProofs = append(rangeProofs, rangeProof)
+		surjectionProofs = append(surjectionProofs, surjectionProof)
 	}
+
+	for i, out := range b.pset.UnsignedTx.Outputs {
+		out.Asset = assetCommitments[i]
+		out.Value = valueCommitments[i]
+		out.Nonce = nonceCommitments[i]
+		out.RangeProof = rangeProofs[i]
+		out.SurjectionProof = surjectionProofs[i]
+	}
+
 	return nil
 }
 

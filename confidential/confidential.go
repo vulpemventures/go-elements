@@ -238,7 +238,7 @@ type SurjectionProofArg struct {
 }
 
 //SurjectionProof method generates surjection proof
-func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
+func SurjectionProof(input SurjectionProofArg) ([]byte, bool) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -248,7 +248,7 @@ func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
 		input.OutputAssetBlindingFactor,
 	)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 
 	inputGenerators := make([]secp256k1.Generator, 0)
@@ -259,7 +259,7 @@ func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
 			input.InputAssetBlindingFactors[i],
 		)
 		if err != nil {
-			return nil, err
+			return nil, false
 		}
 		inputGenerators = append(inputGenerators, *gen)
 	}
@@ -268,7 +268,7 @@ func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
 	for _, inTag := range input.InputAssets {
 		fixedAssetTag, err := secp256k1.FixedAssetTagParse(inTag)
 		if err != nil {
-			return nil, err
+			return nil, false
 		}
 		fixedInputTags = append(fixedInputTags, *fixedAssetTag)
 	}
@@ -282,7 +282,7 @@ func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
 
 	fixedOutputTag, err := secp256k1.FixedAssetTagParse(input.OutputAsset)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 
 	maxIterations := 100
@@ -295,7 +295,7 @@ func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
 		input.Seed,
 	)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 
 	err = secp256k1.SurjectionProofGenerate(
@@ -305,12 +305,22 @@ func SurjectionProof(input SurjectionProofArg) ([]byte, error) {
 		*outputGenerator,
 		inputIndex,
 		input.InputAssetBlindingFactors[inputIndex],
-		input.OutputAssetBlindingFactor)
+		input.OutputAssetBlindingFactor,
+	)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 
-	return secp256k1.SurjectionProofSerialize(ctx, proof)
+	if !secp256k1.SurjectionProofVerify(
+		ctx,
+		proof,
+		inputGenerators,
+		*outputGenerator,
+	) {
+		return nil, false
+	}
+
+	return proof.Bytes(), true
 }
 
 //SatoshiToElementsValue method converts Satoshi value to Elements value

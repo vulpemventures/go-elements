@@ -13,11 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vulpemventures/go-elements/confidential"
-
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/internal/elementsutil"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -159,12 +158,12 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
 	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-	aliceToBobValue, _ := confidential.SatoshiToElementsValue(60000000)
+	aliceToBobValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	aliceToBobScript := p2wpkhBob.WitnessScript
 	aliceToBobOutput := transaction.NewTxOutput(lbtc, aliceToBobValue[:], aliceToBobScript)
 	// Change from/to Alice
 	changeScriptAlice := p2wpkhAlice.WitnessScript
-	changeValueAlice, _ := confidential.SatoshiToElementsValue(39999500)
+	changeValueAlice, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeOutputAlice := transaction.NewTxOutput(lbtc, changeValueAlice[:], changeScriptAlice)
 
 	// Asset hex
@@ -173,7 +172,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 
 	//// Outputs from Bob
 	// Asset to Alice
-	bobToAliceValue, _ := confidential.SatoshiToElementsValue(100000000000)
+	bobToAliceValue, _ := elementsutil.SatoshiToElementsValue(100000000000)
 	bobToAliceScript := p2wpkhAlice.WitnessScript
 	bobToAliceOutput := transaction.NewTxOutput(asset, bobToAliceValue[:], bobToAliceScript)
 
@@ -255,41 +254,28 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//blind outputs
-	blindingPubKeys := [][]byte{
-		blindPubkeyBob.SerializeCompressed(),
-		blindPubkeyAlice.SerializeCompressed(),
-		blindPubkeyAlice.SerializeCompressed(),
-	}
-
-	blindingPrivKeys := [][]byte{
+	inBlindingPrvKeys := [][]byte{
 		blindPrivkeyAlice.Serialize(),
 		blindPrivkeyBob.Serialize(),
 	}
-
-	blinder, err := NewBlinder(
-		p,
-		blindingPrivKeys,
-		blindingPubKeys,
-		nil,
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
+	outBlindingPrvKeys := [][]byte{
+		blindPrivkeyBob.Serialize(),
+		blindPrivkeyAlice.Serialize(),
+		blindPrivkeyAlice.Serialize(),
 	}
-	for {
-		if err := blinder.Blind(); err != nil {
-			if err != ErrGenerateSurjectionProof {
-				t.Fatal(err)
-			}
-			continue
-		}
-		break
+
+	if err := blindTransaction(
+		p,
+		inBlindingPrvKeys,
+		outBlindingPrvKeys,
+		nil,
+	); err != nil {
+		t.Fatal(err)
 	}
 
 	// Add the unblinded outputs now, that's only the fee output in this case
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
@@ -393,15 +379,15 @@ func TestBroadcastUnblindedTxP2PKH(t *testing.T) {
 	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 
-	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	receiverScript := p2pkh.Script
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
-	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeScript := p2pkh.Script
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeScript := []byte{}
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
@@ -536,15 +522,15 @@ func TestBroadcastUnblindedTxP2PKH2Inputs(t *testing.T) {
 	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 
-	receiverValue, _ := confidential.SatoshiToElementsValue(160000000)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(160000000)
 	receiverScript := p2pkh.Script
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
-	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeScript := p2pkh.Script
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeScript := []byte{}
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
@@ -705,16 +691,16 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 
-	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
 	// Create a new pset.
@@ -735,7 +721,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	updater.AddInWitnessUtxo(witnessUtxo, 0)
 
@@ -836,11 +822,11 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := confidential.SatoshiToElementsValue(99999500)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(99999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
 	// Create a new pset.
@@ -883,7 +869,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
@@ -973,12 +959,12 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
 	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
 	// Create a new pset with all the outputs that need to be blinded first
@@ -999,7 +985,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
@@ -1007,45 +993,28 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	}
 
 	//blind outputs
-	blindingPrivKeys := [][]byte{{}}
-
-	blindingPubKeys := make([][]byte, 0)
-	pk, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	blindingpubkey := pk.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
-	pk1, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
-
-	blinder, err := NewBlinder(
-		p,
-		blindingPrivKeys,
-		blindingPubKeys,
-		nil,
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if err := blinder.Blind(); err != nil {
-			if err != ErrGenerateSurjectionProof {
-				t.Fatal(err)
-			}
-			continue
+	inBlindingPrvKeys := [][]byte{{}}
+	outBlindingPrvKeys := make([][]byte, 2)
+	for i := range outBlindingPrvKeys {
+		pk, err := btcec.NewPrivateKey(btcec.S256())
+		if err != nil {
+			t.Fatal(err)
 		}
-		break
+		outBlindingPrvKeys[i] = pk.Serialize()
+	}
+
+	if err := blindTransaction(
+		p,
+		inBlindingPrvKeys,
+		outBlindingPrvKeys,
+		nil,
+	); err != nil {
+		t.Fatal(err)
 	}
 
 	// Add the unblinded outputs now, that's only the fee output in this case
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
@@ -1138,12 +1107,12 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
 	)
 	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
 	// Create a new pset.
@@ -1196,46 +1165,27 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 	//blind outputs
-	blindingPrivKeys := [][]byte{blindingPrivateKey.Serialize()}
-
-	blindingPubKeys := make([][]byte, 0)
-	pk, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	blindingpubkey := pk.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
-	pk1, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
-
-	blinder, err := NewBlinder(
-		p,
-		blindingPrivKeys,
-		blindingPubKeys,
-		nil,
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for {
-		if err := blinder.Blind(); err != nil {
-			if err != ErrGenerateSurjectionProof {
-				t.Fatal(err)
-			}
-			fmt.Println(err)
-			continue
+	inBlindingPrvKeys := [][]byte{blindingPrivateKey.Serialize()}
+	outBlindingPrvKeys := make([][]byte, 2)
+	for i := range outBlindingPrvKeys {
+		pk, err := btcec.NewPrivateKey(btcec.S256())
+		if err != nil {
+			t.Fatal(err)
 		}
-		break
+		outBlindingPrvKeys[i] = pk.Serialize()
+	}
+
+	if err := blindTransaction(
+		p,
+		inBlindingPrvKeys,
+		outBlindingPrvKeys,
+		nil,
+	); err != nil {
+		t.Fatal(err)
 	}
 
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
@@ -1370,7 +1320,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
@@ -1379,64 +1329,36 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 
 	// Add change and fees
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := confidential.SatoshiToElementsValue(99996000)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(99996000)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 	updater.AddOutput(changeOutput)
 
 	//blind outputs
-	blindingPrivKeys := [][]byte{{}}
-	blindingPubKeys := make([][]byte, 0)
-
-	pk, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	// blinding pubkey for asset output
-	blindingpubkey := pk.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
-
-	// blinding pubkey for token output
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
-
-	// blinding pubkey for change output
-	pk1, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
-
-	issuanceBlindingPrivateKeys := make([]IssuanceBlindingPrivateKeys, 0)
-	issuanceBlindingPrivateKeys = append(
-		issuanceBlindingPrivateKeys,
-		IssuanceBlindingPrivateKeys{
-			AssetKey: pk.Serialize(),
-			TokenKey: pk1.Serialize(),
-		},
-	)
-
-	blinder, err := NewBlinder(
-		p,
-		blindingPrivKeys,
-		blindingPubKeys,
-		nil,
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if err := blinder.Blind(); err != nil {
-			if err != ErrGenerateSurjectionProof {
-				t.Fatal(err)
-			}
-			continue
+	inBlindingPrvKeys := [][]byte{{}}
+	outBlindingPrvKeys := make([][]byte, 2)
+	for i := range outBlindingPrvKeys {
+		pk, err := btcec.NewPrivateKey(btcec.S256())
+		if err != nil {
+			t.Fatal(err)
 		}
-		break
+		outBlindingPrvKeys[i] = pk.Serialize()
+	}
+	outBlindingPrvKeys = append(
+		[][]byte{outBlindingPrvKeys[0]},
+		outBlindingPrvKeys...,
+	)
+
+	if err := blindTransaction(
+		p,
+		inBlindingPrvKeys,
+		outBlindingPrvKeys,
+		nil,
+	); err != nil {
+		t.Fatal(err)
 	}
 
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(4000)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(4000)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
@@ -1558,7 +1480,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	if err != nil {
@@ -1567,65 +1489,44 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 
 	// Add change and fees
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := confidential.SatoshiToElementsValue(99996000)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(99996000)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 	updater.AddOutput(changeOutput)
 
 	//blind outputs
-	blindingPrivKeys := [][]byte{{}}
-	blindingPubKeys := make([][]byte, 0)
-
-	pk, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	// blinding pubkey for asset output
-	blindingpubkey := pk.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
-
-	// blinding pubkey for token output
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
-
-	// blinding pubkey for change output
-	pk1, err := btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-	blindingpubkey1 := pk1.PubKey().SerializeCompressed()
-	blindingPubKeys = append(blindingPubKeys, blindingpubkey1)
-
-	issuanceBlindingPrivateKeys := make([]IssuanceBlindingPrivateKeys, 0)
-	issuanceBlindingPrivateKeys = append(
-		issuanceBlindingPrivateKeys,
-		IssuanceBlindingPrivateKeys{
-			AssetKey: pk.Serialize(),
-			TokenKey: pk1.Serialize(),
-		},
-	)
-
-	blinder, err := NewBlinder(
-		p,
-		blindingPrivKeys,
-		blindingPubKeys,
-		issuanceBlindingPrivateKeys,
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if err := blinder.Blind(); err != nil {
-			if err != ErrGenerateSurjectionProof {
-				t.Fatal(err)
-			}
-			fmt.Println(err)
-			continue
+	inBlindingPrvKeys := [][]byte{{}}
+	outBlindingPrvKeys := make([][]byte, 2)
+	for i := range outBlindingPrvKeys {
+		pk, err := btcec.NewPrivateKey(btcec.S256())
+		if err != nil {
+			t.Fatal(err)
 		}
-		break
+		fmt.Println(i, hex.EncodeToString(pk.Serialize()))
+		outBlindingPrvKeys[i] = pk.Serialize()
+	}
+	outBlindingPrvKeys = append(
+		[][]byte{outBlindingPrvKeys[0]},
+		outBlindingPrvKeys...,
+	)
+
+	issuanceBlindingPrvKeys := []IssuanceBlindingPrivateKeys{
+		IssuanceBlindingPrivateKeys{
+			AssetKey: outBlindingPrvKeys[1],
+			TokenKey: outBlindingPrvKeys[2],
+		},
+	}
+
+	if err := blindTransaction(
+		p,
+		inBlindingPrvKeys,
+		outBlindingPrvKeys,
+		issuanceBlindingPrvKeys,
+	); err != nil {
+		t.Fatal(err)
 	}
 
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(4000)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(4000)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 	updater.AddOutput(feeOutput)
 
@@ -1670,10 +1571,58 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = broadcast(txHex)
+	txId, err := broadcast(txHex)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fmt.Println(txId)
+}
+
+func blindTransaction(
+	p *Pset,
+	inBlindKeys, outBlindKeys [][]byte,
+	issuanceBlindKeys []IssuanceBlindingPrivateKeys,
+) error {
+	outBlindPubKeys := make([][]byte, 0, len(outBlindKeys))
+	for _, k := range outBlindKeys {
+		_, pubkey := btcec.PrivKeyFromBytes(btcec.S256(), k)
+		outBlindPubKeys = append(outBlindPubKeys, pubkey.SerializeCompressed())
+	}
+
+	psetBase64, err := p.ToBase64()
+	if err != nil {
+		return err
+	}
+
+	for {
+		ptx, _ := NewPsetFromBase64(psetBase64)
+		blinder, err := NewBlinder(
+			ptx,
+			inBlindKeys,
+			outBlindPubKeys,
+			issuanceBlindKeys,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+
+		for {
+			if err := blinder.Blind(); err != nil {
+				if err != ErrGenerateSurjectionProof {
+					return err
+				}
+				continue
+			}
+			break
+		}
+
+		if VerifyBlinding(ptx, inBlindKeys, outBlindKeys, issuanceBlindKeys) {
+			*p = *ptx
+			break
+		}
+	}
+	return nil
 }
 
 func faucet(address string) (string, error) {

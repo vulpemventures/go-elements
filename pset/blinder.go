@@ -7,6 +7,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/confidential"
+	"github.com/vulpemventures/go-elements/internal/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -35,6 +36,24 @@ type IssuanceBlindingPrivateKeys struct {
 	TokenKey []byte
 }
 
+func (ik IssuanceBlindingPrivateKeys) ToSlice() [][]byte {
+	keys := [][]byte{ik.AssetKey}
+	if len(ik.TokenKey) > 0 {
+		keys = append(keys, ik.TokenKey)
+	}
+	return keys
+}
+
+// VerifyBlinding verifies the proofs of all the confidential outputs of the
+// given transaction, with the given in/out private blinding keys.
+func VerifyBlinding(
+	pset *Pset,
+	inBlindKeys, outBlindKeys [][]byte,
+	inIssuanceBlindKeys []IssuanceBlindingPrivateKeys,
+) bool {
+	return verifyBlinding(pset, inBlindKeys, outBlindKeys, inIssuanceBlindKeys)
+}
+
 // NewBlinder returns a new instance of blinder, if the passed Pset struct is
 // in a valid form, else an error.
 func NewBlinder(
@@ -43,10 +62,7 @@ func NewBlinder(
 	blindingPubkeys [][]byte,
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
 	rng randomNumberGenerator,
-) (
-	*blinder,
-	error,
-) {
+) (*blinder, error) {
 	if err := pset.SanityCheck(); err != nil {
 		return nil, err
 	}
@@ -142,27 +158,13 @@ func (b *blinder) unblindInputs() (
 		// to the unblindedPrevOuts list, otherwise push to just add the unblided
 		// unblinded input with 0-value blinding factors
 		if prevout.IsConfidential() {
-			nonce, err := confidential.NonceHash(
-				prevout.Nonce,
-				b.blindingPrivkeys[index],
-			)
-			unblindOutputArg := confidential.UnblindOutputArg{
-				Nonce:           nonce,
-				Rangeproof:      prevout.RangeProof,
-				ValueCommitment: prevout.Value,
-				AssetCommitment: prevout.Asset,
-				ScriptPubkey:    prevout.Script,
-			}
-
-			output, err := confidential.UnblindOutput(unblindOutputArg)
+			output, err := confidential.UnblindOutputWithKey(prevout, b.blindingPrivkeys[index])
 			if err != nil {
 				return nil, nil, err
 			}
 			unblindedPrevOuts = append(unblindedPrevOuts, *output)
 		} else {
-			val := [confidential.ElementsUnconfidentialValueLength]byte{}
-			copy(val[:], prevout.Value)
-			satoshiValue, err := confidential.ElementsToSatoshiValue(val)
+			satoshiValue, err := elementsutil.ElementsToSatoshiValue(prevout.Value)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -186,9 +188,7 @@ func (b *blinder) unblindInputs() (
 				return nil, nil, err
 			}
 
-			assetAmount := [9]byte{}
-			copy(assetAmount[:], input.Issuance.AssetAmount)
-			value, _ := confidential.ElementsToSatoshiValue(assetAmount)
+			value, _ := elementsutil.ElementsToSatoshiValue(input.Issuance.AssetAmount)
 
 			// prepare the random asset and value blinding factors in case the
 			// issuance needs to be blinded, otherwise they're set to the 0 byte array
@@ -213,9 +213,7 @@ func (b *blinder) unblindInputs() (
 			// to check if the input.Issuance.TokenAmount, that is encoded in the
 			// elements format, contains more than one byte
 			if len(input.Issuance.TokenAmount) > 1 {
-				tokenAmount := [9]byte{}
-				copy(tokenAmount[:], input.Issuance.TokenAmount)
-				value, err := confidential.ElementsToSatoshiValue(tokenAmount)
+				value, err := elementsutil.ElementsToSatoshiValue(input.Issuance.TokenAmount)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -262,9 +260,7 @@ func (b *blinder) blindOutputs(
 	outputValues := make([]uint64, 0)
 	for _, output := range b.pset.UnsignedTx.Outputs {
 		if len(output.Script) > 0 {
-			var val [confidential.ElementsUnconfidentialValueLength]byte
-			copy(val[:], output.Value)
-			value, err := confidential.ElementsToSatoshiValue(val)
+			value, err := elementsutil.ElementsToSatoshiValue(output.Value)
 			if err != nil {
 				return err
 			}
@@ -411,7 +407,7 @@ func (b *blinder) generateOutputBlindingFactors(
 		outputVbfs = append(outputVbfs, rand)
 	}
 
-	finalVbfArg := confidential.FinalValueBlindingFactorArg{
+	finalVbfArgs := confidential.FinalValueBlindingFactorArgs{
 		InValues:      inputValues,
 		OutValues:     outputValues,
 		InGenerators:  inputAbfs,
@@ -420,7 +416,7 @@ func (b *blinder) generateOutputBlindingFactors(
 		OutFactors:    outputVbfs,
 	}
 
-	finalVbf, err := confidential.FinalValueBlindingFactor(finalVbfArg)
+	finalVbf, err := confidential.FinalValueBlindingFactor(finalVbfArgs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -492,7 +488,7 @@ func (b *blinder) createBlindedOutputs(
 			return err
 		}
 
-		rangeProofArg := confidential.RangeProofArg{
+		rangeProofArgs := confidential.RangeProofArgs{
 			Value:               outputValue,
 			Nonce:               nonce,
 			Asset:               outputAsset,
@@ -504,12 +500,12 @@ func (b *blinder) createBlindedOutputs(
 			Exp:                 0,
 			MinBits:             52,
 		}
-		rangeProof, err := confidential.RangeProof(rangeProofArg)
+		rangeProof, err := confidential.RangeProof(rangeProofArgs)
 		if err != nil {
 			return err
 		}
 
-		surjectionProofInput := confidential.SurjectionProofArg{
+		surjectionProofArgs := confidential.SurjectionProofArgs{
 			OutputAsset:               outputAsset,
 			OutputAssetBlindingFactor: outputAbfs[outputIndex],
 			InputAssets:               inputAgs,
@@ -517,9 +513,7 @@ func (b *blinder) createBlindedOutputs(
 			Seed:                      randomSeed,
 		}
 
-		surjectionProof, ok := confidential.SurjectionProof(
-			surjectionProofInput,
-		)
+		surjectionProof, ok := confidential.SurjectionProof(surjectionProofArgs)
 		if !ok {
 			return ErrGenerateSurjectionProof
 		}
@@ -548,17 +542,12 @@ func (b *blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 	}
 
 	assetAmount := b.pset.UnsignedTx.Inputs[index].Issuance.AssetAmount
-	assetCommitment, err := confidential.AssetCommitment(
-		asset,
-		abf,
-	)
+	assetCommitment, err := confidential.AssetCommitment(asset, abf)
 	if err != nil {
 		return err
 	}
 
-	amount := [9]byte{}
-	copy(amount[:], assetAmount)
-	assetAmountSatoshi, err := confidential.ElementsToSatoshiValue(amount)
+	assetAmountSatoshi, err := elementsutil.ElementsToSatoshiValue(assetAmount)
 	if err != nil {
 		return err
 	}
@@ -578,7 +567,7 @@ func (b *blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 	var nonce [32]byte
 	copy(nonce[:], b.issuanceBlindingPrivateKeys[index].AssetKey[:])
 
-	rangeProofArg := confidential.RangeProofArg{
+	rangeProofArgs := confidential.RangeProofArgs{
 		Value:               assetAmountSatoshi,
 		Nonce:               nonce,
 		Asset:               asset,
@@ -590,7 +579,7 @@ func (b *blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 		Exp:                 0,
 		MinBits:             52,
 	}
-	rangeProof, err := confidential.RangeProof(rangeProofArg)
+	rangeProof, err := confidential.RangeProof(rangeProofArgs)
 	if err != nil {
 		return err
 	}
@@ -606,17 +595,12 @@ func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
 	}
 
 	tokenAmount := b.pset.UnsignedTx.Inputs[index].Issuance.TokenAmount
-	assetCommitment, err := confidential.AssetCommitment(
-		token,
-		abf,
-	)
+	assetCommitment, err := confidential.AssetCommitment(token, abf)
 	if err != nil {
 		return err
 	}
 
-	amount := [9]byte{}
-	copy(amount[:], tokenAmount)
-	tokenAmountSatoshi, err := confidential.ElementsToSatoshiValue(amount)
+	tokenAmountSatoshi, err := elementsutil.ElementsToSatoshiValue(tokenAmount)
 	if err != nil {
 		return err
 	}
@@ -636,7 +620,7 @@ func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
 	var nonce [32]byte
 	copy(nonce[:], b.issuanceBlindingPrivateKeys[index].TokenKey[:])
 
-	rangeProofArg := confidential.RangeProofArg{
+	rangeProofArgs := confidential.RangeProofArgs{
 		Value:               tokenAmountSatoshi,
 		Nonce:               nonce,
 		Asset:               token,
@@ -648,7 +632,7 @@ func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
 		Exp:                 0,
 		MinBits:             52,
 	}
-	rangeProof, err := confidential.RangeProof(rangeProofArg)
+	rangeProof, err := confidential.RangeProof(rangeProofArgs)
 	if err != nil {
 		return err
 	}
@@ -656,6 +640,123 @@ func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
 	b.pset.UnsignedTx.Inputs[index].InflationRangeProof = rangeProof
 	b.pset.UnsignedTx.Inputs[index].Issuance.TokenAmount = valueCommitment[:]
 	return nil
+}
+
+func verifyBlinding(
+	pset *Pset,
+	inBlindKeys, outBlindKeys [][]byte,
+	inIssuanceKeys []IssuanceBlindingPrivateKeys,
+) bool {
+	if len(pset.Inputs) != len(inBlindKeys) {
+		return false
+	}
+
+	outCount := 0
+	for _, out := range pset.UnsignedTx.Outputs {
+		if out.IsConfidential() {
+			outCount++
+		}
+	}
+	if len(outBlindKeys) != outCount {
+		return false
+	}
+
+	inAssets := make([][]byte, 0, len(pset.Inputs))
+	inIssuanceAssets := make([][]byte, 0)
+	inAssetBlinders := make([][]byte, 0, len(pset.Inputs))
+	inIssuanceAssetBlinders := make([][]byte, 0)
+	for i, in := range pset.Inputs {
+		var prevout *transaction.TxOutput
+		if in.WitnessUtxo != nil {
+			prevout = in.WitnessUtxo
+		} else {
+			prevIndex := pset.UnsignedTx.Inputs[i].Index
+			prevout = in.NonWitnessUtxo.Outputs[prevIndex]
+		}
+
+		unblinded, err := confidential.UnblindOutputWithKey(prevout, inBlindKeys[i])
+		if err != nil {
+			return false
+		}
+		if unblinded == nil {
+			inAssets = append(inAssets, prevout.Asset[1:])
+			inAssetBlinders = append(inAssetBlinders, make([]byte, 32))
+		} else {
+			inAssets = append(inAssets, unblinded.Asset)
+			inAssetBlinders = append(inAssetBlinders, unblinded.AssetBlindingFactor)
+		}
+
+		if txIn := pset.UnsignedTx.Inputs[i]; txIn.HasIssuance() {
+			if txIn.HasConfidentialIssuance() {
+				unblinded, err := confidential.UnblindIssuance(txIn, inIssuanceKeys[i].ToSlice())
+				if err != nil {
+					return false
+				}
+				inIssuanceAssets = append(inIssuanceAssets, unblinded.Asset.Asset)
+				inIssuanceAssetBlinders = append(
+					inIssuanceAssetBlinders,
+					unblinded.Asset.AssetBlindingFactor,
+				)
+
+				if len(txIn.Issuance.TokenAmount) > 0 {
+					inIssuanceAssets = append(inIssuanceAssets, unblinded.Token.Asset)
+					inIssuanceAssetBlinders = append(
+						inIssuanceAssetBlinders,
+						unblinded.Token.AssetBlindingFactor,
+					)
+				}
+			} else {
+				iss, err := transaction.NewTxIssuanceFromInput(txIn)
+				if err != nil {
+					return false
+				}
+				asset, err := iss.GenerateAsset()
+				if err != nil {
+					return false
+				}
+				inIssuanceAssets = append(inIssuanceAssets, asset)
+				inIssuanceAssetBlinders = append(
+					inIssuanceAssetBlinders,
+					transaction.Zero[:],
+				)
+
+				if len(txIn.Issuance.TokenAmount) > 0 {
+					token, err := iss.GenerateReissuanceToken(0)
+					if err != nil {
+						return false
+					}
+					inIssuanceAssets = append(inIssuanceAssets, token)
+					inIssuanceAssetBlinders = append(
+						inIssuanceAssetBlinders,
+						transaction.Zero[:],
+					)
+				}
+			}
+		}
+	}
+
+	inAssets = append(inAssets, inIssuanceAssets...)
+	inAssetBlinders = append(inAssetBlinders, inIssuanceAssetBlinders...)
+	for i, out := range pset.UnsignedTx.Outputs {
+		if out.IsConfidential() {
+			unblinded, err := confidential.UnblindOutputWithKey(out, outBlindKeys[i])
+			if err != nil {
+				return false
+			}
+			args := confidential.VerifySurjectionProofArgs{
+				InputAssets:               inAssets,
+				InputAssetBlindingFactors: inAssetBlinders,
+				OutputAsset:               unblinded.Asset,
+				OutputAssetBlindingFactor: unblinded.AssetBlindingFactor,
+				Proof:                     out.SurjectionProof,
+			}
+			if !confidential.VerifySurjectionProof(args) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func generateRandomNumber() ([]byte, error) {

@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/internal/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -34,7 +34,7 @@ func TestCreator(t *testing.T) {
 			out := vOut.(map[string]interface{})
 			outAsset, _ := hex.DecodeString(out["asset"].(string))
 			outAsset = append([]byte{0x01}, bufferutil.ReverseBytes(outAsset)...)
-			outValue, _ := confidential.SatoshiToElementsValue(uint64(out["value"].(float64)))
+			outValue, _ := elementsutil.SatoshiToElementsValue(uint64(out["value"].(float64)))
 			outScript, _ := hex.DecodeString(out["script"].(string))
 			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue[:], outScript))
 		}

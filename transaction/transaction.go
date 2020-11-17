@@ -87,6 +87,11 @@ func (in *TxInput) HasIssuance() bool {
 	return in.Issuance != nil
 }
 
+// HasConfidentialIssuance returns whether the input contains a blinded issuance
+func (in *TxInput) HasConfidentialIssuance() bool {
+	return in.HasIssuance() && len(in.IssuanceRangeProof) > 0
+}
+
 // TxWitness defines the witness for a TxIn. A witness is to be interpreted as
 // a slice of byte slices, or a stack with one or many elements.
 type TxWitness [][]byte

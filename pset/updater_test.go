@@ -8,8 +8,8 @@ import (
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
-	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/internal/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -41,7 +41,7 @@ func TestUpdater(t *testing.T) {
 				asset, _ := hex.DecodeString(wu["asset"].(string))
 				asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
 				script, _ := hex.DecodeString(wu["script"].(string))
-				value, _ := confidential.SatoshiToElementsValue(uint64(wu["value"].(float64)))
+				value, _ := elementsutil.SatoshiToElementsValue(uint64(wu["value"].(float64)))
 				utxo := transaction.NewTxOutput(asset, value[:], script)
 				updater.AddInWitnessUtxo(utxo, inIndex)
 				redeemScript, _ := hex.DecodeString(in["redeemScript"].(string))

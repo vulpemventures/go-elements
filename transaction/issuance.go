@@ -1,14 +1,15 @@
 package transaction
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"math"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/vulpemventures/fastsha256"
-	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/internal/elementsutil"
 )
 
 // IssuanceEntity defines one of the fields of the issuance contract
@@ -33,6 +34,11 @@ type TxIssuance struct {
 	TokenAmount        []byte
 }
 
+// IsReissuance returns whether the issuance is an asset re-issuance
+func (issuance *TxIssuance) IsReissuance() bool {
+	return !bytes.Equal(issuance.AssetBlindingNonce, Zero[:])
+}
+
 // TxIssuanceExtended adds fields to the issuance type that are not encoded in
 // the transaction
 type TxIssuanceExtended struct {
@@ -41,9 +47,30 @@ type TxIssuanceExtended struct {
 	ContractHash []byte
 }
 
-// NewTxIssuance returns a new issuance instance from contract hash
+// NewTxIssuanceFromInput returns the extended issuance for the given input
+func NewTxIssuanceFromInput(in *TxInput) (*TxIssuanceExtended, error) {
+	if in.Issuance.IsReissuance() {
+		return NewTxIssuanceFromEntropy(in.Issuance.AssetEntropy), nil
+	}
+
+	iss := NewTxIssuanceFromContractHash(in.Issuance.AssetEntropy)
+	if err := iss.GenerateEntropy(in.Hash, in.Index); err != nil {
+		return nil, err
+	}
+	return iss, nil
+}
+
+// NewTxIssuanceFromContractHash returns a new issuance instance from contract hash
 func NewTxIssuanceFromContractHash(contractHash []byte) *TxIssuanceExtended {
 	return &TxIssuanceExtended{ContractHash: contractHash}
+}
+
+// NewTxIssuanceFromEntropy returns a new issuance instance from entropy
+func NewTxIssuanceFromEntropy(entropy []byte) *TxIssuanceExtended {
+	issuance := &TxIssuanceExtended{
+		TxIssuance: TxIssuance{AssetEntropy: entropy},
+	}
+	return issuance
 }
 
 // NewTxIssuance returns a new issuance instance
@@ -172,7 +199,7 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 
 func toConfidentialAssetAmount(assetAmount uint64, precision uint) ([]byte, error) {
 	amount := assetAmount * uint64(math.Pow10(int(precision)))
-	confAmount, err := confidential.SatoshiToElementsValue(amount)
+	confAmount, err := elementsutil.SatoshiToElementsValue(amount)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +212,7 @@ func toConfidentialTokenAmount(tokenAmount uint64, precision uint) ([]byte, erro
 	}
 
 	amount := tokenAmount * uint64(math.Pow10(int(precision)))
-	confAmount, err := confidential.SatoshiToElementsValue(amount)
+	confAmount, err := elementsutil.SatoshiToElementsValue(amount)
 	if err != nil {
 		return nil, err
 	}

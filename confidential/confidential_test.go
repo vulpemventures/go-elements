@@ -1,15 +1,14 @@
 package confidential
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
-	"math/big"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vulpemventures/go-elements/transaction"
 )
 
 var tests map[string]interface{}
@@ -28,6 +27,11 @@ func setUp() error {
 	return nil
 }
 
+func h2b(str string) []byte {
+	buf, _ := hex.DecodeString(str)
+	return buf
+}
+
 func TestUnblindOutput(t *testing.T) {
 	err := setUp()
 	if !assert.NoError(t, err) {
@@ -37,80 +41,104 @@ func TestUnblindOutput(t *testing.T) {
 	vectors := tests["unblindOutput"].([]interface{})
 	for _, testVector := range vectors {
 		v := testVector.(map[string]interface{})
-		scriptPubkeyStr := v["scriptPubkey"].(string)
-		assetGeneratorStr := v["assetGenerator"].(string)
-		blindingPrivkeyStr := v["blindingPrivkey"].(string)
-		ephemeralPubkeyStr := v["ephemeralPubkey"].(string)
-		valueCommitmentStr := v["valueCommitment"].(string)
-		rangeproofStr := v["rangeproof"].(string)
 
-		ephemeralPubkey, err := hex.DecodeString(ephemeralPubkeyStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		nonce := h2b(v["ephemeralPubkey"].(string))
+		blindingPrivkey := h2b(v["blindingPrivkey"].(string))
+		rangeproof := h2b(v["rangeproof"].(string))
+		valueCommitment := h2b(v["valueCommitment"].(string))
+		assetCommitment := h2b(v["assetGenerator"].(string))
+		scriptPubkey := h2b(v["scriptPubkey"].(string))
 
-		blindingPrivkey, err := hex.DecodeString(blindingPrivkeyStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		rangeproof, err := hex.DecodeString(rangeproofStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		commitment, err := hex.DecodeString(valueCommitmentStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		assetGenerator, err := hex.DecodeString(assetGeneratorStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		scriptPubkey, err := hex.DecodeString(scriptPubkeyStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		nonce, err := NonceHash(ephemeralPubkey, blindingPrivkey)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		input := UnblindOutputArg{
+		txOut := &transaction.TxOutput{
 			Nonce:           nonce,
-			Rangeproof:      rangeproof,
-			ValueCommitment: commitment,
-			AssetCommitment: assetGenerator,
-			ScriptPubkey:    scriptPubkey,
+			RangeProof:      rangeproof,
+			Value:           valueCommitment,
+			Asset:           assetCommitment,
+			Script:          scriptPubkey,
+			SurjectionProof: make([]byte, 64), // not important, we can zero this
 		}
 
-		output, err := UnblindOutput(input)
+		output, err := UnblindOutputWithKey(txOut, blindingPrivkey)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
 		expected := v["expected"].(map[string]interface{})
-
-		valueStr := expected["value"].(string)
-		value, err := strconv.Atoi(valueStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
+		value, _ := strconv.Atoi(expected["value"].(string))
 		assetStr := expected["asset"].(string)
 		valueBlindingFactor := expected["valueBlindingFactor"].(string)
 		assetBlindingFactor := expected["assetBlindingFactor"].(string)
 
-		assert.Equal(t, output.Value, uint64(value))
-		assert.Equal(t, hex.EncodeToString(output.AssetBlindingFactor), assetBlindingFactor)
-		assert.Equal(t, hex.EncodeToString(output.Asset), assetStr)
-		assert.Equal(t, hex.EncodeToString(output.ValueBlindingFactor[:]), valueBlindingFactor)
+		assert.Equal(t, uint64(value), output.Value)
+		assert.Equal(t, assetBlindingFactor, hex.EncodeToString(output.AssetBlindingFactor))
+		assert.Equal(t, assetStr, hex.EncodeToString(output.Asset))
+		assert.Equal(t, valueBlindingFactor, hex.EncodeToString(output.ValueBlindingFactor[:]))
 	}
 }
 
+func TestUnblindIssuance(t *testing.T) {
+	err := setUp()
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	vectors := tests["unblindIssuance"].([]interface{})
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
+		inHash := h2b(v["inHash"].(string))
+		inIndex := uint32(v["inIndex"].(float64))
+		assetBlindingNonce := h2b(v["nonce"].(string))
+		assetEntropy := h2b(v["entropy"].(string))
+		assetAmountCommitment := h2b(v["assetAmountCommitment"].(string))
+		tokenAmountCommitment := h2b(v["tokenAmountCommitment"].(string))
+		assetRangeProof := h2b(v["assetRangeProof"].(string))
+		tokenRangeProof := h2b(v["tokenRangeProof"].(string))
+
+		b := v["blindingPrvKeys"].(map[string]interface{})
+		blindKeys := [][]byte{h2b(b["asset"].(string)), h2b(b["token"].(string))}
+
+		txIn := &transaction.TxInput{
+			Hash:  inHash,
+			Index: inIndex,
+			Issuance: &transaction.TxIssuance{
+				AssetBlindingNonce: assetBlindingNonce,
+				AssetEntropy:       assetEntropy,
+				AssetAmount:        assetAmountCommitment,
+				TokenAmount:        tokenAmountCommitment,
+			},
+			IssuanceRangeProof:  assetRangeProof,
+			InflationRangeProof: tokenRangeProof,
+		}
+
+		unblinded, err := UnblindIssuance(txIn, blindKeys)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		expected := v["expected"].(map[string]interface{})
+		for key := range expected {
+			var want map[string]interface{}
+			var got *UnblindOutputResult
+			if key == "asset" {
+				want = expected["asset"].(map[string]interface{})
+				got = unblinded.Asset
+			} else {
+				want = expected["token"].(map[string]interface{})
+				got = unblinded.Token
+			}
+
+			value, _ := strconv.Atoi(want["value"].(string))
+			asset := want["asset"].(string)
+			valueBlindingFactor := want["valueBlindingFactor"].(string)
+			assetBlindingFactor := want["assetBlindingFactor"].(string)
+
+			assert.Equal(t, uint64(value), got.Value)
+			assert.Equal(t, valueBlindingFactor, hex.EncodeToString(got.ValueBlindingFactor))
+			assert.Equal(t, asset, hex.EncodeToString(got.Asset))
+			assert.Equal(t, assetBlindingFactor, hex.EncodeToString(got.AssetBlindingFactor))
+		}
+	}
+}
 func TestFinalValueBlindingFactor(t *testing.T) {
 	err := setUp()
 	if !assert.NoError(t, err) {
@@ -122,66 +150,44 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 		v := testVector.(map[string]interface{})
 
 		inValuesSlice := v["inValues"].([]interface{})
-		inValues := make([]uint64, 0)
+		inValues := make([]uint64, 0, len(inValuesSlice))
 		for _, val := range inValuesSlice {
-			n, err := strconv.ParseUint(val.(string), 10, 64)
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
+			n, _ := strconv.ParseUint(val.(string), 10, 64)
 			inValues = append(inValues, n)
 		}
 
 		outValuesSlice := v["outValues"].([]interface{})
-		outValues := make([]uint64, 0)
+		outValues := make([]uint64, 0, len(outValuesSlice))
 		for _, val := range outValuesSlice {
-			n, err := strconv.ParseUint(val.(string), 10, 64)
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
+			n, _ := strconv.ParseUint(val.(string), 10, 64)
 			outValues = append(outValues, n)
 		}
 
 		inGeneratorsSlice := v["inGenerators"].([]interface{})
-		inGenerators := make([][]byte, 0)
+		inGenerators := make([][]byte, 0, len(inGeneratorsSlice))
 		for _, val := range inGeneratorsSlice {
-			gen, err := hex.DecodeString(val.(string))
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
-			inGenerators = append(inGenerators, gen)
+			inGenerators = append(inGenerators, h2b(val.(string)))
 		}
 
 		outGeneratorsSlice := v["outGenerators"].([]interface{})
-		outGenerators := make([][]byte, 0)
+		outGenerators := make([][]byte, 0, len(outGeneratorsSlice))
 		for _, val := range outGeneratorsSlice {
-			gen, err := hex.DecodeString(val.(string))
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
-			outGenerators = append(outGenerators, gen)
+			outGenerators = append(outGenerators, h2b(val.(string)))
 		}
 
 		inFactorsSlice := v["inFactors"].([]interface{})
-		inFactors := make([][]byte, 0)
+		inFactors := make([][]byte, 0, len(inFactorsSlice))
 		for _, val := range inFactorsSlice {
-			gen, err := hex.DecodeString(val.(string))
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
-			inFactors = append(inFactors, gen)
+			inFactors = append(inFactors, h2b(val.(string)))
 		}
 
 		outFactorsSlice := v["outFactors"].([]interface{})
-		outFactors := make([][]byte, 0)
+		outFactors := make([][]byte, 0, len(outFactorsSlice))
 		for _, val := range outFactorsSlice {
-			gen, err := hex.DecodeString(val.(string))
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
-			outFactors = append(outFactors, gen)
+			outFactors = append(outFactors, h2b(val.(string)))
 		}
 
-		input := FinalValueBlindingFactorArg{
+		args := FinalValueBlindingFactorArgs{
 			InValues:      inValues,
 			OutValues:     outValues,
 			InGenerators:  inGenerators,
@@ -190,7 +196,7 @@ func TestFinalValueBlindingFactor(t *testing.T) {
 			OutFactors:    outFactors,
 		}
 
-		factor, err := FinalValueBlindingFactor(input)
+		factor, err := FinalValueBlindingFactor(args)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -209,17 +215,8 @@ func TestAssetCommitment(t *testing.T) {
 	vectors := tests["assetCommitment"].([]interface{})
 	for _, testVector := range vectors {
 		v := testVector.(map[string]interface{})
-		assetStr := v["asset"].(string)
-		factorStr := v["factor"].(string)
-		asset, err := hex.DecodeString(assetStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		factor, err := hex.DecodeString(factorStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		asset := h2b(v["asset"].(string))
+		factor := h2b(v["factor"].(string))
 
 		commitment, err := AssetCommitment(asset, factor)
 		if !assert.NoError(t, err) {
@@ -227,7 +224,7 @@ func TestAssetCommitment(t *testing.T) {
 		}
 
 		expected := v["expected"].(string)
-		assert.Equal(t, hex.EncodeToString(commitment[:]), expected)
+		assert.Equal(t, expected, hex.EncodeToString(commitment[:]))
 	}
 }
 
@@ -240,24 +237,9 @@ func TestValueCommitment(t *testing.T) {
 	vectors := tests["valueCommitment"].([]interface{})
 	for _, testVector := range vectors {
 		v := testVector.(map[string]interface{})
-		valueStr := v["value"].(string)
-		generatorStr := v["generator"].(string)
-		factorStr := v["factor"].(string)
-
-		value, err := strconv.ParseUint(valueStr, 10, 64)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		factor, err := hex.DecodeString(factorStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		generator, err := hex.DecodeString(generatorStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		value, _ := strconv.ParseUint(v["value"].(string), 10, 64)
+		factor := h2b(v["factor"].(string))
+		generator := h2b(v["generator"].(string))
 
 		valueCommitment, err := ValueCommitment(value, generator, factor)
 		if !assert.NoError(t, err) {
@@ -265,7 +247,7 @@ func TestValueCommitment(t *testing.T) {
 		}
 
 		expected := v["expected"].(string)
-		assert.Equal(t, hex.EncodeToString(valueCommitment[:]), expected)
+		assert.Equal(t, expected, hex.EncodeToString(valueCommitment[:]))
 	}
 }
 
@@ -278,67 +260,29 @@ func TestRangeProof(t *testing.T) {
 	vectors := tests["rangeProof"].([]interface{})
 	for _, testVector := range vectors {
 		v := testVector.(map[string]interface{})
-		valueStr := v["value"].(string)
-		value, err := strconv.ParseUint(valueStr, 10, 64)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
 
-		blindingPubkeyStr := v["blindingPubkey"].(string)
-		blindingPubkey, err := hex.DecodeString(blindingPubkeyStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		value, _ := strconv.ParseUint(v["value"].(string), 10, 64)
+		blindingPubkey := h2b(v["blindingPubkey"].(string))
+		scriptPubkey := h2b(v["scriptPubkey"].(string))
+		asset := h2b(v["asset"].(string))
+		assetBlindingFactor := h2b(v["assetBlindingFactor"].(string))
+		ephemeralPrivkey := h2b(v["ephemeralPrivkey"].(string))
+		valueCommitment := h2b(v["valueCommitment"].(string))
 
-		scriptPubkeyStr := v["scriptPubkey"].(string)
-		scriptPubkey, err := hex.DecodeString(scriptPubkeyStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		assetStr := v["asset"].(string)
-		asset, err := hex.DecodeString(assetStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		assetBlindingFactorStr := v["assetBlindingFactor"].(string)
-		assetBlindingFactor, err := hex.DecodeString(assetBlindingFactorStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		ephemeralPrivkeyStr := v["ephemeralPrivkey"].(string)
-		ephemeralPrivkey, err := hex.DecodeString(ephemeralPrivkeyStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		valueCommitmentStr := v["valueCommitment"].(string)
-		valueCommitment, err := hex.DecodeString(valueCommitmentStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		valueBlindingFactorStr := v["valueBlindingFactor"].(string)
-		valueBlindingFactor, err := hex.DecodeString(valueBlindingFactorStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-		var valueBlindingFactorArray [32]byte
-		copy(valueBlindingFactorArray[:], valueBlindingFactor[:])
+		var valueBlindingFactor32 [32]byte
+		copy(valueBlindingFactor32[:], h2b(v["valueBlindingFactor"].(string)))
 
 		nonce, err := NonceHash(blindingPubkey, ephemeralPrivkey)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
-		input := RangeProofArg{
+		args := RangeProofArgs{
 			Value:               value,
 			Nonce:               nonce,
 			Asset:               asset,
 			AssetBlindingFactor: assetBlindingFactor,
-			ValueBlindFactor:    valueBlindingFactorArray,
+			ValueBlindFactor:    valueBlindingFactor32,
 			ValueCommit:         valueCommitment,
 			ScriptPubkey:        scriptPubkey,
 			MinValue:            1,
@@ -346,13 +290,13 @@ func TestRangeProof(t *testing.T) {
 			MinBits:             36,
 		}
 
-		proof, err := RangeProof(input)
+		proof, err := RangeProof(args)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
 		expectedStr := v["expected"].(string)
-		assert.Equal(t, hex.EncodeToString(proof[:]), expectedStr)
+		assert.Equal(t, expectedStr, hex.EncodeToString(proof[:]))
 	}
 }
 
@@ -366,45 +310,21 @@ func TestSurjectionProof(t *testing.T) {
 	for _, testVector := range vectors {
 		v := testVector.(map[string]interface{})
 
-		seedStr := v["seed"].(string)
-		seed, err := hex.DecodeString(seedStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		outputAssetStr := v["outputAsset"].(string)
-		outputAsset, err := hex.DecodeString(outputAssetStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		outputAssetBlindingFactorStr := v["outputAssetBlindingFactor"].(string)
-		outputAssetBlindingFactor, err := hex.DecodeString(outputAssetBlindingFactorStr)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
+		seed := h2b(v["seed"].(string))
+		outputAsset := h2b(v["outputAsset"].(string))
+		outputAssetBlindingFactor := h2b(v["outputAssetBlindingFactor"].(string))
 		inputAssetsSlice := v["inputAssets"].([]interface{})
-		inputAssets := make([][]byte, 0)
+		inputAssets := make([][]byte, 0, len(inputAssetsSlice))
 		for _, val := range inputAssetsSlice {
-			a, err := hex.DecodeString(val.(string))
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
-			inputAssets = append(inputAssets, a)
+			inputAssets = append(inputAssets, h2b(val.(string)))
 		}
-
 		inputAssetBlindingFactorsSlice := v["inputAssetBlindingFactors"].([]interface{})
-		inputAssetBlindingFactors := make([][]byte, 0)
+		inputAssetBlindingFactors := make([][]byte, 0, len(inputAssetBlindingFactorsSlice))
 		for _, val := range inputAssetBlindingFactorsSlice {
-			a, err := hex.DecodeString(val.(string))
-			if !assert.NoError(t, err) {
-				t.FailNow()
-			}
-			inputAssetBlindingFactors = append(inputAssetBlindingFactors, a)
+			inputAssetBlindingFactors = append(inputAssetBlindingFactors, h2b(val.(string)))
 		}
 
-		input := SurjectionProofArg{
+		args := SurjectionProofArgs{
 			OutputAsset:               outputAsset,
 			OutputAssetBlindingFactor: outputAssetBlindingFactor,
 			InputAssets:               inputAssets,
@@ -412,31 +332,48 @@ func TestSurjectionProof(t *testing.T) {
 			Seed:                      seed,
 		}
 
-		factor, ok := SurjectionProof(input)
+		factor, ok := SurjectionProof(args)
 		assert.Equal(t, true, ok)
 
 		expectedFactor := v["expected"].(string)
 		assert.Equal(t, expectedFactor, hex.EncodeToString(factor[:]))
-
 	}
-
 }
 
-func TestSatoshiToElementsValueAndBack(t *testing.T) {
-	bigInt, err := rand.Int(rand.Reader, big.NewInt(1000000000))
-	if err != nil {
-		panic(err)
-	}
-	satoshi := bigInt.Uint64()
-	elementsValue, err := SatoshiToElementsValue(satoshi)
+func TestVerifySurjectionProof(t *testing.T) {
+	err := setUp()
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
-	satoshiValue, err := ElementsToSatoshiValue(elementsValue)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	vectors := tests["verifySurjectionProof"].([]interface{})
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
 
-	assert.Equal(t, satoshi, satoshiValue)
+		proof := h2b(v["proof"].(string))
+		outputAsset := h2b(v["outputAsset"].(string))
+		outputAssetBlindingFactor := h2b(v["outputAssetBlindingFactor"].(string))
+		inputAssetsSlice := v["inputAssets"].([]interface{})
+		inputAssets := make([][]byte, 0, len(inputAssetsSlice))
+		for _, val := range inputAssetsSlice {
+			inputAssets = append(inputAssets, h2b(val.(string)))
+		}
+		inputAssetBlindingFactorsSlice := v["inputAssetBlindingFactors"].([]interface{})
+		inputAssetBlindingFactors := make([][]byte, 0, len(inputAssetBlindingFactorsSlice))
+		for _, val := range inputAssetBlindingFactorsSlice {
+			inputAssetBlindingFactors = append(inputAssetBlindingFactors, h2b(val.(string)))
+		}
+
+		args := VerifySurjectionProofArgs{
+			OutputAsset:               outputAsset,
+			OutputAssetBlindingFactor: outputAssetBlindingFactor,
+			InputAssets:               inputAssets,
+			InputAssetBlindingFactors: inputAssetBlindingFactors,
+			Proof:                     proof,
+		}
+		isValid := VerifySurjectionProof(args)
+
+		expectedValid := v["expected"].(bool)
+		assert.Equal(t, expectedValid, isValid)
+	}
 }

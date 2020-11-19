@@ -6,8 +6,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -25,7 +24,7 @@ func TestCreator(t *testing.T) {
 			in := vIn.(map[string]interface{})
 			inHash, _ := hex.DecodeString(in["hash"].(string))
 			inIndex := uint32(in["index"].(float64))
-			inHash = bufferutil.ReverseBytes(inHash)
+			inHash = elementsutil.ReverseBytes(inHash)
 			inputs = append(inputs, transaction.NewTxInput(inHash, inIndex))
 		}
 
@@ -33,7 +32,7 @@ func TestCreator(t *testing.T) {
 		for _, vOut := range v["outputs"].([]interface{}) {
 			out := vOut.(map[string]interface{})
 			outAsset, _ := hex.DecodeString(out["asset"].(string))
-			outAsset = append([]byte{0x01}, bufferutil.ReverseBytes(outAsset)...)
+			outAsset = append([]byte{0x01}, elementsutil.ReverseBytes(outAsset)...)
 			outValue, _ := elementsutil.SatoshiToElementsValue(uint64(out["value"].(float64)))
 			outScript, _ := hex.DecodeString(out["script"].(string))
 			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue[:], outScript))

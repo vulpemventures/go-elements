@@ -15,7 +15,7 @@ func SatoshiToElementsValue(val uint64) ([]byte, error) {
 	if err := bufferutil.BinarySerializer.PutUint64(b, binary.LittleEndian, val); err != nil {
 		return nil, err
 	}
-	res := append([]byte{unconfPrefix}, bufferutil.ReverseBytes(b.Bytes())...)
+	res := append([]byte{unconfPrefix}, ReverseBytes(b.Bytes())...)
 	return res, nil
 }
 
@@ -27,7 +27,21 @@ func ElementsToSatoshiValue(val []byte) (uint64, error) {
 	if val[0] != byte(1) {
 		return 0, errors.New("invalid prefix")
 	}
-	reverseValueBuffer := bufferutil.ReverseBytes(val[1:])
+	reverseValueBuffer := ReverseBytes(val[1:])
 	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer))
 	return d.ReadUint64()
+}
+
+// ReverseBytes returns a copy of the given byte slice with elems in reverse order.
+func ReverseBytes(buf []byte) []byte {
+	if len(buf) < 1 {
+		return buf
+	}
+	tmp := make([]byte, len(buf))
+	copy(tmp, buf)
+	for i := len(tmp)/2 - 1; i >= 0; i-- {
+		j := len(tmp) - 1 - i
+		tmp[i], tmp[j] = tmp[j], tmp[i]
+	}
+	return tmp
 }

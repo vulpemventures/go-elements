@@ -87,14 +87,14 @@ with the assistance of vulpemventures/nigiri for funding the address, retrieving
 
 	// The transaction will have 1 input and 3 outputs.
 	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash = elementsutil.ReverseBytes(txInputHash)
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
 	lbtc, _ := hex.DecodeString(
 		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
 	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
+	lbtc = append([]byte{0x01}, elementsutil.ReverseBytes(lbtc)...)
 
 	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")

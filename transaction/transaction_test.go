@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
+	"github.com/vulpemventures/go-elements/elementsutil"
 )
 
 func TestRoundTrip(t *testing.T) {

@@ -17,8 +17,7 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/confidential"
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -26,7 +25,7 @@ import (
 
 var lbtc = append(
 	[]byte{0x01},
-	bufferutil.ReverseBytes(h2b(network.Regtest.AssetID))...,
+	elementsutil.ReverseBytes(h2b(network.Regtest.AssetID))...,
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -144,11 +143,11 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 
 	// The transaction will have 2 input and 3 outputs.
 	// Input From Alice
-	txInputHashAlice := bufferutil.ReverseBytes(h2b(utxosAlice[0]["txid"].(string)))
+	txInputHashAlice := elementsutil.ReverseBytes(h2b(utxosAlice[0]["txid"].(string)))
 	txInputIndexAlice := uint32(utxosAlice[0]["vout"].(float64))
 	txInputAlice := transaction.NewTxInput(txInputHashAlice, txInputIndexAlice)
 	// Input From Bob
-	txInputHashBob := bufferutil.ReverseBytes(h2b(utxosBob[0]["txid"].(string)))
+	txInputHashBob := elementsutil.ReverseBytes(h2b(utxosBob[0]["txid"].(string)))
 	txInputIndexBob := uint32(utxosBob[0]["vout"].(float64))
 	txInputBob := transaction.NewTxInput(txInputHashBob, txInputIndexBob)
 
@@ -163,7 +162,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	changeOutputAlice := transaction.NewTxOutput(lbtc, changeValueAlice[:], changeScriptAlice)
 
 	// Asset hex
-	asset := append([]byte{0x01}, bufferutil.ReverseBytes(h2b(mintedAsset))...)
+	asset := append([]byte{0x01}, elementsutil.ReverseBytes(h2b(mintedAsset))...)
 
 	//// Outputs from Bob
 	// Asset to Alice
@@ -292,7 +291,7 @@ func TestBroadcastUnblindedTxP2PKH(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -373,7 +372,7 @@ func TestBroadcastUnblindedTxP2SH_P2WPKH(t *testing.T) {
 
 	// The transaction will have 1 input and 3 outputs.
 	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash = elementsutil.ReverseBytes(txInputHash)
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -451,7 +450,7 @@ func TestBroadcastUnblindedTxP2WPKH(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -536,7 +535,7 @@ func TestBroadcastUnblindedTxP2SH_P2MS(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -630,7 +629,7 @@ func TestBroadcastUnblindedTxP2WSH_P2MS(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -712,7 +711,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -802,7 +801,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -901,7 +900,7 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -1009,7 +1008,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 2 outputs.
-	txInputHash := bufferutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
@@ -1132,7 +1131,7 @@ func TestBroadcastBlindedIssuanceAndReIssuanceTx(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 2 outputs.
-	txInputHashForIssuanceTx := bufferutil.ReverseBytes(
+	txInputHashForIssuanceTx := elementsutil.ReverseBytes(
 		h2b(utxosForIssuanceTx[0]["txid"].(string)),
 	)
 	txInputIndexForIssuanceTx := uint32(utxosForIssuanceTx[0]["vout"].(float64))
@@ -1251,7 +1250,7 @@ func TestBroadcastBlindedIssuanceAndReIssuanceTx(t *testing.T) {
 	}
 
 	// lbtc input for paying network fees
-	txInputHashForReissuanceTx := bufferutil.ReverseBytes(h2b(issuanceTxID))
+	txInputHashForReissuanceTx := elementsutil.ReverseBytes(h2b(issuanceTxID))
 	// we know that the third output of the issuance tx is the lbtc change
 	txInputIndexForReissuanceTx := uint32(2)
 	txInputForReissuanceTx := transaction.NewTxInput(
@@ -1281,7 +1280,7 @@ func TestBroadcastBlindedIssuanceAndReIssuanceTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entropy := b2h(bufferutil.ReverseBytes(issuance.TxIssuance.AssetEntropy))
+	entropy := b2h(elementsutil.ReverseBytes(issuance.TxIssuance.AssetEntropy))
 
 	reissuanceArgs := AddReissuanceArgs{
 		PrevOutHash:    issuanceTxID,

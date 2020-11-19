@@ -7,7 +7,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/confidential"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 

@@ -20,8 +20,7 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/address"
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -570,7 +569,7 @@ func (arg AddReissuanceArgs) validate() error {
 
 	if arg.NonWitnessUtxo != nil {
 		hash := arg.NonWitnessUtxo.TxHash()
-		if hex.EncodeToString(bufferutil.ReverseBytes(hash[:])) != arg.PrevOutHash {
+		if hex.EncodeToString(elementsutil.ReverseBytes(hash[:])) != arg.PrevOutHash {
 			return errors.New("input and non witness utxo hashes must match")
 		}
 	}
@@ -651,7 +650,7 @@ func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
 	}
 
 	prevoutHash, _ := hex.DecodeString(arg.PrevOutHash)
-	prevoutHash = bufferutil.ReverseBytes(prevoutHash)
+	prevoutHash = elementsutil.ReverseBytes(prevoutHash)
 	prevoutIndex := arg.PrevOutIndex
 
 	// add input
@@ -665,7 +664,7 @@ func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
 	}
 
 	entropy, _ := hex.DecodeString(arg.Entropy)
-	entropy = bufferutil.ReverseBytes(entropy)
+	entropy = elementsutil.ReverseBytes(entropy)
 	issuance := transaction.NewTxIssuanceFromEntropy(entropy)
 
 	assetHash, _ := issuance.GenerateAsset()

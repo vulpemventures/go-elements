@@ -8,8 +8,7 @@ import (
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -39,7 +38,7 @@ func TestUpdater(t *testing.T) {
 			} else {
 				wu := in["witnessUtxo"].(map[string]interface{})
 				asset, _ := hex.DecodeString(wu["asset"].(string))
-				asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
+				asset = append([]byte{0x01}, elementsutil.ReverseBytes(asset)...)
 				script, _ := hex.DecodeString(wu["script"].(string))
 				value, _ := elementsutil.SatoshiToElementsValue(uint64(wu["value"].(float64)))
 				utxo := transaction.NewTxOutput(asset, value[:], script)
@@ -217,11 +216,11 @@ func TestUpdaterAddIssuance(t *testing.T) {
 			assetBlindingNonce := p.UnsignedTx.Inputs[0].Issuance.AssetBlindingNonce
 			assert.Equal(t, b2h(transaction.Zero[:]), b2h(assetBlindingNonce))
 
-			asset := b2h(bufferutil.ReverseBytes(p.UnsignedTx.Outputs[0].Asset[1:]))
+			asset := b2h(elementsutil.ReverseBytes(p.UnsignedTx.Outputs[0].Asset[1:]))
 			assert.Equal(t, tt.expectedAsset, asset)
 
 			if tt.args.TokenAmount > 0 {
-				token := b2h(bufferutil.ReverseBytes(p.UnsignedTx.Outputs[1].Asset[1:]))
+				token := b2h(elementsutil.ReverseBytes(p.UnsignedTx.Outputs[1].Asset[1:]))
 				assert.Equal(t, tt.expectedToken, token)
 			}
 		}
@@ -314,8 +313,8 @@ func TestUpdaterAddReissuance(t *testing.T) {
 			p.UnsignedTx.Inputs[1].Issuance.AssetBlindingNonce
 		assert.Equal(t, prevoutBlinder, reissuanceNonce)
 
-		asset := b2h(bufferutil.ReverseBytes(p.UnsignedTx.Outputs[0].Asset[1:]))
-		token := b2h(bufferutil.ReverseBytes(p.UnsignedTx.Outputs[1].Asset[1:]))
+		asset := b2h(elementsutil.ReverseBytes(p.UnsignedTx.Outputs[0].Asset[1:]))
+		token := b2h(elementsutil.ReverseBytes(p.UnsignedTx.Outputs[1].Asset[1:]))
 		expectedToken := "4307771267e443764fdad22b9893c1cbe413dcc736258ebb590a31035f3c143e"
 		expectedAsset := "8e80d20a43ee55d5a26d2ac16ea5319c494a193dbb5d2ffc18c7e6b4525f2125"
 		assert.Equal(t, expectedAsset, asset)

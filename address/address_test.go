@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vulpemventures/go-elements/network"
 )
 
 func TestBase58(t *testing.T) {
@@ -102,53 +101,44 @@ func TestConfidential(t *testing.T) {
 func TestDecodeAddressType(t *testing.T) {
 	tests := []struct {
 		address      string
-		network      network.Network
 		expectedType int
 	}{
 		{
 			address:      "Q9863Eah5byyxdBX8zghpooS2x4Ey8XZyc",
-			network:      network.Liquid,
 			expectedType: P2Pkh,
 		},
 		{
 			address:      "H5RCjtzndKyzFnVe41yg62T3WViWguyz4M",
-			network:      network.Liquid,
 			expectedType: P2Sh,
 		},
 		{
 			address:      "ex1qlg343tpldc4wvjxn3jdq2qs35r8j5yd5vqrmu3",
-			network:      network.Liquid,
 			expectedType: P2Wpkh,
 		},
 		{
 			address:      "ert1q2z45rh444qmeand48lq0wp3jatxs2nzh492ds9s5yscv2pplxwesajz7q3",
-			network:      network.Regtest,
 			expectedType: P2Wsh,
 		},
 		{
 			address:      "VTpuLYhJwE8CFm6h1A6DASCaJuRQqkBt6qGfbebSHAUxGXsJMo8wtRvLZYZSWWXt89jG55pCF4YfxMjh",
-			network:      network.Liquid,
 			expectedType: ConfidentialP2Pkh,
 		},
 		{
 			address:      "VJLDHFUbw8oPUcwzmf9jw4tZdN57rEfAusRmWy6knHAF2a4rLGenJz5WPVuyggVzQPHY6JjzKuw31B6e",
-			network:      network.Liquid,
 			expectedType: ConfidentialP2Sh,
 		},
 		{
 			address:      "lq1qqwrdmhm69vsq3qfym06tlyhfze9ltauay9tv4r34ueplfwtjx0q27dk2c4d3a9ms6wum04efclqph7dg4unwcmwmw4vnqreq3",
-			network:      network.Liquid,
 			expectedType: ConfidentialP2Wpkh,
 		},
 		{
 			address:      "lq1qq2akvug2el2rg6lt6aewh9rzy7dglf9ajdmrkknnwwl3jwxgfkh985x3lrzmrq2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hqnhgwv394ycf8",
-			network:      network.Liquid,
 			expectedType: ConfidentialP2Wsh,
 		},
 	}
 
 	for _, tt := range tests {
-		addressType, err := DecodeType(tt.address, tt.network)
+		addressType, err := DecodeType(tt.address)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -180,9 +180,12 @@ func (b *blinder) unblindInputs() (
 
 		// if the current input contains an issuance, add the pseudo input to the
 		// returned unblindedPseudoIns array
-		if input.HasIssuance() {
-			issuance := transaction.NewTxIssuanceFromContractHash(input.Issuance.AssetEntropy)
-			issuance.GenerateEntropy(input.Hash, input.Index)
+		if input.HasAnyIssuance() {
+			issuance, err := transaction.NewTxIssuanceFromInput(input)
+			if err != nil {
+				return nil, nil, err
+			}
+
 			asset, err := issuance.GenerateAsset()
 			if err != nil {
 				return nil, nil, err
@@ -211,9 +214,10 @@ func (b *blinder) unblindInputs() (
 
 			// if the token amount is not defined, it is set to 0x00, thus we need
 			// to check if the input.Issuance.TokenAmount, that is encoded in the
-			// elements format, contains more than one byte
-			if len(input.Issuance.TokenAmount) > 1 {
-				value, err := elementsutil.ElementsToSatoshiValue(input.Issuance.TokenAmount)
+			// elements format, contains more than one byte. We simply ignore the
+			// token amount for reissuances.
+			if i := input.Issuance; !i.IsReissuance() && i.HasTokenAmount() {
+				value, err := elementsutil.ElementsToSatoshiValue(i.TokenAmount)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -225,9 +229,7 @@ func (b *blinder) unblindInputs() (
 					tokenFlag = 0
 				}
 
-				token, err := issuance.GenerateReissuanceToken(
-					tokenFlag,
-				)
+				token, err := issuance.GenerateReissuanceToken(tokenFlag)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -320,7 +322,7 @@ func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) erro
 
 	getBlindingFactors := func(asset []byte) ([]byte, []byte, error) {
 		for _, u := range unblinded {
-			if bytes.Compare(asset, u.Asset) == 0 {
+			if bytes.Equal(asset, u.Asset) {
 				return u.ValueBlindingFactor, u.AssetBlindingFactor, nil
 			}
 		}
@@ -328,15 +330,12 @@ func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) erro
 	}
 
 	for index, input := range b.pset.UnsignedTx.Inputs {
-		if input.HasIssuance() {
-			issuance := transaction.NewTxIssuanceFromContractHash(
-				input.Issuance.AssetEntropy,
-			)
-
-			err := issuance.GenerateEntropy(input.Hash, input.Index)
+		if input.HasAnyIssuance() {
+			issuance, err := transaction.NewTxIssuanceFromInput(input)
 			if err != nil {
 				return err
 			}
+
 			asset, err := issuance.GenerateAsset()
 			if err != nil {
 				return err
@@ -352,10 +351,12 @@ func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) erro
 				return err
 			}
 
-			// if the token amount is not defined, it is set to 0x00, thus we need
-			// to check if the input.Issuance.TokenAmount, that is encoded in the
-			// elements format, contains more than one byte
-			if len(input.Issuance.TokenAmount) > 1 {
+			// ONLY in case the issuance is not a reissuance, if the token amount is
+			// not defined, it is set to 0x00, thus it's required to check that the
+			// input.Issuance.TokenAmount, that's encoded in the elements format (!),
+			// is longer than one byte. Reissuances, instead, cannot have a token
+			// amount defined.
+			if i := input.Issuance; !i.IsReissuance() && i.HasTokenAmount() {
 				token, err := issuance.GenerateReissuanceToken(
 					ConfidentialReissuanceTokenFlag,
 				)
@@ -686,7 +687,7 @@ func verifyBlinding(
 			inAssetBlinders = append(inAssetBlinders, unblinded.AssetBlindingFactor)
 		}
 
-		if txIn := pset.UnsignedTx.Inputs[i]; txIn.HasIssuance() {
+		if txIn := pset.UnsignedTx.Inputs[i]; txIn.HasAnyIssuance() {
 			if txIn.HasConfidentialIssuance() {
 				unblinded, err := confidential.UnblindIssuance(txIn, inIssuanceKeys[i].ToSlice())
 				if err != nil {
@@ -698,7 +699,7 @@ func verifyBlinding(
 					unblinded.Asset.AssetBlindingFactor,
 				)
 
-				if len(txIn.Issuance.TokenAmount) > 0 {
+				if txIn.Issuance.HasTokenAmount() {
 					inIssuanceAssets = append(inIssuanceAssets, unblinded.Token.Asset)
 					inIssuanceAssetBlinders = append(
 						inIssuanceAssetBlinders,
@@ -720,7 +721,7 @@ func verifyBlinding(
 					transaction.Zero[:],
 				)
 
-				if len(txIn.Issuance.TokenAmount) > 0 {
+				if txIn.Issuance.HasTokenAmount() {
 					token, err := iss.GenerateReissuanceToken(0)
 					if err != nil {
 						return false

@@ -13,13 +13,15 @@ package pset
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/address"
-	"github.com/vulpemventures/go-elements/network"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/internal/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -386,70 +388,101 @@ func (p *Updater) AddOutput(txOutput *transaction.TxOutput) {
 	p.Data.Outputs = append(p.Data.Outputs, POutput{})
 }
 
-// AddIssuanceArg is a struct encapsulating all the issuance data that
+// AddIssuanceArgs is a struct encapsulating all the issuance data that
 // can be attached to any specific transaction of the PSBT.
-type AddIssuanceArg struct {
+type AddIssuanceArgs struct {
 	Precision    uint
 	Contract     *transaction.IssuanceContract
 	AssetAmount  uint64
 	TokenAmount  uint64
 	AssetAddress string
 	TokenAddress string
-	TokenFlag    uint
-	Net          network.Network
+}
+
+func (arg AddIssuanceArgs) validate() error {
+	if _, err := transaction.NewTxIssuance(
+		arg.AssetAmount,
+		arg.TokenAmount,
+		arg.Precision,
+		arg.Contract,
+	); err != nil {
+		return err
+	}
+
+	if len(arg.AssetAddress) <= 0 {
+		return errors.New("missing destination address for asset to issue")
+	}
+
+	if _, err := address.DecodeType(arg.AssetAddress); err != nil {
+		return err
+	}
+
+	if arg.TokenAmount > 0 {
+		if len(arg.TokenAddress) <= 0 {
+			return errors.New("missing destination address for token to issue")
+		}
+		if _, err := address.DecodeType(arg.TokenAddress); err != nil {
+			return err
+		}
+	}
+	if !arg.matchAddressTypes() {
+		return errors.New(
+			"asset and token destination addresses must both be confidential or " +
+				"non-confidential",
+		)
+	}
+
+	return nil
+}
+
+func (arg AddIssuanceArgs) matchAddressTypes() bool {
+	if len(arg.TokenAddress) <= 0 {
+		return true
+	}
+
+	a, _ := address.IsConfidential(arg.AssetAddress)
+	b, _ := address.IsConfidential(arg.TokenAddress)
+	// xnor -> return true only if a and b have the same value
+	return !((a || b) && (!a || !b))
+}
+
+func (arg AddIssuanceArgs) tokenFlag() uint {
+	if isConfidential, _ := address.IsConfidential(
+		arg.AssetAddress,
+	); isConfidential {
+		return uint(ConfidentialReissuanceTokenFlag)
+	}
+	return uint(NonConfidentialReissuanceTokenFlag)
 }
 
 // AddIssuance adds an unblinded issuance to the transaction
-func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
+func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
+	if err := arg.validate(); err != nil {
+		return err
+	}
+
 	if len(p.Data.UnsignedTx.Inputs) == 0 {
 		return errors.New("transaction must contain at least one input")
 	}
 
-	if arg.AssetAmount == 0 {
-		return errors.New("asset amount must be greater then 0")
-	}
-
-	if arg.AssetAddress == "" {
-		return errors.New("destination address for issued asset must" +
-			" be provided")
-	}
-
-	if arg.TokenAmount > 0 {
-		if arg.TokenAmount > 0 && arg.TokenAddress == "" {
-			return errors.New("destination address for reissuance token " +
-				"must be provided")
-		}
-
-		if arg.TokenFlag != NonConfidentialReissuanceTokenFlag &&
-			arg.TokenFlag != ConfidentialReissuanceTokenFlag {
-			return errors.New("token flag must be 0 or 1")
-		}
-	}
-
-	issuance, err := transaction.NewTxIssuance(
+	issuance, _ := transaction.NewTxIssuance(
 		arg.AssetAmount,
 		arg.TokenAmount,
 		arg.Precision,
 		arg.Contract,
 	)
-	if err != nil {
-		return err
+
+	prevoutIndex, prevoutHash, inputIndex := findInputWithEmptyIssuance(p.Data)
+	if inputIndex < 0 {
+		return errors.New(
+			"transaction does not contain any input with empty issuance",
+		)
 	}
 
-	var prevoutIndex uint32
-	var inputIndex int
-	var prevoutHash [32]byte
-	for i, input := range p.Data.UnsignedTx.Inputs {
-		if input.Issuance == nil {
-			prevoutIndex = input.Index
-			inputIndex = i
-			copy(prevoutHash[:], input.Hash)
-			break
-		}
-	}
-
-	err = issuance.GenerateEntropy(prevoutHash[:], prevoutIndex)
-	if err != nil {
+	if err := issuance.GenerateEntropy(
+		prevoutHash[:],
+		prevoutIndex,
+	); err != nil {
 		return err
 	}
 
@@ -467,7 +500,7 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
 	// prepend with a 0x01 prefix
 	assetHash = append([]byte{0x01}, assetHash...)
 
-	script, err := address.ToOutputScript(arg.AssetAddress, arg.Net)
+	script, err := address.ToOutputScript(arg.AssetAddress)
 	if err != nil {
 		return err
 	}
@@ -480,12 +513,12 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
 	p.AddOutput(output)
 
 	if arg.TokenAmount > 0 {
-		tokenHash, err := issuance.GenerateReissuanceToken(arg.TokenFlag)
+		tokenHash, err := issuance.GenerateReissuanceToken(arg.tokenFlag())
 		if err != nil {
 			return err
 		}
 		tokenHash = append([]byte{byte(1)}, tokenHash...)
-		script, err := address.ToOutputScript(arg.TokenAddress, arg.Net)
+		script, err := address.ToOutputScript(arg.TokenAddress)
 		if err != nil {
 			return err
 		}
@@ -499,4 +532,187 @@ func (p *Updater) AddIssuance(arg AddIssuanceArg) error {
 	}
 
 	return nil
+}
+
+// AddReissuanceArgs defines the mandatory fields that one needs to pass to
+// the AddReissuance method of the *Updater type
+// 		PrevOutHash: the prevout hash of the token that will be added as input to the tx
+//		PrevOutIndex: the prevout index of the token that will be added as input to the tx
+//		PrevOutBlinder: the asset blinder used to blind the prevout token
+//		WitnessUtxo: the prevout token in case it is a witness one
+//		NonWitnessUtxo: the prevout tx that include the token output in case it is a non witness one
+//		Entropy: the entropy used to generate token and asset
+//		AssetAmount: the amount of asset to re-issue
+//		TokenAmount: the same unblinded amount of the prevout token
+//		AssetAddress: the destination address of the re-issuing asset
+//		TokenAddress: the destination address of the re-issuance token
+type AddReissuanceArgs struct {
+	PrevOutHash    string
+	PrevOutIndex   uint32
+	PrevOutBlinder []byte
+	WitnessUtxo    *transaction.TxOutput
+	NonWitnessUtxo *transaction.Transaction
+	Entropy        string
+	AssetAmount    uint64
+	AssetAddress   string
+	TokenAmount    uint64
+	TokenAddress   string
+}
+
+func (arg AddReissuanceArgs) validate() error {
+	if arg.WitnessUtxo == nil && arg.NonWitnessUtxo == nil {
+		return errors.New("either WitnessUtxo or NonWitnessUtxo must be defined")
+	}
+
+	if buf, err := hex.DecodeString(arg.PrevOutHash); err != nil || len(buf) != 32 {
+		return errors.New("invalid input hash")
+	}
+
+	if arg.NonWitnessUtxo != nil {
+		hash := arg.NonWitnessUtxo.TxHash()
+		if hex.EncodeToString(bufferutil.ReverseBytes(hash[:])) != arg.PrevOutHash {
+			return errors.New("input and non witness utxo hashes must match")
+		}
+	}
+
+	// it's mandatory for the token prevout to be confidential. This because the
+	// prevout value blinder will be used as the reissuance's blinding nonce to
+	// prove that the spender actually owns and can unblind the token output.
+	if !arg.isPrevoutConfidential() {
+		return errors.New(
+			"token prevout must be confidential. You must blind your token by " +
+				"sending it to yourself in a confidential transaction if you want " +
+				"be able to reissue the relative asset",
+		)
+	}
+
+	if len(arg.PrevOutBlinder) != 32 {
+		return errors.New("invalid input blinder")
+	}
+
+	if buf, err := hex.DecodeString(arg.Entropy); err != nil || len(buf) != 32 {
+		return errors.New("invalid asset entropy")
+	}
+
+	if arg.AssetAmount <= 0 {
+		return errors.New("invalid asset amount")
+	}
+
+	if arg.TokenAmount <= 0 {
+		return errors.New("invalid token amount")
+	}
+
+	if len(arg.AssetAddress) <= 0 {
+		return errors.New("invalid destination address for asset")
+	}
+	if _, err := address.DecodeType(arg.AssetAddress); err != nil {
+		return err
+	}
+	if len(arg.TokenAddress) <= 0 {
+		return errors.New("invalid destination address for token")
+	}
+	if _, err := address.DecodeType(arg.TokenAddress); err != nil {
+		return err
+	}
+	if !arg.areAddressesConfidential() {
+		return errors.New("asset and token address must be both confidential")
+	}
+
+	return nil
+}
+
+func (arg AddReissuanceArgs) isPrevoutConfidential() bool {
+	if arg.WitnessUtxo != nil {
+		return arg.WitnessUtxo.IsConfidential()
+	}
+	return arg.NonWitnessUtxo.Outputs[arg.PrevOutIndex].IsConfidential()
+}
+
+func (arg AddReissuanceArgs) areAddressesConfidential() bool {
+	a, _ := address.IsConfidential(arg.AssetAddress)
+	b, _ := address.IsConfidential(arg.TokenAddress)
+	return a && b
+}
+
+// AddReissuance takes care of adding an input (the prevout token) and 2
+// outputs to the partial transaction. It also creates a new (re)issuance with
+// the provided entropy, blinder and amounts and attaches it to the new input.
+// NOTE: This transaction must be blinded later so that a new token blinding
+// nonce is generated for the new token output
+func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
+	if err := arg.validate(); err != nil {
+		return err
+	}
+
+	if len(p.Data.Inputs) == 0 {
+		return errors.New(
+			"transaction must contain at least one input before adding a reissuance",
+		)
+	}
+
+	prevoutHash, _ := hex.DecodeString(arg.PrevOutHash)
+	prevoutHash = bufferutil.ReverseBytes(prevoutHash)
+	prevoutIndex := arg.PrevOutIndex
+
+	// add input
+	tokenInput := transaction.NewTxInput(prevoutHash, prevoutIndex)
+	p.AddInput(tokenInput)
+	inputIndex := len(p.Data.Inputs) - 1
+	if arg.WitnessUtxo != nil {
+		p.AddInWitnessUtxo(arg.WitnessUtxo, inputIndex)
+	} else {
+		p.AddInNonWitnessUtxo(arg.NonWitnessUtxo, inputIndex)
+	}
+
+	entropy, _ := hex.DecodeString(arg.Entropy)
+	entropy = bufferutil.ReverseBytes(entropy)
+	issuance := transaction.NewTxIssuanceFromEntropy(entropy)
+
+	assetHash, _ := issuance.GenerateAsset()
+	assetHash = append([]byte{0x01}, assetHash...)
+	assetScript, _ := address.ToOutputScript(arg.AssetAddress)
+	assetAmount, _ := elementsutil.SatoshiToElementsValue(arg.AssetAmount)
+
+	tokenHash, _ := issuance.GenerateReissuanceToken(
+		ConfidentialReissuanceTokenFlag,
+	)
+	tokenHash = append([]byte{0x01}, tokenHash...)
+	tokenScript, _ := address.ToOutputScript(arg.TokenAddress)
+	tokenAmount, _ := elementsutil.SatoshiToElementsValue(arg.TokenAmount)
+
+	// add outputs
+	reissuanceOutput := transaction.NewTxOutput(
+		assetHash,
+		assetAmount,
+		assetScript,
+	)
+	p.AddOutput(reissuanceOutput)
+
+	// and the token output
+	tokenOutput := transaction.NewTxOutput(
+		tokenHash,
+		tokenAmount,
+		tokenScript,
+	)
+	p.AddOutput(tokenOutput)
+
+	// add the (re)issuance to the token input. The token amount of the issuance
+	// must not be defined for reissunces.
+	p.Data.UnsignedTx.Inputs[inputIndex].Issuance = &transaction.TxIssuance{
+		AssetBlindingNonce: arg.PrevOutBlinder,
+		TokenAmount:        []byte{0x00},
+		AssetAmount:        assetAmount,
+		AssetEntropy:       issuance.TxIssuance.AssetEntropy,
+	}
+
+	return nil
+}
+
+func findInputWithEmptyIssuance(p *Pset) (uint32, []byte, int) {
+	for i, in := range p.UnsignedTx.Inputs {
+		if !in.HasAnyIssuance() {
+			return in.Index, in.Hash[:], i
+		}
+	}
+	return 0, nil, -1
 }

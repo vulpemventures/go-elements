@@ -39,6 +39,11 @@ func (issuance *TxIssuance) IsReissuance() bool {
 	return !bytes.Equal(issuance.AssetBlindingNonce, Zero[:])
 }
 
+// HasTokenAmount returns whether the token amount is defined for the issuance
+func (issuance *TxIssuance) HasTokenAmount() bool {
+	return len(issuance.TokenAmount) > 1
+}
+
 // TxIssuanceExtended adds fields to the issuance type that are not encoded in
 // the transaction
 type TxIssuanceExtended struct {

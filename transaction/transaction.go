@@ -76,20 +76,30 @@ func NewTxInput(hash []byte, index uint32) *TxInput {
 // transaction input.
 func (in *TxInput) SerializeSize() int {
 	size := 40 + bufferutil.VarSliceSerializeSize(in.Script)
-	if in.HasIssuance() {
+	if in.HasAnyIssuance() {
 		size += 64 + len(in.Issuance.AssetAmount) + len(in.Issuance.TokenAmount)
 	}
 	return size
 }
 
-// HasIssuance returns whether the input contains an issuance
-func (in *TxInput) HasIssuance() bool {
+// HasAnyIssuance returns whether the input contains an issuance
+func (in *TxInput) HasAnyIssuance() bool {
 	return in.Issuance != nil
+}
+
+// HasIssuance returns wheter the input contains a pure asset issuance
+func (in *TxInput) HasIssuance() bool {
+	return in.HasAnyIssuance() && !in.Issuance.IsReissuance()
+}
+
+// HasReissuance returns wheter the input contains a reissuance of an asset
+func (in *TxInput) HasReissuance() bool {
+	return in.HasAnyIssuance() && in.Issuance.IsReissuance()
 }
 
 // HasConfidentialIssuance returns whether the input contains a blinded issuance
 func (in *TxInput) HasConfidentialIssuance() bool {
-	return in.HasIssuance() && len(in.IssuanceRangeProof) > 0
+	return in.HasAnyIssuance() && len(in.IssuanceRangeProof) > 0
 }
 
 // TxWitness defines the witness for a TxIn. A witness is to be interpreted as
@@ -359,20 +369,20 @@ func (tx *Transaction) WitnessHash() chainhash.Hash {
 	return tx.TxHash()
 }
 
-// CountIssuances returns the number of inputs containing an issuance
-func (tx *Transaction) CountIssuances() int {
-	if len(tx.Inputs) == 0 {
-		return 0
-	}
+// CountIssuances returns the number issuances contained in the transaction
+// as the number of issuances, reissuances and the total (their sum).
+func (tx *Transaction) CountIssuances() (issuances, reissuances, total int) {
 
-	count := 0
 	for _, in := range tx.Inputs {
 		if in.HasIssuance() {
-			count++
+			issuances++
+		}
+		if in.HasReissuance() {
+			reissuances++
 		}
 	}
-
-	return count
+	total = issuances + reissuances
+	return
 }
 
 // Weight returns the total weight in bytes of the transaction
@@ -436,12 +446,12 @@ func (tx *Transaction) Copy() *Transaction {
 		if len(input.InflationRangeProof) != 0 {
 			newInput.InflationRangeProof = copyBytes(input.InflationRangeProof)
 		}
-		if input.HasIssuance() {
+		if iss := input.Issuance; iss != nil {
 			newInput.Issuance = &TxIssuance{
-				AssetAmount:        copyBytes(input.Issuance.AssetAmount),
-				AssetEntropy:       copyBytes(input.Issuance.AssetEntropy),
-				AssetBlindingNonce: copyBytes(input.Issuance.AssetBlindingNonce),
-				TokenAmount:        copyBytes(input.Issuance.TokenAmount),
+				AssetAmount:        copyBytes(iss.AssetAmount),
+				AssetEntropy:       copyBytes(iss.AssetEntropy),
+				AssetBlindingNonce: copyBytes(iss.AssetBlindingNonce),
+				TokenAmount:        copyBytes(iss.TokenAmount),
 			}
 		}
 		newTx.Inputs = append(newTx.Inputs, &newInput)
@@ -616,11 +626,11 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 	s.WriteVarSlice(prevoutScript)
 	s.WriteSlice(value)
 	s.WriteUint32(input.Sequence)
-	if input.HasIssuance() {
-		s.WriteSlice(input.Issuance.AssetBlindingNonce)
-		s.WriteSlice(input.Issuance.AssetEntropy)
-		s.WriteSlice(input.Issuance.AssetAmount)
-		s.WriteSlice(input.Issuance.TokenAmount)
+	if iss := input.Issuance; iss != nil {
+		s.WriteSlice(iss.AssetBlindingNonce)
+		s.WriteSlice(iss.AssetEntropy)
+		s.WriteSlice(iss.AssetAmount)
+		s.WriteSlice(iss.TokenAmount)
 	}
 	s.WriteSlice(hashOutputs[:])
 	s.WriteUint32(tx.Locktime)
@@ -776,11 +786,11 @@ func calcTxSequencesHash(ins []*TxInput) [32]byte {
 func calcTxIssuancesHash(ins []*TxInput) [32]byte {
 	s, _ := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
-		if in.HasIssuance() {
-			s.WriteSlice(in.Issuance.AssetBlindingNonce)
-			s.WriteSlice(in.Issuance.AssetEntropy)
-			s.WriteSlice(in.Issuance.AssetAmount)
-			s.WriteSlice(in.Issuance.TokenAmount)
+		if iss := in.Issuance; iss != nil {
+			s.WriteSlice(iss.AssetBlindingNonce)
+			s.WriteSlice(iss.AssetEntropy)
+			s.WriteSlice(iss.AssetAmount)
+			s.WriteSlice(iss.TokenAmount)
 		} else {
 			s.WriteSlice([]byte{0x00})
 		}

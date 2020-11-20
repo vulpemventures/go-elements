@@ -238,14 +238,14 @@ func unblindIssuance(
 	if len(blindKeys) <= 1 {
 		return nil, errors.New("missing asset blind private key")
 	}
-	if in.Issuance == nil {
+	if !in.HasAnyIssuance() {
 		return nil, errors.New("missing input issuance")
 	}
-	if len(in.IssuanceRangeProof) <= 0 {
+	if !in.HasConfidentialIssuance() {
 		return nil, errors.New("missing asset range proof")
 	}
 
-	if len(in.Issuance.TokenAmount) > 0 {
+	if in.Issuance.HasTokenAmount() {
 		if len(in.InflationRangeProof) <= 0 {
 			return nil, errors.New("missing token range proof")
 		}
@@ -267,7 +267,7 @@ func unblindIssuance(
 			Script:     make([]byte, 0),
 		},
 	}
-	if len(in.Issuance.TokenAmount) > 0 {
+	if in.Issuance.HasTokenAmount() {
 		token, err := calcTokenHash(in)
 		if err != nil {
 			return nil, err

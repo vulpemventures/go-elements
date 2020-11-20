@@ -312,7 +312,7 @@ func FromConfidential(address string) (*ConfidentialAddress, error) {
 		return nil, err
 	}
 
-	addressType, err := DecodeType(address, *net)
+	addressType, err := DecodeType(address)
 	if err != nil {
 		return nil, err
 	}
@@ -414,8 +414,8 @@ func NetworkForAddress(address string) (*network.Network, error) {
 
 //ToOutputScript creates a new script to pay a transaction output to a the
 //specified address
-func ToOutputScript(address string, net network.Network) ([]byte, error) {
-	addressType, err := DecodeType(address, net)
+func ToOutputScript(address string) ([]byte, error) {
+	addressType, err := DecodeType(address)
 	if err != nil {
 		return nil, err
 	}
@@ -494,6 +494,7 @@ func ToOutputScript(address string, net network.Network) ([]byte, error) {
 	}
 }
 
+// GetScriptType returns the type of the given script (p2pkh, p2sh, etc.)
 func GetScriptType(script []byte) int {
 	switch script[0] {
 	case txscript.OP_0:
@@ -511,26 +512,38 @@ func GetScriptType(script []byte) int {
 }
 
 //DecodeType returns address type
-func DecodeType(address string, net network.Network) (int, error) {
-	if isBlech32(address, net) {
-		return decodeBlech32(address, net)
+func DecodeType(address string) (int, error) {
+	net, err := NetworkForAddress(address)
+	if err != nil {
+		return -1, err
 	}
-	if isBech32(address, net) {
-		return decodeBech32(address, net)
+
+	if isBlech32(address, *net) {
+		return decodeBlech32(address, *net)
 	}
-	return decodeBase58(address, net)
+	if isBech32(address, *net) {
+		return decodeBech32(address, *net)
+	}
+	return decodeBase58(address, *net)
+}
+
+// IsConfidential checks whether the given address is confidential
+func IsConfidential(address string) (bool, error) {
+	addressType, err := DecodeType(address)
+	if err != nil {
+		return false, err
+	}
+
+	isConfidential := (addressType == ConfidentialP2Pkh ||
+		addressType == ConfidentialP2Sh ||
+		addressType == ConfidentialP2Wpkh ||
+		addressType == ConfidentialP2Wsh)
+
+	return isConfidential, nil
 }
 
 func isBlech32(address string, net network.Network) bool {
-	oneIndex := strings.LastIndexByte(address, '1')
-	if oneIndex > 1 {
-		prefix := address[:oneIndex]
-		if prefix == net.Blech32 {
-			return true
-		}
-		return false
-	}
-	return false
+	return strings.HasPrefix(address, net.Blech32)
 }
 
 func decodeBlech32(address string, net network.Network) (int, error) {
@@ -549,15 +562,7 @@ func decodeBlech32(address string, net network.Network) (int, error) {
 }
 
 func isBech32(address string, net network.Network) bool {
-	oneIndex := strings.LastIndexByte(address, '1')
-	if oneIndex > 1 {
-		prefix := address[:oneIndex]
-		if prefix == net.Bech32 {
-			return true
-		}
-		return false
-	}
-	return false
+	return strings.HasPrefix(address, net.Bech32)
 }
 
 func decodeBech32(address string, net network.Network) (int, error) {

@@ -15,11 +15,17 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/vulpemventures/go-elements/confidential"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
+)
+
+var lbtc = append(
+	[]byte{0x01},
+	elementsutil.ReverseBytes(h2b(network.Regtest.AssetID))...,
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -58,9 +64,7 @@ func TestRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if res != str {
-			t.Fatalf("Got: %s, expected: %s", res, str)
-		}
+		assert.Equal(t, str, res)
 	}
 
 	for _, str := range tests.hex {
@@ -72,9 +76,7 @@ func TestRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if res != str {
-			t.Fatalf("Got: %s, expected: %s", res, str)
-		}
+		assert.Equal(t, str, res)
 	}
 }
 
@@ -116,8 +118,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	addressBob, _ := p2wpkhBob.ConfidentialWitnessPubKeyHash()
 
 	// Fund Alice address with LBTC.
-	_, err = faucet(addressAlice)
-	if err != nil {
+	if _, err := faucet(addressAlice); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,39 +143,32 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 
 	// The transaction will have 2 input and 3 outputs.
 	// Input From Alice
-	txInputHashAlice, _ := hex.DecodeString(utxosAlice[0]["txid"].(string))
-	txInputHashAlice = bufferutil.ReverseBytes(txInputHashAlice)
+	txInputHashAlice := elementsutil.ReverseBytes(h2b(utxosAlice[0]["txid"].(string)))
 	txInputIndexAlice := uint32(utxosAlice[0]["vout"].(float64))
 	txInputAlice := transaction.NewTxInput(txInputHashAlice, txInputIndexAlice)
 	// Input From Bob
-	txInputHashBob, _ := hex.DecodeString(utxosBob[0]["txid"].(string))
-	txInputHashBob = bufferutil.ReverseBytes(txInputHashBob)
+	txInputHashBob := elementsutil.ReverseBytes(h2b(utxosBob[0]["txid"].(string)))
 	txInputIndexBob := uint32(utxosBob[0]["vout"].(float64))
 	txInputBob := transaction.NewTxInput(txInputHashBob, txInputIndexBob)
 
 	//// Outputs from Alice
 	// LBTC to Bob
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 	aliceToBobValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	aliceToBobScript := p2wpkhBob.WitnessScript
-	aliceToBobOutput := transaction.NewTxOutput(lbtc, aliceToBobValue[:], aliceToBobScript)
+	aliceToBobOutput := transaction.NewTxOutput(lbtc, aliceToBobValue, aliceToBobScript)
 	// Change from/to Alice
 	changeScriptAlice := p2wpkhAlice.WitnessScript
 	changeValueAlice, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeOutputAlice := transaction.NewTxOutput(lbtc, changeValueAlice[:], changeScriptAlice)
 
 	// Asset hex
-	asset, _ := hex.DecodeString(mintedAsset)
-	asset = append([]byte{0x01}, bufferutil.ReverseBytes(asset)...)
+	asset := append([]byte{0x01}, elementsutil.ReverseBytes(h2b(mintedAsset))...)
 
 	//// Outputs from Bob
 	// Asset to Alice
 	bobToAliceValue, _ := elementsutil.SatoshiToElementsValue(100000000000)
 	bobToAliceScript := p2wpkhAlice.WitnessScript
-	bobToAliceOutput := transaction.NewTxOutput(asset, bobToAliceValue[:], bobToAliceScript)
+	bobToAliceOutput := transaction.NewTxOutput(asset, bobToAliceValue, bobToAliceScript)
 
 	// Create a new pset with all the outputs that need to be blinded first
 	inputs := []*transaction.TxInput{txInputAlice, txInputBob}
@@ -190,25 +184,13 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = updater.AddInSighashType(txscript.SigHashAll, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	prevTxHexAlice, err := fetchTx(utxosAlice[0]["txid"].(string))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	prevTxAlice, err := transaction.NewTxFromHex(string(prevTxHexAlice))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assetCommitmentAlice, _ := hex.DecodeString(utxosAlice[0]["assetcommitment"].(string))
-	valueCommitmentAlice, _ := hex.DecodeString(utxosAlice[0]["valuecommitment"].(string))
-	if err != nil {
-		t.Fatal(err)
-	}
+	prevTxAlice, _ := transaction.NewTxFromHex(prevTxHexAlice)
+	assetCommitmentAlice := h2b(utxosAlice[0]["assetcommitment"].(string))
+	valueCommitmentAlice := h2b(utxosAlice[0]["valuecommitment"].(string))
 	witnessUtxoAlice := &transaction.TxOutput{
 		Asset:           assetCommitmentAlice,
 		Value:           valueCommitmentAlice,
@@ -217,30 +199,18 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		RangeProof:      prevTxAlice.Outputs[txInputIndexAlice].RangeProof,
 		SurjectionProof: prevTxAlice.Outputs[txInputIndexAlice].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(witnessUtxoAlice, 0)
-	if err != nil {
+
+	if err := updater.AddInWitnessUtxo(witnessUtxoAlice, 0); err != nil {
 		t.Fatal(err)
 	}
 
-	err = updater.AddInSighashType(txscript.SigHashAll, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
 	prevTxHexBob, err := fetchTx(utxosBob[0]["txid"].(string))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	prevTxBob, err := transaction.NewTxFromHex(string(prevTxHexBob))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assetCommitmentBob, _ := hex.DecodeString(utxosBob[0]["assetcommitment"].(string))
-	valueCommitmentBob, _ := hex.DecodeString(utxosBob[0]["valuecommitment"].(string))
-	if err != nil {
-		t.Fatal(err)
-	}
+	prevTxBob, _ := transaction.NewTxFromHex(prevTxHexBob)
+	assetCommitmentBob := h2b(utxosBob[0]["assetcommitment"].(string))
+	valueCommitmentBob := h2b(utxosBob[0]["valuecommitment"].(string))
 	witnessUtxoBob := &transaction.TxOutput{
 		Asset:           assetCommitmentBob,
 		Value:           valueCommitmentBob,
@@ -249,8 +219,8 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		RangeProof:      prevTxBob.Outputs[txInputIndexBob].RangeProof,
 		SurjectionProof: prevTxBob.Outputs[txInputIndexBob].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(witnessUtxoBob, 1)
-	if err != nil {
+
+	if err := updater.AddInWitnessUtxo(witnessUtxoBob, 1); err != nil {
 		t.Fatal(err)
 	}
 
@@ -273,68 +243,21 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Add the unblinded outputs now, that's only the fee output in this case
-	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-	updater.AddOutput(feeOutput)
+	addFeesToTransaction(p, 500)
 
-	// Generate Alices Signature
-	witHashAlice := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkhAlice.Script, witnessUtxoAlice.Value, txscript.SigHashAll)
-	sigAlice, err := privkeyAlice.Sign(witHashAlice[:])
-	if err != nil {
-		t.Fatal(err)
+	prvKeys := []*btcec.PrivateKey{
+		privkeyAlice,
+		privkeyBob,
 	}
-	sigWithHashTypeAlice := append(sigAlice.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding Alices input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashTypeAlice, pubkeyAlice.SerializeCompressed(), nil, nil)
-	if err != nil {
+	scripts := [][]byte{
+		p2wpkhAlice.Script,
+		p2wpkhBob.Script,
+	}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	// Generate Bobs Signature
-	witHashBob := updater.Data.UnsignedTx.HashForWitnessV0(1, p2wpkhBob.Script, witnessUtxoBob.Value, txscript.SigHashAll)
-	sigBob, err := privkeyBob.Sign(witHashBob[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	sigWithHashTypeBob := append(sigBob.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding Bobs input signature script and the pubkey.
-	_, err = updater.Sign(1, sigWithHashTypeBob, pubkeyBob.SerializeCompressed(), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = broadcast(txHex)
-	if err != nil {
+	if _, err := broadcastTransaction(p); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -357,8 +280,7 @@ func TestBroadcastUnblindedTxP2PKH(t *testing.T) {
 	address, _ := p2pkh.PubKeyHash()
 
 	// Fund sender address.
-	_, err = faucet(address)
-	if err != nil {
+	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -369,27 +291,21 @@ func TestBroadcastUnblindedTxP2PKH(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-
 	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	receiverScript := p2pkh.Script
-	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
 
 	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeScript := p2pkh.Script
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 
 	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeScript := []byte{}
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
 
 	// Create a new pset.
 	inputs := []*transaction.TxInput{txInput}
@@ -405,79 +321,31 @@ func TestBroadcastUnblindedTxP2PKH(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updater.AddInSighashType(txscript.SigHashAll, 0)
+	txHex, err := fetchTx(utxos[0]["txid"].(string))
 	if err != nil {
 		t.Fatal(err)
 	}
+	tx, _ := transaction.NewTxFromHex(txHex)
 
-	txH, err := fetchTx(utxos[0]["txid"].(string))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tx, err := transaction.NewTxFromHex(string(txH))
-	if err != nil {
-		t.Fatal(err)
-	}
 	updater.AddInNonWitnessUtxo(tx, 0)
 
-	nonwitHash, err := updater.Data.UnsignedTx.HashForSignature(0, p2pkh.Script, txscript.SigHashAll)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sig, err := privkey.Sign(nonwitHash[:])
-	if err != nil {
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2pkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, false, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
+	if _, err := broadcastTransaction(p); err != nil {
 		t.Fatal(err)
-	}
-
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	txid, err := broadcast(txHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(txid) <= 0 {
-		t.Fatal("Expected transaction to be broadcasted")
 	}
 }
 
-func TestBroadcastUnblindedTxP2PKH2Inputs(t *testing.T) {
+func TestBroadcastUnblindedTxP2SH_P2WPKH(t *testing.T) {
 	/**
 	* This test attempts to broadcast a transaction composed by 1 input and 3
-	* outputs. The input of the transaction will be locked by a P2PKH script,
-	* while the outputs will be a legacy P2PKH for the receiver and the same P2PKH for the change.	*
+	* outputs. The input of the transaction will be a legacy input locked by a
+	* p2sh(p2wpkh) script, while the outputs will be a legacy p2pkh for the
+	* receiver and the same legacy p2sh for the change.
 	* The 3rd output is for the fees, that in Elements side chains are explicits.
 	**/
 
@@ -487,16 +355,12 @@ func TestBroadcastUnblindedTxP2PKH2Inputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
-	p2pkh := payment.FromPublicKey(pubkey, &network.Regtest, nil)
-	address, _ := p2pkh.PubKeyHash()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, nil)
+	p2sh, _ := payment.FromPayment(p2wpkh)
+	address, _ := p2sh.ScriptHash()
 
 	// Fund sender address.
-	_, err = faucet(address)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = faucet(address)
-	if err != nil {
+	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -508,34 +372,24 @@ func TestBroadcastUnblindedTxP2PKH2Inputs(t *testing.T) {
 
 	// The transaction will have 1 input and 3 outputs.
 	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash = elementsutil.ReverseBytes(txInputHash)
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	txInputHash2, _ := hex.DecodeString(utxos[1]["txid"].(string))
-	txInputHash2 = bufferutil.ReverseBytes(txInputHash2)
-	txInputIndex2 := uint32(utxos[1]["vout"].(float64))
-	txInput2 := transaction.NewTxInput(txInputHash2, txInputIndex2)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
+	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
 
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-
-	receiverValue, _ := elementsutil.SatoshiToElementsValue(160000000)
-	receiverScript := p2pkh.Script
-	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
-
+	changeScript := p2sh.Script
 	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
-	changeScript := p2pkh.Script
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 
-	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeScript := []byte{}
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
 
 	// Create a new pset.
-	inputs := []*transaction.TxInput{txInput, txInput2}
+	inputs := []*transaction.TxInput{txInput}
 	outputs := []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}
 	p, err := New(inputs, outputs, 2, 0)
 	if err != nil {
@@ -548,109 +402,25 @@ func TestBroadcastUnblindedTxP2PKH2Inputs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updater.AddInSighashType(txscript.SigHashAll, 0)
-	if err != nil {
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2sh.Script)
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
 		t.Fatal(err)
 	}
 
-	txH, err := fetchTx(utxos[0]["txid"].(string))
-	if err != nil {
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	witOpts := &signOpts{pubkeyScript: p2wpkh.WitnessScript}
+	if err := signTransaction(p, prvKeys, scripts, true, witOpts); err != nil {
 		t.Fatal(err)
 	}
 
-	tx, err := transaction.NewTxFromHex(string(txH))
-	if err != nil {
+	if _, err := broadcastTransaction(p); err != nil {
 		t.Fatal(err)
-	}
-	updater.AddInNonWitnessUtxo(tx, 0)
-
-	nonwitHash, err := updater.Data.UnsignedTx.HashForSignature(0, p2pkh.Script, txscript.SigHashAll)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sig, err := privkey.Sign(nonwitHash[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Second Input
-	updater.AddInSighashType(txscript.SigHashAll, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	txH, err = fetchTx(utxos[1]["txid"].(string))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tx, err = transaction.NewTxFromHex(string(txH))
-	if err != nil {
-		t.Fatal(err)
-	}
-	updater.AddInNonWitnessUtxo(tx, 1)
-
-	nonwitHash, err = updater.Data.UnsignedTx.HashForSignature(1, p2pkh.Script, txscript.SigHashAll)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sig, err = privkey.Sign(nonwitHash[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sigWithHashType = append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(1, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	txid, err := broadcast(txHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(txid) <= 0 {
-		t.Fatal("Expected transaction to be broadcasted")
 	}
 }
 
-func TestBroadcastUnblindedTx(t *testing.T) {
+func TestBroadcastUnblindedTxP2WPKH(t *testing.T) {
 	/**
 	* This test attempts to broadcast a transaction composed by 1 input and 3
 	* outputs. The input of the transaction will be a native segwit input, thus
@@ -669,8 +439,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	address, _ := p2wpkh.WitnessPubKeyHash()
 
 	// Fund sender address.
-	_, err = faucet(address)
-	if err != nil {
+	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -681,27 +450,21 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-
 	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
-	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
 
 	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 
 	feeScript := []byte{}
 	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
 
 	// Create a new pset.
 	inputs := []*transaction.TxInput{txInput}
@@ -717,66 +480,204 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updater.AddInSighashType(txscript.SigHashAll, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
-	updater.AddInWitnessUtxo(witnessUtxo, 0)
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.WitnessScript)
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
+		t.Fatal(err)
+	}
 
-	// The signing of the input is done by retrieving the proper hash of the serialization
-	// of the transaction (the BIP-0143 segwit version in this case) directly from the pset's
-	// UnsignedTx.
-	// NOTE: to correctly sign an utxo locked by a p2wpkh script, we must use the legacy pubkey script
-	// when serializing the transaction.
-	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
-	sig, err := privkey.Sign(witHash[:])
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := broadcastTransaction(p); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBroadcastUnblindedTxP2SH_P2MS(t *testing.T) {
+	/**
+	* This test attempts to broadcast a transaction composed by 1 input and 3
+	* outputs. The input of the transaction will be a legacy input locked by a
+	* p2sh(p2ms) multisig script, while the outputs will be a legacy p2pkh for
+	* the receiver and the same legacy p2sh for the change.
+	* The 3rd output is for the fees, that in Elements side chains are explicits.
+	**/
+
+	// Generate sender random key pair.
+	alice, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	alicePubkey := alice.PubKey()
+
+	bob, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobPubkey := bob.PubKey()
+	pubkeys := []*btcec.PublicKey{alicePubkey, bobPubkey}
+
+	p2sh, _ := payment.FromPublicKeys(pubkeys, 2, &network.Regtest, nil)
+	address, _ := p2sh.ScriptHash()
+
+	// Fund sender address.
+	if _, err := faucet(address); err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
+	// The transaction will have 1 input and 3 outputs.
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputIndex := uint32(utxos[0]["vout"].(float64))
+	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
+	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
+
+	changeScript := p2sh.Script
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
+
+	feeScript := []byte{}
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
+
+	// Create a new pset.
+	inputs := []*transaction.TxInput{txInput}
+	outputs := []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}
+	p, err := New(inputs, outputs, 2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
+	// Add sighash type and witness utxo to the partial input.
+	updater, err := NewUpdater(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	if err := updater.AddInNonWitnessUtxo(prevTx, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	alicePrvKeys := []*btcec.PrivateKey{alice}
+	scripts := [][]byte{p2sh.Redeem.Script}
+	opts := &signOpts{pubkeyScript: p2sh.Redeem.Script}
+	if err := signTransaction(p, alicePrvKeys, scripts, false, opts); err != nil {
+		t.Fatal(err)
+	}
+
+	bobPrvKeys := []*btcec.PrivateKey{bob}
+	if err := signTransaction(p, bobPrvKeys, scripts, false, opts); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := broadcastTransaction(p); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBroadcastUnblindedTxP2WSH_P2MS(t *testing.T) {
+	/**
+	* This test attempts to broadcast a transaction composed by 1 input and 3
+	* outputs. The input of the transaction will be a native segwit input locked
+	* by a p2wsh script, while the outputs will be a legacy p2pkh for the
+	* receiver and the same segwit p2wsh for the change.
+	* The 3rd output is for the fees, that in Elements side chains are explicits.
+	**/
+
+	// Generate sender random key pair.
+	alice, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	alicePubkey := alice.PubKey()
+
+	bob, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobPubkey := bob.PubKey()
+	pubkeys := []*btcec.PublicKey{alicePubkey, bobPubkey}
+
+	p2wsh, _ := payment.FromPublicKeys(pubkeys, 2, &network.Regtest, nil)
+	address, _ := p2wsh.WitnessScriptHash()
+
+	// Fund sender address.
+	if _, err := faucet(address); err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	txid, err := broadcast(txHex)
+	// The transaction will have 1 input and 3 outputs.
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputIndex := uint32(utxos[0]["vout"].(float64))
+	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
+
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
+	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
+
+	changeScript := p2wsh.WitnessScript
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
+
+	feeScript := []byte{}
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
+
+	// Create a new pset.
+	inputs := []*transaction.TxInput{txInput}
+	outputs := []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}
+	p, err := New(inputs, outputs, 2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(txid) <= 0 {
-		t.Fatal("Expected transaction to be broadcasted")
+	// Add sighash type and witness utxo to the partial input.
+	updater, err := NewUpdater(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wsh.WitnessScript)
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	scripts := [][]byte{p2wsh.Redeem.Script}
+	opts := &signOpts{script: p2wsh.Redeem.Script}
+	alicePrvKeys := []*btcec.PrivateKey{alice}
+	if err := signTransaction(p, alicePrvKeys, scripts, true, opts); err != nil {
+		t.Fatal(err)
+	}
+	bobPrvKeys := []*btcec.PrivateKey{bob}
+	if err := signTransaction(p, bobPrvKeys, scripts, true, opts); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := broadcastTransaction(p); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -799,8 +700,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	address, _ := p2wpkh.WitnessPubKeyHash()
 
 	// Fund sender address.
-	_, err = faucet(address)
-	if err != nil {
+	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -811,23 +711,17 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
-
 	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := elementsutil.SatoshiToElementsValue(99999500)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 
 	feeScript := []byte{}
 	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
 
 	// Create a new pset.
 	inputs := []*transaction.TxInput{txInput}
@@ -842,7 +736,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	arg := AddIssuanceArg{
+	arg := AddIssuanceArgs{
 		Precision: 0,
 		Contract: &transaction.IssuanceContract{
 			Name:      "Test",
@@ -857,66 +751,24 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 		TokenAmount:  1,
 		AssetAddress: address,
 		TokenAddress: address,
-		TokenFlag:    0,
-		Net:          network.Regtest,
 	}
-	err = updater.AddIssuance(arg)
-	if err != nil {
+	if err := updater.AddIssuance(arg); err != nil {
 		t.Fatal(err)
 	}
 
-	err = updater.AddInSighashType(txscript.SigHashAll, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
-	sig, err := privkey.Sign(witHash[:])
-	if err != nil {
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.WitnessScript)
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
 		t.Fatal(err)
 	}
 
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = broadcast(txHex)
-	if err != nil {
+	if _, err := broadcastTransaction(p); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -938,8 +790,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	address, _ := p2wpkh.WitnessPubKeyHash()
 
 	// Fund sender address.
-	_, err = faucet(address)
-	if err != nil {
+	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -950,22 +801,17 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
-	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
-	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
+	receiverScript := h2b("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
 
 	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 
 	// Create a new pset with all the outputs that need to be blinded first
 	inputs := []*transaction.TxInput{txInput}
@@ -981,14 +827,9 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = updater.AddInSighashType(txscript.SigHashAll, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
-	if err != nil {
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.WitnessScript)
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1013,53 +854,15 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	}
 
 	// Add the unblinded outputs now, that's only the fee output in this case
-	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-	updater.AddOutput(feeOutput)
+	addFeesToTransaction(p, 500)
 
-	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
-	sig, err := privkey.Sign(witHash[:])
-	if err != nil {
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = broadcast(txHex)
-	if err != nil {
+	if _, err := broadcastTransaction(p); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1086,8 +889,7 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	confidentialAddress, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
 
 	// Fund sender address.
-	_, err = faucet(confidentialAddress)
-	if err != nil {
+	if _, err := faucet(confidentialAddress); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1098,22 +900,17 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 3 outputs.
-	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
-	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
-	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
+	receiverScript := h2b("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
 
 	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 
 	// Create a new pset.
 	inputs := []*transaction.TxInput{txInput}
@@ -1129,41 +926,26 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = updater.AddInSighashType(txscript.SigHashAll, 0)
+	txHex, err := fetchTx(utxos[0]["txid"].(string))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	tx, err := fetchTx(utxos[0]["txid"].(string))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	trx, err := transaction.NewTxFromHex(string(tx))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	valueCommitment, err := hex.DecodeString(utxos[0]["valuecommitment"].(string))
-	if err != nil {
-		t.Fatal(err)
-	}
-	assetCommitment, err := hex.DecodeString(utxos[0]["assetcommitment"].(string))
-	if err != nil {
-		t.Fatal(err)
-	}
+	tx, _ := transaction.NewTxFromHex(txHex)
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
 	witnessUtxo := &transaction.TxOutput{
 		Asset:           assetCommitment,
 		Value:           valueCommitment,
 		Script:          p2wpkh.WitnessScript,
-		Nonce:           trx.Outputs[txInputIndex].Nonce,
-		RangeProof:      trx.Outputs[txInputIndex].RangeProof,
-		SurjectionProof: trx.Outputs[txInputIndex].SurjectionProof,
+		Nonce:           tx.Outputs[txInputIndex].Nonce,
+		RangeProof:      tx.Outputs[txInputIndex].RangeProof,
+		SurjectionProof: tx.Outputs[txInputIndex].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
-	if err != nil {
+
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
 		t.Fatal(err)
 	}
+
 	//blind outputs
 	inBlindingPrvKeys := [][]byte{blindingPrivateKey.Serialize()}
 	outBlindingPrvKeys := make([][]byte, 2)
@@ -1184,58 +966,15 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-	updater.AddOutput(feeOutput)
+	addFeesToTransaction(p, 500)
 
-	witHash := updater.Data.UnsignedTx.HashForWitnessV0(
-		0,
-		p2wpkh.Script,
-		witnessUtxo.Value,
-		txscript.SigHashAll,
-	)
-	sig, err := privkey.Sign(witHash[:])
-	if err != nil {
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = broadcast(txHex)
-	if err != nil {
+	if _, err := broadcastTransaction(p); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1258,8 +997,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	address, _ := p2wpkh.WitnessPubKeyHash()
 
 	// Fund sender address.
-	_, err = faucet(address)
-	if err != nil {
+	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1270,15 +1008,9 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	}
 
 	// The transaction will have 1 input and 2 outputs.
-	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
 	txInputIndex := uint32(utxos[0]["vout"].(float64))
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
-
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
-	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
 
 	// Create a new pset.
 	inputs := []*transaction.TxInput{txInput}
@@ -1293,7 +1025,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	arg := AddIssuanceArg{
+	arg := AddIssuanceArgs{
 		Precision: 0,
 		Contract: &transaction.IssuanceContract{
 			Name:      "Test",
@@ -1308,29 +1040,21 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		TokenAmount:  1,
 		AssetAddress: address,
 		TokenAddress: address,
-		TokenFlag:    0,
-		Net:          network.Regtest,
 	}
-	err = updater.AddIssuance(arg)
-	if err != nil {
+	if err := updater.AddIssuance(arg); err != nil {
 		t.Fatal(err)
 	}
 
-	err = updater.AddInSighashType(txscript.SigHashAll, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
-	if err != nil {
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.WitnessScript)
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
 		t.Fatal(err)
 	}
 
 	// Add change and fees
 	changeScript := p2wpkh.WitnessScript
 	changeValue, _ := elementsutil.SatoshiToElementsValue(99996000)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 	updater.AddOutput(changeOutput)
 
 	//blind outputs
@@ -1357,64 +1081,26 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(4000)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
-	updater.AddOutput(feeOutput)
+	addFeesToTransaction(p, 4000)
 
-	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
-	sig, err := privkey.Sign(witHash[:])
-	if err != nil {
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = broadcast(txHex)
-	if err != nil {
+	if _, err := broadcastTransaction(p); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestBroadcastBlindedIssuanceTx(t *testing.T) {
+func TestBroadcastBlindedIssuanceAndReIssuanceTx(t *testing.T) {
 	/**
 	* This test attempts to broadcast a confidential issuance transaction
-	* composed by 1 P2WPKH confidential input and 3 confidential outputs. The
-	* outputs will be a confidetial p2wpkh for both the issued asset and the
-	* relative token, and another confidential p2wpkh for the change. A 4th
+	* and then a reissuance transaction composed by 2 confidential P2wWPKH inputs
+	* and 3 confidential P2WPKH outputs. The outputs will be a confidetial p2wpkh
+	* for both the reissued asset and the relative reissunce token, and another
+	* confidential p2wpkh for the change for paying the network fees. A 4th
 	* unblinded output is for the fees, with empty script.
 	**/
 
@@ -1423,159 +1109,237 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
-	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, nil)
-	address, _ := p2wpkh.WitnessPubKeyHash()
+
+	blindPrivkey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindPubkey := blindPrivkey.PubKey()
+
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindPubkey)
+	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
 
 	// Fund sender address.
-	_, err = faucet(address)
-	if err != nil {
+	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
 
 	// Retrieve sender utxos.
-	utxos, err := unspents(address)
+	utxosForIssuanceTx, err := unspents(address)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// The transaction will have 1 input and 2 outputs.
-	txInputHash, _ := hex.DecodeString(utxos[0]["txid"].(string))
-	txInputHash = bufferutil.ReverseBytes(txInputHash)
-	txInputIndex := uint32(utxos[0]["vout"].(float64))
-	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
-
-	lbtc, _ := hex.DecodeString(
-		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	txInputHashForIssuanceTx := elementsutil.ReverseBytes(
+		h2b(utxosForIssuanceTx[0]["txid"].(string)),
 	)
-	lbtc = append([]byte{0x01}, bufferutil.ReverseBytes(lbtc)...)
+	txInputIndexForIssuanceTx := uint32(utxosForIssuanceTx[0]["vout"].(float64))
+	txInputForIssuanceTx := transaction.NewTxInput(
+		txInputHashForIssuanceTx,
+		txInputIndexForIssuanceTx,
+	)
 
 	// Create a new pset.
-	inputs := []*transaction.TxInput{txInput}
-	outputs := []*transaction.TxOutput{}
-	p, err := New(inputs, outputs, 2, 0)
+	inputsForIssuanceTx := []*transaction.TxInput{txInputForIssuanceTx}
+	outputsForIssuanceTx := []*transaction.TxOutput{}
+	issuancePset, err := New(inputsForIssuanceTx, outputsForIssuanceTx, 2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	updater, err := NewUpdater(p)
+	updater, err := NewUpdater(issuancePset)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	arg := AddIssuanceArg{
+	issuanceArgs := AddIssuanceArgs{
 		Precision:    0,
 		AssetAmount:  2000,
 		TokenAmount:  1,
 		AssetAddress: address,
 		TokenAddress: address,
-		TokenFlag:    1,
-		Net:          network.Regtest,
 	}
-	err = updater.AddIssuance(arg)
-	if err != nil {
+	if err := updater.AddIssuance(issuanceArgs); err != nil {
 		t.Fatal(err)
 	}
 
-	err = updater.AddInSighashType(txscript.SigHashAll, 0)
+	txHex, err := fetchTx(utxosForIssuanceTx[0]["txid"].(string))
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
-	if err != nil {
+	tx, _ := transaction.NewTxFromHex(txHex)
+	assetCommitmentForIssuanceTx := h2b(utxosForIssuanceTx[0]["assetcommitment"].(string))
+	valueCommitmentForIssuanceTx := h2b(utxosForIssuanceTx[0]["valuecommitment"].(string))
+	witnessUtxoForIssuanceTx := &transaction.TxOutput{
+		Asset:           assetCommitmentForIssuanceTx,
+		Value:           valueCommitmentForIssuanceTx,
+		Script:          p2wpkh.WitnessScript,
+		Nonce:           tx.Outputs[txInputIndexForIssuanceTx].Nonce,
+		RangeProof:      tx.Outputs[txInputIndexForIssuanceTx].RangeProof,
+		SurjectionProof: tx.Outputs[txInputIndexForIssuanceTx].SurjectionProof,
+	}
+	if err := updater.AddInWitnessUtxo(witnessUtxoForIssuanceTx, 0); err != nil {
 		t.Fatal(err)
 	}
 
 	// Add change and fees
-	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := elementsutil.SatoshiToElementsValue(99996000)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
-	updater.AddOutput(changeOutput)
+	changeScriptForIssuanceTx := p2wpkh.WitnessScript
+	changeValueForIssuanceTx, _ := elementsutil.SatoshiToElementsValue(99996000)
+	changeOutputForIssuanceTx := transaction.NewTxOutput(
+		lbtc,
+		changeValueForIssuanceTx,
+		changeScriptForIssuanceTx,
+	)
+	updater.AddOutput(changeOutputForIssuanceTx)
 
 	//blind outputs
-	inBlindingPrvKeys := [][]byte{{}}
-	outBlindingPrvKeys := make([][]byte, 2)
-	for i := range outBlindingPrvKeys {
+	inBlindingPrvKeysForIssuance := [][]byte{blindPrivkey.Serialize()}
+	outBlindingPrvKeysForIssuance := make([][]byte, 2)
+	for i := range outBlindingPrvKeysForIssuance {
 		pk, err := btcec.NewPrivateKey(btcec.S256())
 		if err != nil {
 			t.Fatal(err)
 		}
-		fmt.Println(i, hex.EncodeToString(pk.Serialize()))
-		outBlindingPrvKeys[i] = pk.Serialize()
+		outBlindingPrvKeysForIssuance[i] = pk.Serialize()
 	}
-	outBlindingPrvKeys = append(
-		[][]byte{outBlindingPrvKeys[0]},
-		outBlindingPrvKeys...,
+	outBlindingPrvKeysForIssuance = append(
+		[][]byte{outBlindingPrvKeysForIssuance[0]},
+		outBlindingPrvKeysForIssuance...,
 	)
 
-	issuanceBlindingPrvKeys := []IssuanceBlindingPrivateKeys{
+	issuanceBlindPrvKeys := []IssuanceBlindingPrivateKeys{
 		IssuanceBlindingPrivateKeys{
-			AssetKey: outBlindingPrvKeys[1],
-			TokenKey: outBlindingPrvKeys[2],
+			AssetKey: outBlindingPrvKeysForIssuance[1],
+			TokenKey: outBlindingPrvKeysForIssuance[2],
 		},
 	}
 
 	if err := blindTransaction(
-		p,
-		inBlindingPrvKeys,
-		outBlindingPrvKeys,
-		issuanceBlindingPrvKeys,
+		issuancePset,
+		inBlindingPrvKeysForIssuance,
+		outBlindingPrvKeysForIssuance,
+		issuanceBlindPrvKeys,
 	); err != nil {
 		t.Fatal(err)
 	}
 
+	addFeesToTransaction(issuancePset, 4000)
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(issuancePset, prvKeys, scripts, true, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	issuanceTxID, err := broadcastTransaction(issuancePset)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// RE-ISSUANCE
+
+	// we need to unblind the token output of the issuance tx to get its
+	// asset blinding factor that will be used as reissuance's blinding nonce
+	unblinded, err := confidential.UnblindOutputWithKey(
+		issuancePset.UnsignedTx.Outputs[1],
+		outBlindingPrvKeysForIssuance[1],
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// lbtc input for paying network fees
+	txInputHashForReissuanceTx := elementsutil.ReverseBytes(h2b(issuanceTxID))
+	// we know that the third output of the issuance tx is the lbtc change
+	txInputIndexForReissuanceTx := uint32(2)
+	txInputForReissuanceTx := transaction.NewTxInput(
+		txInputHashForReissuanceTx,
+		txInputIndexForReissuanceTx,
+	)
+
+	inputsForReissuanceTx := []*transaction.TxInput{txInputForReissuanceTx}
+	outputsForReissuanceTx := []*transaction.TxOutput{}
+	reissuancePset, err := New(inputsForReissuanceTx, outputsForReissuanceTx, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updater, err = NewUpdater(reissuancePset)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := updater.AddInWitnessUtxo(issuancePset.UnsignedTx.Outputs[2], 0); err != nil {
+		t.Fatal(err)
+	}
+
+	issuance, err := transaction.NewTxIssuanceFromInput(
+		issuancePset.UnsignedTx.Inputs[0],
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entropy := b2h(elementsutil.ReverseBytes(issuance.TxIssuance.AssetEntropy))
+
+	reissuanceArgs := AddReissuanceArgs{
+		PrevOutHash:    issuanceTxID,
+		PrevOutIndex:   uint32(1),
+		PrevOutBlinder: unblinded.AssetBlindingFactor,
+		Entropy:        entropy,
+		AssetAmount:    3300,
+		TokenAmount:    1,
+		AssetAddress:   address,
+		TokenAddress:   address,
+		WitnessUtxo:    issuancePset.UnsignedTx.Outputs[1],
+	}
+
+	if err := updater.AddReissuance(reissuanceArgs); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add change and fees
+	changeScriptForReissuanceTx := p2wpkh.WitnessScript
+	changeValueForReissuanceTx, _ := elementsutil.SatoshiToElementsValue(99991000)
+	changeOutputForReissuanceTx := transaction.NewTxOutput(
+		lbtc,
+		changeValueForReissuanceTx,
+		changeScriptForReissuanceTx,
+	)
+	updater.AddOutput(changeOutputForReissuanceTx)
+
+	inBlindPrvKeysForReissuance := [][]byte{outBlindingPrvKeysForIssuance[2], outBlindingPrvKeysForIssuance[1]}
+	outBlindPrvKeysForReissuance := outBlindingPrvKeysForIssuance
+	reissuanceBlindingPrivateKeys := append([]IssuanceBlindingPrivateKeys{{}}, issuanceBlindPrvKeys...)
+
+	if err := blindTransaction(
+		reissuancePset,
+		inBlindPrvKeysForReissuance,
+		outBlindPrvKeysForReissuance,
+		reissuanceBlindingPrivateKeys,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	addFeesToTransaction(reissuancePset, 5000)
+
+	prvKeys = append(prvKeys, privkey)
+	scripts = append(scripts, p2wpkh.Script)
+	if err := signTransaction(reissuancePset, prvKeys, scripts, true, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := broadcastTransaction(reissuancePset); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func addFeesToTransaction(p *Pset, feeAmount uint64) {
+	updater, _ := NewUpdater(p)
 	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(4000)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(feeAmount)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
 	updater.AddOutput(feeOutput)
-
-	witHash := updater.Data.UnsignedTx.HashForWitnessV0(0, p2wpkh.Script, witValue[:], txscript.SigHashAll)
-	sig, err := privkey.Sign(witHash[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
-
-	// Update the pset adding the input signature script and the pubkey.
-	_, err = updater.Sign(0, sigWithHashType, pubkey.SerializeCompressed(), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	valid, err := updater.Data.ValidateAllSignatures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !valid {
-		t.Fatal(errors.New("invalid signatures"))
-	}
-
-	// Finalize the partial transaction.
-	p = updater.Data
-	err = FinalizeAll(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract the final signed transaction from the Pset wrapper.
-	finalTx, err := Extract(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Serialize the transaction and try to broadcast.
-	txHex, err := finalTx.ToHex()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	txId, err := broadcast(txHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(txId)
 }
 
 func blindTransaction(
@@ -1625,51 +1389,167 @@ func blindTransaction(
 	return nil
 }
 
-func faucet(address string) (string, error) {
-	baseUrl, ok := os.LookupEnv("API_URL")
-	if !ok {
-		return "", errors.New("API_URL environment variable is not set")
+type signOpts struct {
+	pubkeyScript []byte
+	script       []byte
+}
+
+func signTransaction(
+	p *Pset,
+	privKeys []*btcec.PrivateKey,
+	scripts [][]byte,
+	forWitness bool,
+	opts *signOpts,
+) error {
+	updater, err := NewUpdater(p)
+	if err != nil {
+		return err
 	}
-	url := baseUrl + "/faucet"
-	payload := map[string]string{"address": address}
-	body, _ := json.Marshal(payload)
-	resp, err := http.Post(url, "appliation/json", bytes.NewBuffer(body))
+
+	for i, in := range p.Inputs {
+		if err := updater.AddInSighashType(txscript.SigHashAll, i); err != nil {
+			return err
+		}
+
+		var prevout *transaction.TxOutput
+		if in.WitnessUtxo != nil {
+			prevout = in.WitnessUtxo
+		} else {
+			prevout = in.NonWitnessUtxo.Outputs[p.UnsignedTx.Inputs[i].Index]
+		}
+		prvkey := privKeys[i]
+		pubkey := prvkey.PubKey()
+		script := scripts[i]
+
+		var sigHash [32]byte
+		if forWitness {
+			sigHash = p.UnsignedTx.HashForWitnessV0(
+				i,
+				script,
+				prevout.Value,
+				txscript.SigHashAll,
+			)
+		} else {
+			sigHash, err = p.UnsignedTx.HashForSignature(i, script, txscript.SigHashAll)
+			if err != nil {
+				return err
+			}
+		}
+
+		sig, err := prvkey.Sign(sigHash[:])
+		if err != nil {
+			return err
+		}
+		sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
+
+		var witPubkeyScript []byte
+		var witScript []byte
+		if opts != nil {
+			witPubkeyScript = opts.pubkeyScript
+			witScript = opts.script
+		}
+
+		if _, err := updater.Sign(
+			i,
+			sigWithHashType,
+			pubkey.SerializeCompressed(),
+			witPubkeyScript,
+			witScript,
+		); err != nil {
+			return err
+		}
+	}
+
+	valid, err := p.ValidateAllSignatures()
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("invalid signatures")
+	}
+
+	return nil
+}
+
+func broadcastTransaction(p *Pset) (string, error) {
+	// Finalize the partial transaction.
+	if err := FinalizeAll(p); err != nil {
+		return "", err
+	}
+	// Extract the final signed transaction from the Pset wrapper.
+	finalTx, err := Extract(p)
 	if err != nil {
 		return "", err
 	}
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	respBody := map[string]string{}
-	err = json.Unmarshal(data, &respBody)
+	// Serialize the transaction and try to broadcast.
+	txHex, err := finalTx.ToHex()
 	if err != nil {
 		return "", err
 	}
 
+	return broadcast(txHex)
+}
+
+func faucet(address string) (string, error) {
+	baseUrl, err := apiBaseUrl()
+	if err != nil {
+		return "", err
+	}
+	url := fmt.Sprintf("%s/faucet", baseUrl)
+	payload := map[string]string{"address": address}
+	body, _ := json.Marshal(payload)
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if res := string(data); len(res) <= 0 || strings.Contains(res, "sendtoaddress") {
+		return "", fmt.Errorf("cannot fund address with faucet: %s", res)
+	}
+
+	respBody := map[string]string{}
+	if err := json.Unmarshal(data, &respBody); err != nil {
+		return "", err
+	}
 	return respBody["txId"], nil
 }
 
 func mint(address string, quantity int, name string, ticker string) (string, string, error) {
-	baseUrl, ok := os.LookupEnv("API_URL")
-	if !ok {
-		return "", "", errors.New("API_URL environment variable is not set")
-	}
-	url := baseUrl + "/mint"
-	payload := map[string]interface{}{"address": address, "quantity": quantity, "name": name, "ticker": ticker}
-	body, _ := json.Marshal(payload)
-	resp, err := http.Post(url, "appliation/json", bytes.NewBuffer(body))
+	baseUrl, err := apiBaseUrl()
 	if err != nil {
 		return "", "", err
 	}
+
+	url := fmt.Sprintf("%s/mint", baseUrl)
+	payload := map[string]interface{}{
+		"address":  address,
+		"quantity": quantity,
+		"name":     name,
+		"ticker":   ticker,
+	}
+	body, _ := json.Marshal(payload)
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return "", "", err
+	}
+
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", "", err
 	}
-	respBody := map[string]interface{}{}
 
-	err = json.Unmarshal(data, &respBody)
-	if err != nil {
+	if res := string(data); len(res) <= 0 || strings.Contains(res, "sendtoaddress") {
+		return "", "", fmt.Errorf("cannot fund address with minted asset: %s", res)
+	}
+
+	respBody := map[string]interface{}{}
+	if err := json.Unmarshal(data, &respBody); err != nil {
 		return "", "", err
 	}
 	return respBody["txId"].(string), respBody["asset"].(string), nil
@@ -1677,11 +1557,11 @@ func mint(address string, quantity int, name string, ticker string) (string, str
 
 func unspents(address string) ([]map[string]interface{}, error) {
 	getUtxos := func(address string) ([]interface{}, error) {
-		baseUrl, ok := os.LookupEnv("API_URL")
-		if !ok {
-			return nil, errors.New("API_URL environment variable is not set")
+		baseUrl, err := apiBaseUrl()
+		if err != nil {
+			return nil, err
 		}
-		url := baseUrl + "/address/" + address + "/utxo"
+		url := fmt.Sprintf("%s/address/%s/utxo", baseUrl, address)
 		resp, err := http.Get(url)
 		if err != nil {
 			return nil, err
@@ -1691,11 +1571,9 @@ func unspents(address string) ([]map[string]interface{}, error) {
 			return nil, err
 		}
 		var respBody interface{}
-		err = json.Unmarshal(data, &respBody)
-		if err != nil {
+		if err := json.Unmarshal(data, &respBody); err != nil {
 			return nil, err
 		}
-
 		return respBody.([]interface{}), nil
 	}
 
@@ -1716,43 +1594,62 @@ func unspents(address string) ([]map[string]interface{}, error) {
 }
 
 func broadcast(txHex string) (string, error) {
-	baseUrl, ok := os.LookupEnv("API_URL")
-	if !ok {
-		return "", errors.New("API_URL environment variable is not set")
+	baseUrl, err := apiBaseUrl()
+	if err != nil {
+		return "", err
 	}
+	url := fmt.Sprintf("%s/tx", baseUrl)
 
-	url := baseUrl + "/tx"
 	resp, err := http.Post(url, "text/plain", strings.NewReader(txHex))
 	if err != nil {
 		return "", err
 	}
-	txid, err := ioutil.ReadAll(resp.Body)
+
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
-	res := string(txid)
+	res := string(data)
 	if len(res) <= 0 || strings.Contains(res, "sendrawtransaction") {
-		return "", fmt.Errorf("Expected transaction to be broadcasted, failed for reason: %s", res)
+		return "", fmt.Errorf("failed to broadcast tx: %s", res)
 	}
-
 	return res, nil
 }
 
-func fetchTx(txId string) ([]byte, error) {
-	baseUrl, ok := os.LookupEnv("API_URL")
-	if !ok {
-		return nil, errors.New("API_URL environment variable is not set")
+func fetchTx(txId string) (string, error) {
+	baseUrl, err := apiBaseUrl()
+	if err != nil {
+		return "", err
 	}
-	url := baseUrl + "/tx/" + txId + "/hex"
+	url := fmt.Sprintf("%s/tx/%s/hex", baseUrl, txId)
+
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, err
-	}
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return data, nil
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
+
+func apiBaseUrl() (string, error) {
+	u, ok := os.LookupEnv("API_URL")
+	if !ok {
+		return "", errors.New("API_URL environment variable is not set")
+	}
+	return u, nil
+}
+
+func b2h(buf []byte) string {
+	return hex.EncodeToString(buf)
+}
+
+func h2b(str string) []byte {
+	buf, _ := hex.DecodeString(str)
+	return buf
 }

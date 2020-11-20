@@ -8,8 +8,8 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/vulpemventures/fastsha256"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
-	"github.com/vulpemventures/go-elements/internal/elementsutil"
 )
 
 // IssuanceEntity defines one of the fields of the issuance contract
@@ -37,6 +37,11 @@ type TxIssuance struct {
 // IsReissuance returns whether the issuance is an asset re-issuance
 func (issuance *TxIssuance) IsReissuance() bool {
 	return !bytes.Equal(issuance.AssetBlindingNonce, Zero[:])
+}
+
+// HasTokenAmount returns whether the token amount is defined for the issuance
+func (issuance *TxIssuance) HasTokenAmount() bool {
+	return len(issuance.TokenAmount) > 1
 }
 
 // TxIssuanceExtended adds fields to the issuance type that are not encoded in

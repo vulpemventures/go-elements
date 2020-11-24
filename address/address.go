@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/btcsuite/btcutil/bech32"
 	"github.com/vulpemventures/go-elements/blech32"
 	"github.com/vulpemventures/go-elements/network"
 	"golang.org/x/crypto/ripemd160"
-	"strings"
 )
 
 // Address defines the address as string
@@ -27,12 +28,26 @@ const (
 	P2Wsh
 	ConfidentialP2Wpkh
 	ConfidentialP2Wsh
+
+	P2PkhScript      = 1
+	P2ShScript       = 2
+	P2MultiSigScript = 3
+	P2WpkhScript     = 4
+	P2WshScript      = 5
 )
 
-// Base58 type defines the structure of an address legacy or wrapped segwit
+// Base58 type defines the structure of a legacy or wrapped segwit address
 type Base58 struct {
 	Version byte
 	Data    []byte
+}
+
+// Base58Confidential type defines the structure of a legacy or wrapped segwit
+// confidential address
+type Base58Confidential struct {
+	Base58
+	Version   byte
+	PublicKey []byte
 }
 
 // Bech32 defines the structure of an address native segwit
@@ -48,6 +63,12 @@ type Blech32 struct {
 	Version   byte
 	PublicKey []byte
 	Program   []byte
+}
+
+// ConfidentialAddress defines the structure of a generic confidential address
+type ConfidentialAddress struct {
+	Address     string
+	BlindingKey []byte
 }
 
 // FromBase58 decodes a string that was base58 encoded and verifies the checksum.
@@ -148,6 +169,43 @@ func ToBech32(bc *Bech32) (string, error) {
 	return bech, nil
 }
 
+// FromBase58Confidential decodes a confidenail address that was base58 encoded
+//  and verifies the checksum.
+func FromBase58Confidential(address string) (*Base58Confidential, error) {
+	decoded, version, err := base58.CheckDecode(address)
+	if err != nil {
+		return nil, errors.New("Invalid address")
+	}
+
+	if len(decoded) < 54 {
+		return nil, errors.New(address + " is too short")
+	}
+	if len(decoded) > 54 {
+		return nil, errors.New(address + " is too long")
+	}
+
+	// Blinded decoded address has the form:
+	// BLIND_PREFIX | ADDRESS_PREFIX | BLINDING_KEY | SCRIPT_HASH
+	// Prefixes are 1 byte long, thus blinding key always starts at 3rd byte
+
+	return &Base58Confidential{
+		Base58{
+			decoded[0],
+			decoded[34:],
+		},
+		version,
+		decoded[1:34],
+	}, nil
+}
+
+// ToBase58Confidential prepends a version byte and appends a four byte checksum.
+func ToBase58Confidential(b *Base58Confidential) string {
+	data := append([]byte{b.Base58.Version}, b.PublicKey...)
+	data = append(data, b.Base58.Data...)
+	encoded := base58.CheckEncode(data, b.Version)
+	return encoded
+}
+
 // FromBlech32 decodes a blech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
 func FromBlech32(address string) (*Blech32, error) {
@@ -246,10 +304,118 @@ func ToBlech32(bl *Blech32) (string, error) {
 	return blech32Addr, nil
 }
 
+// FromConfidential returns the unconfidential address and the blinding public
+// key that form the confidential address
+func FromConfidential(address string) (*ConfidentialAddress, error) {
+	net, err := NetworkForAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	addressType, err := DecodeType(address)
+	if err != nil {
+		return nil, err
+	}
+
+	switch addressType {
+	case ConfidentialP2Pkh, ConfidentialP2Sh:
+		fromBase58, err := FromBase58Confidential(address)
+		if err != nil {
+			return nil, err
+		}
+
+		addr := ToBase58(&fromBase58.Base58)
+
+		return &ConfidentialAddress{
+			Address:     addr,
+			BlindingKey: fromBase58.PublicKey,
+		}, nil
+	case ConfidentialP2Wpkh, ConfidentialP2Wsh:
+		fromBlech32, err := FromBlech32(address)
+		if err != nil {
+			return nil, err
+		}
+
+		addr, err := ToBech32(&Bech32{
+			Prefix:  net.Bech32,
+			Version: fromBlech32.Version,
+			Program: fromBlech32.Program,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return &ConfidentialAddress{
+			Address:     addr,
+			BlindingKey: fromBlech32.PublicKey,
+		}, nil
+	default:
+		return nil, errors.New("unknown address type")
+	}
+}
+
+// ToConfidential returns the confidential address formed by the given
+// unconfidential address and blinding public key
+func ToConfidential(ca *ConfidentialAddress) (string, error) {
+	net, err := NetworkForAddress(ca.Address)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.HasPrefix(ca.Address, net.Bech32) {
+		b32, _ := FromBech32(ca.Address)
+		return ToBlech32(&Blech32{
+			Prefix:    net.Blech32,
+			Version:   b32.Version,
+			Program:   b32.Program,
+			PublicKey: ca.BlindingKey,
+		})
+	}
+
+	b58, _ := FromBase58(ca.Address)
+	return ToBase58Confidential(&Base58Confidential{
+		*b58,
+		net.Confidential,
+		ca.BlindingKey,
+	}), nil
+}
+
+// NetworkForAddress returns the network based on the prefix of the given address
+func NetworkForAddress(address string) (*network.Network, error) {
+	if strings.HasPrefix(address, network.Liquid.Bech32) ||
+		strings.HasPrefix(address, network.Liquid.Blech32) {
+		return &network.Liquid, nil
+	}
+
+	if strings.HasPrefix(address, network.Regtest.Bech32) ||
+		strings.HasPrefix(address, network.Regtest.Blech32) {
+		return &network.Regtest, nil
+	}
+
+	_, prefix, err := base58.CheckDecode(address)
+	if err != nil {
+		return nil, err
+	}
+
+	if prefix == network.Liquid.Confidential ||
+		prefix == network.Liquid.PubKeyHash ||
+		prefix == network.Liquid.ScriptHash {
+		return &network.Liquid, nil
+	}
+
+	if prefix == network.Regtest.Confidential ||
+		prefix == network.Regtest.PubKeyHash ||
+		prefix == network.Regtest.ScriptHash {
+		return &network.Regtest, nil
+	}
+
+	return nil, errors.New("unknown prefix for address")
+}
+
 //ToOutputScript creates a new script to pay a transaction output to a the
 //specified address
-func ToOutputScript(address string, net network.Network) ([]byte, error) {
-	addressType, err := DecodeType(address, net)
+func ToOutputScript(address string) ([]byte, error) {
+	addressType, err := DecodeType(address)
 	if err != nil {
 		return nil, err
 	}
@@ -328,27 +494,56 @@ func ToOutputScript(address string, net network.Network) ([]byte, error) {
 	}
 }
 
+// GetScriptType returns the type of the given script (p2pkh, p2sh, etc.)
+func GetScriptType(script []byte) int {
+	switch script[0] {
+	case txscript.OP_0:
+		if len(script[2:]) == 20 {
+			return P2WpkhScript
+		}
+		return P2WshScript
+	case txscript.OP_HASH160:
+		return P2ShScript
+	case txscript.OP_DUP:
+		return P2PkhScript
+	default:
+		return P2MultiSigScript
+	}
+}
+
 //DecodeType returns address type
-func DecodeType(address string, net network.Network) (int, error) {
-	if isBlech32(address, net) {
-		return decodeBlech32(address, net)
+func DecodeType(address string) (int, error) {
+	net, err := NetworkForAddress(address)
+	if err != nil {
+		return -1, err
 	}
-	if isBech32(address, net) {
-		return decodeBech32(address, net)
+
+	if isBlech32(address, *net) {
+		return decodeBlech32(address, *net)
 	}
-	return decodeBase58(address, net)
+	if isBech32(address, *net) {
+		return decodeBech32(address, *net)
+	}
+	return decodeBase58(address, *net)
+}
+
+// IsConfidential checks whether the given address is confidential
+func IsConfidential(address string) (bool, error) {
+	addressType, err := DecodeType(address)
+	if err != nil {
+		return false, err
+	}
+
+	isConfidential := (addressType == ConfidentialP2Pkh ||
+		addressType == ConfidentialP2Sh ||
+		addressType == ConfidentialP2Wpkh ||
+		addressType == ConfidentialP2Wsh)
+
+	return isConfidential, nil
 }
 
 func isBlech32(address string, net network.Network) bool {
-	oneIndex := strings.LastIndexByte(address, '1')
-	if oneIndex > 1 {
-		prefix := address[:oneIndex]
-		if prefix == net.Blech32 {
-			return true
-		}
-		return false
-	}
-	return false
+	return strings.HasPrefix(address, net.Blech32)
 }
 
 func decodeBlech32(address string, net network.Network) (int, error) {
@@ -367,15 +562,7 @@ func decodeBlech32(address string, net network.Network) (int, error) {
 }
 
 func isBech32(address string, net network.Network) bool {
-	oneIndex := strings.LastIndexByte(address, '1')
-	if oneIndex > 1 {
-		prefix := address[:oneIndex]
-		if prefix == net.Bech32 {
-			return true
-		}
-		return false
-	}
-	return false
+	return strings.HasPrefix(address, net.Bech32)
 }
 
 func decodeBech32(address string, net network.Network) (int, error) {

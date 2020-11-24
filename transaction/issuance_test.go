@@ -7,8 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vulpemventures/go-elements/confidential"
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/elementsutil"
 )
 
 func TestIssuanceGeneration(t *testing.T) {
@@ -48,19 +47,16 @@ func TestIssuanceGeneration(t *testing.T) {
 			t.FailNow()
 		}
 
-		amount := [9]byte{}
-		copy(amount[:], issuance.TxIssuance.AssetAmount)
-		resAssetAmount, _ := confidential.ElementsToSatoshiValue(
-			amount,
+		resAssetAmount, _ := elementsutil.ElementsToSatoshiValue(
+			issuance.TxIssuance.AssetAmount,
 		)
-		copy(amount[:], issuance.TxIssuance.TokenAmount)
-		resTokenAmount, _ := confidential.ElementsToSatoshiValue(
-			amount,
+		resTokenAmount, _ := elementsutil.ElementsToSatoshiValue(
+			issuance.TxIssuance.TokenAmount,
 		)
 		assert.Equal(t, uint64(v["expectedAssetAmount"].(float64)), resAssetAmount)
 		assert.Equal(t, uint64(v["expectedTokenAmount"].(float64)), resTokenAmount)
 
-		err = issuance.GenerateEntropy(bufferutil.ReverseBytes(inTxHash), inIndex)
+		err = issuance.GenerateEntropy(elementsutil.ReverseBytes(inTxHash), inIndex)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -73,7 +69,7 @@ func TestIssuanceGeneration(t *testing.T) {
 		assert.Equal(
 			t,
 			v["expectedAsset"].(string),
-			hex.EncodeToString(bufferutil.ReverseBytes(asset)),
+			hex.EncodeToString(elementsutil.ReverseBytes(asset)),
 		)
 
 		token, err := issuance.GenerateReissuanceToken(tokenFlag)
@@ -83,7 +79,7 @@ func TestIssuanceGeneration(t *testing.T) {
 		assert.Equal(
 			t,
 			v["expectedToken"].(string),
-			hex.EncodeToString(bufferutil.ReverseBytes(token)),
+			hex.EncodeToString(elementsutil.ReverseBytes(token)),
 		)
 	}
 }

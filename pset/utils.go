@@ -311,14 +311,26 @@ func readTxOut(txout []byte) (*transaction.TxOutput, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Read confidential fields
+	surjectionProof := make([]byte, 0)
+	rangeProof := make([]byte, 0)
+	// nonce for unconf outputs is 0x00!
+	if len(nonce) > 1 {
+		surjectionProof, err = d.ReadVarSlice()
+		if err != nil {
+			return nil, err
+		}
+		rangeProof, err = d.ReadVarSlice()
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &transaction.TxOutput{
 		Asset:           asset,
 		Value:           value,
 		Script:          script,
 		Nonce:           nonce,
-		RangeProof:      nil,
-		SurjectionProof: nil,
+		RangeProof:      rangeProof,
+		SurjectionProof: surjectionProof,
 	}, nil
 }
 
@@ -339,7 +351,14 @@ func writeTxOut(txout *transaction.TxOutput) ([]byte, error) {
 	if err := s.WriteVarSlice(txout.Script); err != nil {
 		return nil, err
 	}
-	// TODO: write confidential fields
+	if txout.IsConfidential() {
+		if err := s.WriteVarSlice(txout.SurjectionProof); err != nil {
+			return nil, err
+		}
+		if err := s.WriteVarSlice(txout.RangeProof); err != nil {
+			return nil, err
+		}
+	}
 	return s.Bytes(), nil
 }
 

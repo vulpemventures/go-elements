@@ -289,17 +289,3 @@ func VarIntSerializeSize(val uint64) int {
 func VarSliceSerializeSize(val []byte) int {
 	return VarIntSerializeSize(uint64(len(val))) + len(val)
 }
-
-// ReverseBytes returns a copy of the given byte slice with elems in reverse order.
-func ReverseBytes(buf []byte) []byte {
-	if len(buf) < 1 {
-		return buf
-	}
-	tmp := make([]byte, len(buf))
-	copy(tmp, buf)
-	for i := len(tmp)/2 - 1; i >= 0; i-- {
-		j := len(tmp) - 1 - i
-		tmp[i], tmp[j] = tmp[j], tmp[i]
-	}
-	return tmp
-}

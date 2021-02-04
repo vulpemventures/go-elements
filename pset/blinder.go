@@ -21,8 +21,8 @@ var (
 
 type randomNumberGenerator func() ([]byte, error)
 
-// blinder is designed to blind ALL the outputs of the partial transaction.
-type blinder struct {
+// Blinder is designed to blind ALL the outputs of the partial transaction.
+type Blinder struct {
 	pset                        *Pset
 	blindingPrivkeys            [][]byte
 	blindingPubkeys             [][]byte
@@ -36,6 +36,7 @@ type IssuanceBlindingPrivateKeys struct {
 	TokenKey []byte
 }
 
+// ToSlice get private keys as []byte from IssuanceBlindingPrivateKeys
 func (ik IssuanceBlindingPrivateKeys) ToSlice() [][]byte {
 	keys := [][]byte{ik.AssetKey}
 	if len(ik.TokenKey) > 0 {
@@ -54,7 +55,7 @@ func VerifyBlinding(
 	return verifyBlinding(pset, inBlindKeys, outBlindKeys, inIssuanceBlindKeys)
 }
 
-// NewBlinder returns a new instance of blinder, if the passed Pset struct is
+// NewBlinder returns a new instance of Blinder, if the passed Pset struct is
 // in a valid form, else an error.
 func NewBlinder(
 	pset *Pset,
@@ -62,7 +63,7 @@ func NewBlinder(
 	blindingPubkeys [][]byte,
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
 	rng randomNumberGenerator,
-) (*blinder, error) {
+) (*Blinder, error) {
 	if err := pset.SanityCheck(); err != nil {
 		return nil, err
 	}
@@ -74,7 +75,7 @@ func NewBlinder(
 		gen = rng
 	}
 
-	return &blinder{
+	return &Blinder{
 		pset:                        pset,
 		blindingPrivkeys:            blindingPrivkeys,
 		blindingPubkeys:             blindingPubkeys,
@@ -85,7 +86,7 @@ func NewBlinder(
 
 // Blind method blinds the outputs of the partial transaction and also the
 // inputs' issuances if any issuanceBlindingPrivateKeys has been provided
-func (b *blinder) Blind() error {
+func (b *Blinder) Blind() error {
 	err := b.validate()
 	if err != nil {
 		return err
@@ -105,9 +106,9 @@ func (b *blinder) Blind() error {
 	return b.blindInputs(unblindedPseudoIns)
 }
 
-// validate checks that the all the required blinder's fields are valid and
+// validate checks that the all the required Blinder's fields are valid and
 // that the partial transaction provided is valid and ready to be blinded
-func (b *blinder) validate() error {
+func (b *Blinder) validate() error {
 	for _, input := range b.pset.Inputs {
 		if input.NonWitnessUtxo == nil && input.WitnessUtxo == nil {
 			return errors.New(
@@ -130,17 +131,17 @@ func (b *blinder) validate() error {
 		return errors.New(
 			"blinding public keys do not match the number of outputs. Note that " +
 				"fee and outputs that are not meant to be blinded should be added " +
-				"after blinder.Blind()",
+				"after Blinder.Blind()",
 		)
 	}
 
 	return nil
 }
 
-// unblindInputs uses the blinding keys provdided to the blinder for unblinding
+// unblindInputs uses the blinding keys provdided to the Blinder for unblinding
 // the inputs of the partial transaction (if any confidential) and returns also
 // the pseudo asset/token inputs for thos inputs containing an issuance
-func (b *blinder) unblindInputs() (
+func (b *Blinder) unblindInputs() (
 	unblindedPrevOuts []confidential.UnblindOutputResult,
 	unblindedPseudoIns []confidential.UnblindOutputResult,
 	err error,
@@ -256,7 +257,7 @@ func (b *blinder) unblindInputs() (
 	return
 }
 
-func (b *blinder) blindOutputs(
+func (b *Blinder) blindOutputs(
 	unblinded []confidential.UnblindOutputResult,
 ) error {
 	outputValues := make([]uint64, 0)
@@ -314,7 +315,7 @@ func (b *blinder) blindOutputs(
 	return nil
 }
 
-func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) error {
+func (b *Blinder) blindInputs(unblinded []confidential.UnblindOutputResult) error {
 	// do not blind anything if no blinding keys are provided
 	if b.issuanceBlindingPrivateKeys == nil || len(b.issuanceBlindingPrivateKeys) == 0 {
 		return nil
@@ -383,7 +384,7 @@ func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) erro
 // generateOutputBlindingFactors generates the asset and token blinding factors
 // for every output of the transaction, excluded the fee output that does not
 // need to be blinded at all
-func (b *blinder) generateOutputBlindingFactors(
+func (b *Blinder) generateOutputBlindingFactors(
 	inputValues []uint64,
 	outputValues []uint64,
 	inputAbfs [][]byte,
@@ -429,7 +430,7 @@ func (b *blinder) generateOutputBlindingFactors(
 // createBlindedOutputs generates a blinding nonce, an asset and a value
 // commitments, a range and a surjection proof for every output that must
 // be blinded, fee out excluded
-func (b *blinder) createBlindedOutputs(
+func (b *Blinder) createBlindedOutputs(
 	outputValues []uint64,
 	outputAbfs [][]byte,
 	outputVbfs [][]byte,
@@ -537,7 +538,7 @@ func (b *blinder) createBlindedOutputs(
 	return nil
 }
 
-func (b *blinder) blindAsset(index int, asset, vbf, abf []byte) error {
+func (b *Blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 	if len(b.issuanceBlindingPrivateKeys) < index || len(b.issuanceBlindingPrivateKeys[index].AssetKey) != 32 {
 		return errors.New("missing private blinding key for issuance asset amount")
 	}
@@ -590,7 +591,7 @@ func (b *blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 	return nil
 }
 
-func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
+func (b *Blinder) blindToken(index int, token, vbf, abf []byte) error {
 	if len(b.issuanceBlindingPrivateKeys) < index || len(b.issuanceBlindingPrivateKeys[index].TokenKey) != 32 {
 		return errors.New("missing private blinding key for issuance token amount")
 	}

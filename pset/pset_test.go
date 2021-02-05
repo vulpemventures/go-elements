@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -1496,17 +1495,15 @@ func broadcastTransaction(p *Pset) (string, error) {
 		return "", err
 	}
 
-	log.Print(txHex)
-
 	return broadcast(txHex)
 }
 
 func faucet(address string) (string, error) {
-	baseUrl, err := apiBaseUrl()
+	baseURL, err := apiBaseUrl()
 	if err != nil {
 		return "", err
 	}
-	url := fmt.Sprintf("%s/faucet", baseUrl)
+	url := fmt.Sprintf("%s/faucet", baseURL)
 	payload := map[string]string{"address": address}
 	body, _ := json.Marshal(payload)
 

@@ -1209,7 +1209,7 @@ func TestBroadcastBlindedIssuanceAndReIssuanceTx(t *testing.T) {
 	)
 
 	issuanceBlindPrvKeys := []IssuanceBlindingPrivateKeys{
-		IssuanceBlindingPrivateKeys{
+		{
 			AssetKey: outBlindingPrvKeysForIssuance[1],
 			TokenKey: outBlindingPrvKeysForIssuance[2],
 		},

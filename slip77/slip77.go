@@ -15,8 +15,15 @@ var (
 	prefix = byte(0)
 )
 
+//Slip77 holds the Master Blinding Key
 type Slip77 struct {
 	MasterKey []byte
+}
+
+//KeyPair holds a *btcec.PrivateKey and a *btcec.PublicKey
+type KeyPair struct {
+	PrivateKey *btcec.PrivateKey
+	PublicKey  *btcec.PublicKey
 }
 
 // FromMasterKey sets the provided master key to the returned instance of Slip77
@@ -51,12 +58,12 @@ func FromSeed(seed []byte) (*Slip77, error) {
 
 // DeriveKey derives a private key from the master key of the Slip77 type
 // and a provided script
-func (s *Slip77) DeriveKey(script []byte) (*btcec.PrivateKey, *btcec.PublicKey, error) {
+func (s *Slip77) DeriveKey(script []byte) (*KeyPair, error) {
 	if s.MasterKey == nil || len(s.MasterKey) <= 0 {
-		return nil, nil, errors.New("master key must be defined")
+		return nil, errors.New("master key must be defined")
 	}
 	if script == nil || len(script) <= 0 {
-		return nil, nil, errors.New("invalid script")
+		return nil, errors.New("invalid script")
 	}
 
 	hmacKey := hmac.New(sha256.New, s.MasterKey)
@@ -65,5 +72,5 @@ func (s *Slip77) DeriveKey(script []byte) (*btcec.PrivateKey, *btcec.PublicKey, 
 
 	privateKey, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), key)
 
-	return privateKey, publicKey, nil
+	return &KeyPair{privateKey, publicKey}, nil
 }

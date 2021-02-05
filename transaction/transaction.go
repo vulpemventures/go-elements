@@ -369,10 +369,18 @@ func (tx *Transaction) WitnessHash() chainhash.Hash {
 	return tx.TxHash()
 }
 
+// IssuanceDetails holds the number of issuances, reissuances and the total of two combined
+type IssuanceDetails struct {
+	Issuances   int
+	Reissuances int
+	Total       int
+}
+
 // CountIssuances returns the number issuances contained in the transaction
 // as the number of issuances, reissuances and the total (their sum).
-func (tx *Transaction) CountIssuances() (issuances, reissuances, total int) {
-
+func (tx *Transaction) CountIssuances() *IssuanceDetails {
+	issuances := 0
+	reissuances := 0
 	for _, in := range tx.Inputs {
 		if in.HasIssuance() {
 			issuances++
@@ -381,8 +389,12 @@ func (tx *Transaction) CountIssuances() (issuances, reissuances, total int) {
 			reissuances++
 		}
 	}
-	total = issuances + reissuances
-	return
+	total := issuances + reissuances
+	return &IssuanceDetails{
+		Issuances:   issuances,
+		Reissuances: reissuances,
+		Total:       total,
+	}
 }
 
 // Weight returns the total weight in bytes of the transaction

@@ -17,3 +17,6 @@
 
 # WebStorm IDE project config files
 .idea
+
+*.aar
+*.framework

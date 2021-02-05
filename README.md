@@ -30,6 +30,30 @@ $ go get github.com/vulpemventures/go-elements@latest
 - [Broadcast issuance transaction - with unblinded inputs, unblinded issuance, blinded outputs](pset/pset_test.go#L689)
 - [Broadcast issuance transaction - with unblinded inputs, blinded issuance, blinded outputs](pset/pset_test.go#L867)
 
+
+## 📱 Build for mobile targets
+
+
+* Android 
+
+If you are not using Android Studio, in order to work with bindings for Android, you need to have Android SDK installed and ANDROID_HOME environment variable set to the SDK path. You also need the NDK installed;
+
+```sh
+$ export CGO_ENABLED=1
+$ gomobile init
+$ gomobile bind -target android -o elements.aar ./address ./slip77 ./payment ./network ./confidential ./transaction ./pset
+```
+
+* iOS
+
+It requires the host machine to be running macOS.
+
+```sh
+$ export CGO_ENABLED=1
+$ gomobile init
+$ gomobile bind -target ios -o elements.framework ./address ./slip77 ./payment ./network ./confidential ./transaction ./pset
+```
+
 ## 🛣 Roadmap
 
 - [x] Chain parameters (prefixes, magic numbers, …)

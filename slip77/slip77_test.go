@@ -49,13 +49,13 @@ func TestDeriveKey(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		privKey, pubKey, err := slip77Node.DeriveKey(script)
+		keyPair, err := slip77Node.DeriveKey(script)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		serializedPrivKey := hex.EncodeToString(privKey.Serialize())
-		serializedPubKey := hex.EncodeToString(pubKey.SerializeCompressed())
+		serializedPrivKey := hex.EncodeToString(keyPair.PrivateKey.Serialize())
+		serializedPubKey := hex.EncodeToString(keyPair.PublicKey.SerializeCompressed())
 
 		assert.Equal(
 			t,

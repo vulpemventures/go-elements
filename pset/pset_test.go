@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -1344,11 +1345,14 @@ func addFeesToTransaction(p *Pset, feeAmount uint64) {
 
 func blindTransaction(
 	p *Pset,
-	inBlindKeys, outBlindKeys [][]byte,
+	inBlindKeys [][]byte,
+	outBlindKeys [][]byte,
 	issuanceBlindKeys []IssuanceBlindingPrivateKeys,
 ) error {
+	outprivKeyMap := make(map[int][]byte)
 	outBlindPubKeys := make([][]byte, 0, len(outBlindKeys))
-	for _, k := range outBlindKeys {
+	for index, k := range outBlindKeys {
+		outprivKeyMap[index] = k
 		_, pubkey := btcec.PrivKeyFromBytes(btcec.S256(), k)
 		outBlindPubKeys = append(outBlindPubKeys, pubkey.SerializeCompressed())
 	}
@@ -1359,10 +1363,15 @@ func blindTransaction(
 	}
 
 	for {
+		blindDataLike := make([]BlindingDataLike, len(inBlindKeys), len(inBlindKeys))
+		for i, inBlinKey := range inBlindKeys {
+			blindDataLike[i] = PrivateBlindingKey(inBlinKey)
+		}
+
 		ptx, _ := NewPsetFromBase64(psetBase64)
 		blinder, err := NewBlinder(
 			ptx,
-			inBlindKeys,
+			blindDataLike,
 			outBlindPubKeys,
 			issuanceBlindKeys,
 			nil,
@@ -1381,7 +1390,7 @@ func blindTransaction(
 			break
 		}
 
-		if VerifyBlinding(ptx, inBlindKeys, outBlindKeys, issuanceBlindKeys) {
+		if verify, _ := VerifyBlinding(ptx, blindDataLike, outprivKeyMap, issuanceBlindKeys); verify {
 			*p = *ptx
 			break
 		}
@@ -1486,6 +1495,8 @@ func broadcastTransaction(p *Pset) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	log.Print(txHex)
 
 	return broadcast(txHex)
 }

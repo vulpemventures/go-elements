@@ -74,8 +74,7 @@ $ go get -t -v ./...
 
 ```
 $ nigiri start --liquid
-$ export API_URL=http://localhost:3001
-$ go test ./... -v
+$ make test
 ```
 
 * More detailed documentation

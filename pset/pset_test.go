@@ -66,18 +66,6 @@ func TestRoundTrip(t *testing.T) {
 		}
 		assert.Equal(t, str, res)
 	}
-
-	for _, str := range tests.hex {
-		p, err := NewPsetFromHex(str)
-		if err != nil {
-			t.Fatal(err)
-		}
-		res, err := p.ToHex()
-		if err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, str, res)
-	}
 }
 
 func TestBroadcastBlindedSwapTx(t *testing.T) {

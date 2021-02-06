@@ -217,16 +217,6 @@ func NewPsetFromUnsignedTx(tx *transaction.Transaction) (*Pset, error) {
 	return &retPset, nil
 }
 
-// NewPsetFromHex returns a new Pset from serialized pset in hex encoiding.
-func NewPsetFromHex(psetHex string) (*Pset, error) {
-	psetBytes, err := hex.DecodeString(psetHex)
-	if err != nil {
-		return nil, err
-	}
-	r := bytes.NewReader(psetBytes)
-	return deserialize(r)
-}
-
 // NewPsetFromBase64 returns a new Pset from a serialized pset in base64 encoding
 func NewPsetFromBase64(psetBase64 string) (*Pset, error) {
 	psetBytes, err := base64.StdEncoding.DecodeString(psetBase64)

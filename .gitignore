@@ -18,5 +18,7 @@
 # WebStorm IDE project config files
 .idea
 
+# gomobile artifacts
 *.aar
+*.jar
 *.framework

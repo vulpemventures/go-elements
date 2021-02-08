@@ -435,20 +435,23 @@ func (b *blinder) generateOutputBlindingFactors(
 	inputAbfs [][]byte,
 	inputVbfs [][]byte,
 ) ([][]byte, [][]byte, error) {
-	rand, err := b.rng()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	numOutputs := len(b.outputsIndexToPubKey)
 	outputAbfs := make([][]byte, 0, numOutputs)
 	outputVbfs := make([][]byte, 0, numOutputs)
 
 	for i := 0; i < numOutputs; i++ {
+		rand, err := b.rng()
+		if err != nil {
+			return nil, nil, err
+		}
 		outputAbfs = append(outputAbfs, rand)
 	}
 
 	for i := 0; i < numOutputs-1; i++ {
+		rand, err := b.rng()
+		if err != nil {
+			return nil, nil, err
+		}
 		outputVbfs = append(outputVbfs, rand)
 	}
 

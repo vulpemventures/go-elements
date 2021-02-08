@@ -3,11 +3,9 @@ package pset
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/prometheus/common/log"
 	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -195,11 +193,6 @@ func (b *blinder) Blind() error {
 	}
 
 	totalUnblinded := append(b.inputsBlindingData, issuanceBlindingData...)
-	for _, u := range totalUnblinded {
-		log.Info(hex.EncodeToString(u.AssetBlindingFactor))
-		log.Info(hex.EncodeToString(u.ValueBlindingFactor))
-	}
-
 	err = b.blindOutputs(totalUnblinded)
 	if err != nil {
 		return err
@@ -586,12 +579,13 @@ func (b *blinder) createBlindedOutputs(
 		indexLoop++
 	}
 
-	for i, out := range b.pset.UnsignedTx.Outputs {
-		out.Asset = assetCommitments[i]
-		out.Value = valueCommitments[i]
-		out.Nonce = nonceCommitments[i]
-		out.RangeProof = rangeProofs[i]
-		out.SurjectionProof = surjectionProofs[i]
+	for outputIndex := range b.blindingPubKeyByOutputIndex {
+		out := b.pset.UnsignedTx.Outputs[outputIndex]
+		out.Asset = assetCommitments[outputIndex]
+		out.Value = valueCommitments[outputIndex]
+		out.Nonce = nonceCommitments[outputIndex]
+		out.RangeProof = rangeProofs[outputIndex]
+		out.SurjectionProof = surjectionProofs[outputIndex]
 	}
 
 	return nil

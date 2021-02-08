@@ -1389,7 +1389,12 @@ func blindTransaction(
 			break
 		}
 
-		if verify, _ := VerifyBlinding(ptx, blindDataLike, outprivKeyMap, issuanceBlindKeys); verify {
+		verify, err := VerifyBlinding(ptx, blindDataLike, outprivKeyMap, issuanceBlindKeys)
+		if err != nil {
+			return err
+		}
+
+		if verify {
 			*p = *ptx
 			break
 		}

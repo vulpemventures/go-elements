@@ -28,7 +28,7 @@ type randomNumberGenerator func() ([]byte, error)
 // blinder is designed to blind ALL the outputs of the partial transaction.
 type blinder struct {
 	pset                        *Pset
-	inputsBlindingData          []*confidential.UnblindOutputResult
+	inputsBlindingData          []confidential.UnblindOutputResult
 	outputsIndexToPubKey        map[int][]byte
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys
 	rng                         randomNumberGenerator
@@ -155,8 +155,8 @@ func NewBlinder(
 	}, nil
 }
 
-func blindingDataLikeToUnblindResult(blindingDataLikes []BlindingDataLike, pset *Pset) ([]*confidential.UnblindOutputResult, error) {
-	inputsBlindingData := make([]*confidential.UnblindOutputResult, len(blindingDataLikes), len(blindingDataLikes))
+func blindingDataLikeToUnblindResult(blindingDataLikes []BlindingDataLike, pset *Pset) ([]confidential.UnblindOutputResult, error) {
+	inputsBlindingData := make([]confidential.UnblindOutputResult, len(blindingDataLikes), len(blindingDataLikes))
 	for index, blindDataLike := range blindingDataLikes {
 		input := pset.Inputs[index]
 		var prevout *transaction.TxOutput
@@ -173,7 +173,7 @@ func blindingDataLikeToUnblindResult(blindingDataLikes []BlindingDataLike, pset 
 			return nil, err
 		}
 
-		inputsBlindingData[index] = unblindOutRes
+		inputsBlindingData[index] = *unblindOutRes
 	}
 
 	return inputsBlindingData, nil
@@ -229,7 +229,7 @@ func (b *blinder) validate() error {
 // the inputs of the partial transaction (if any confidential) and returns also
 // the pseudo asset/token inputs for thos inputs containing an issuance
 func (b *blinder) unblindInputsToIssuanceBlindingData() (
-	unblindedPseudoIns []*confidential.UnblindOutputResult,
+	unblindedPseudoIns []confidential.UnblindOutputResult,
 	err error,
 ) {
 	for _, input := range b.pset.UnsignedTx.Inputs {
@@ -265,7 +265,7 @@ func (b *blinder) unblindInputsToIssuanceBlindingData() (
 				ValueBlindingFactor: vbf,
 				AssetBlindingFactor: abf,
 			}
-			unblindedPseudoIns = append(unblindedPseudoIns, &output)
+			unblindedPseudoIns = append(unblindedPseudoIns, output)
 
 			// if the token amount is not defined, it is set to 0x00, thus we need
 			// to check if the input.Issuance.TokenAmount, that is encoded in the
@@ -304,7 +304,7 @@ func (b *blinder) unblindInputsToIssuanceBlindingData() (
 					ValueBlindingFactor: vbf,
 					AssetBlindingFactor: abf,
 				}
-				unblindedPseudoIns = append(unblindedPseudoIns, &output)
+				unblindedPseudoIns = append(unblindedPseudoIns, output)
 			}
 		}
 	}
@@ -312,7 +312,7 @@ func (b *blinder) unblindInputsToIssuanceBlindingData() (
 }
 
 func (b *blinder) blindOutputs(
-	inputsBlindingData []*confidential.UnblindOutputResult,
+	inputsData []confidential.UnblindOutputResult,
 ) error {
 	outputValues := make([]uint64, 0)
 	for index := range b.outputsIndexToPubKey {
@@ -330,7 +330,7 @@ func (b *blinder) blindOutputs(
 	inputVbfs := make([][]byte, 0)
 	inputAgs := make([][]byte, 0)
 	inputValues := make([]uint64, 0)
-	for _, v := range inputsBlindingData {
+	for _, v := range inputsData {
 		inputAbfs = append(inputAbfs, v.AssetBlindingFactor)
 		inputVbfs = append(inputVbfs, v.ValueBlindingFactor)
 		inputAgs = append(inputAgs, v.Asset)
@@ -361,7 +361,7 @@ func (b *blinder) blindOutputs(
 	return nil
 }
 
-func (b *blinder) blindInputs(unblinded []*confidential.UnblindOutputResult) error {
+func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) error {
 	// do not blind anything if no blinding keys are provided
 	if b.issuanceBlindingPrivateKeys == nil || len(b.issuanceBlindingPrivateKeys) == 0 {
 		return nil
@@ -698,7 +698,7 @@ func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
 
 func verifyBlinding(
 	pset *Pset,
-	inBlindData []*confidential.UnblindOutputResult,
+	inBlindData []confidential.UnblindOutputResult,
 	outPrivBlindKeysByIndex map[int][]byte,
 	inIssuanceKeys []IssuanceBlindingPrivateKeys,
 ) bool {

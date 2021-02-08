@@ -31,7 +31,7 @@ type randomNumberGenerator func() ([]byte, error)
 type blinder struct {
 	pset                        *Pset
 	inputsBlindingData          []confidential.UnblindOutputResult
-	outputsIndexToPubKey        map[int][]byte
+	blindingPubKeyByOutputIndex map[int][]byte
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys
 	rng                         randomNumberGenerator
 }
@@ -152,7 +152,7 @@ func NewBlinder(
 		pset:                        pset,
 		inputsBlindingData:          inputsBlindingData,
 		issuanceBlindingPrivateKeys: issuanceBlindingPrivateKeys,
-		outputsIndexToPubKey:        outputsPubKeyByIndex,
+		blindingPubKeyByOutputIndex: outputsPubKeyByIndex,
 		rng:                         gen,
 	}, nil
 }
@@ -322,7 +322,7 @@ func (b *blinder) blindOutputs(
 	inputsData []confidential.UnblindOutputResult,
 ) error {
 	outputValues := make([]uint64, 0)
-	for index := range b.outputsIndexToPubKey {
+	for index := range b.blindingPubKeyByOutputIndex {
 		output := b.pset.UnsignedTx.Outputs[index]
 		if len(output.Script) > 0 {
 			value, err := elementsutil.ElementsToSatoshiValue(output.Value)
@@ -442,7 +442,7 @@ func (b *blinder) generateOutputBlindingFactors(
 	inputAbfs [][]byte,
 	inputVbfs [][]byte,
 ) ([][]byte, [][]byte, error) {
-	numOutputs := len(b.outputsIndexToPubKey)
+	numOutputs := len(b.blindingPubKeyByOutputIndex)
 	outputAbfs := make([][]byte, 0, numOutputs)
 	outputVbfs := make([][]byte, 0, numOutputs)
 
@@ -490,7 +490,7 @@ func (b *blinder) createBlindedOutputs(
 	inputAgs [][]byte,
 	inputAbfs [][]byte,
 ) error {
-	numOutputsToBlind := len(b.outputsIndexToPubKey)
+	numOutputsToBlind := len(b.blindingPubKeyByOutputIndex)
 	assetCommitments := make([][]byte, 0, numOutputsToBlind)
 	valueCommitments := make([][]byte, 0, numOutputsToBlind)
 	nonceCommitments := make([][]byte, 0, numOutputsToBlind)
@@ -498,7 +498,7 @@ func (b *blinder) createBlindedOutputs(
 	surjectionProofs := make([][]byte, 0, numOutputsToBlind)
 
 	indexLoop := 0
-	for outputIndex, blindingPublicKey := range b.outputsIndexToPubKey {
+	for outputIndex, blindingPublicKey := range b.blindingPubKeyByOutputIndex {
 		out := b.pset.UnsignedTx.Outputs[outputIndex]
 		outputAsset := out.Asset[1:]
 		outputScript := out.Script

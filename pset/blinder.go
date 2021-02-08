@@ -3,9 +3,11 @@ package pset
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/prometheus/common/log"
 	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -193,6 +195,11 @@ func (b *blinder) Blind() error {
 	}
 
 	totalUnblinded := append(b.inputsBlindingData, issuanceBlindingData...)
+	for _, u := range totalUnblinded {
+		log.Info(hex.EncodeToString(u.AssetBlindingFactor))
+		log.Info(hex.EncodeToString(u.ValueBlindingFactor))
+	}
+
 	err = b.blindOutputs(totalUnblinded)
 	if err != nil {
 		return err

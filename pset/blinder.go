@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"errors"
+	"sort"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/vulpemventures/go-elements/confidential"
@@ -155,30 +156,6 @@ func NewBlinder(
 	}, nil
 }
 
-func blindingDataLikeToUnblindResult(blindingDataLikes []BlindingDataLike, pset *Pset) ([]confidential.UnblindOutputResult, error) {
-	inputsBlindingData := make([]confidential.UnblindOutputResult, len(blindingDataLikes), len(blindingDataLikes))
-	for index, blindDataLike := range blindingDataLikes {
-		input := pset.Inputs[index]
-		var prevout *transaction.TxOutput
-
-		if input.NonWitnessUtxo != nil {
-			vout := pset.UnsignedTx.Inputs[index].Index
-			prevout = input.NonWitnessUtxo.Outputs[vout]
-		} else {
-			prevout = pset.Inputs[index].WitnessUtxo
-		}
-
-		unblindOutRes, err := blindDataLike.GetUnblindOutputResult(prevout)
-		if err != nil {
-			return nil, err
-		}
-
-		inputsBlindingData[index] = *unblindOutRes
-	}
-
-	return inputsBlindingData, nil
-}
-
 // Blind method blinds the outputs of the partial transaction and also the
 // inputs' issuances if any issuanceBlindingPrivateKeys has been provided
 func (b *blinder) Blind() error {
@@ -315,7 +292,8 @@ func (b *blinder) blindOutputs(
 	inputsData []confidential.UnblindOutputResult,
 ) error {
 	outputValues := make([]uint64, 0)
-	for index := range b.blindingPubKeyByOutputIndex {
+
+	for _, index := range b.sortedOutputIndexesToBlind() {
 		output := b.pset.UnsignedTx.Outputs[index]
 		if len(output.Script) > 0 {
 			value, err := elementsutil.ElementsToSatoshiValue(output.Value)
@@ -491,7 +469,8 @@ func (b *blinder) createBlindedOutputs(
 	surjectionProofs := make([][]byte, 0, numOutputsToBlind)
 
 	indexLoop := 0
-	for outputIndex, blindingPublicKey := range b.blindingPubKeyByOutputIndex {
+	for _, outputIndex := range b.sortedOutputIndexesToBlind() {
+		blindingPublicKey := b.blindingPubKeyByOutputIndex[outputIndex]
 		out := b.pset.UnsignedTx.Outputs[outputIndex]
 		outputAsset := out.Asset[1:]
 		outputScript := out.Script
@@ -697,6 +676,16 @@ func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
 	return nil
 }
 
+func (b *blinder) sortedOutputIndexesToBlind() []int {
+	sortedOutputsIndexes := make([]int, 0, len(b.blindingPubKeyByOutputIndex))
+	for index := range b.blindingPubKeyByOutputIndex {
+		sortedOutputsIndexes = append(sortedOutputsIndexes, index)
+	}
+	sort.Ints(sortedOutputsIndexes)
+
+	return sortedOutputsIndexes
+}
+
 func verifyBlinding(
 	pset *Pset,
 	inBlindData []confidential.UnblindOutputResult,
@@ -797,6 +786,30 @@ func verifyBlinding(
 	}
 
 	return true
+}
+
+func blindingDataLikeToUnblindResult(blindingDataLikes []BlindingDataLike, pset *Pset) ([]confidential.UnblindOutputResult, error) {
+	inputsBlindingData := make([]confidential.UnblindOutputResult, len(blindingDataLikes), len(blindingDataLikes))
+	for index, blindDataLike := range blindingDataLikes {
+		input := pset.Inputs[index]
+		var prevout *transaction.TxOutput
+
+		if input.NonWitnessUtxo != nil {
+			vout := pset.UnsignedTx.Inputs[index].Index
+			prevout = input.NonWitnessUtxo.Outputs[vout]
+		} else {
+			prevout = pset.Inputs[index].WitnessUtxo
+		}
+
+		unblindOutRes, err := blindDataLike.GetUnblindOutputResult(prevout)
+		if err != nil {
+			return nil, err
+		}
+
+		inputsBlindingData[index] = *unblindOutRes
+	}
+
+	return inputsBlindingData, nil
 }
 
 func generateRandomNumber() ([]byte, error) {

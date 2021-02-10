@@ -26,8 +26,8 @@ var (
 
 type randomNumberGenerator func() ([]byte, error)
 
-// blinder is designed to blind ALL the outputs of the partial transaction.
-type blinder struct {
+// Blinder is designed to blind ALL the outputs of the partial transaction.
+type Blinder struct {
 	pset                        *Pset
 	inputsBlindingData          []confidential.UnblindOutputResult
 	blindingPubKeyByOutputIndex map[int][]byte
@@ -84,7 +84,7 @@ func (blindingData BlindingData) GetUnblindOutputResult(prevout *transaction.TxO
 	}, nil
 }
 
-// IssuanceBlindingPrivateKeys stores the AssetKey and TokenKey that will be used in the blinder.
+// IssuanceBlindingPrivateKeys stores the AssetKey and TokenKey that will be used in the Blinder.
 type IssuanceBlindingPrivateKeys struct {
 	AssetKey []byte
 	TokenKey []byte
@@ -115,7 +115,7 @@ func VerifyBlinding(
 	return verifyBlinding(pset, inputsBlindingData, outBlindKeysByIndex, inIssuanceKeys), nil
 }
 
-// NewBlinder returns a new instance of blinder, if the passed Pset struct is
+// NewBlinder returns a new instance of Blinder, if the passed Pset struct is
 // in a valid form, else an error.
 func NewBlinder(
 	pset *Pset,
@@ -123,7 +123,7 @@ func NewBlinder(
 	blindingPubkeys [][]byte,
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
 	rng randomNumberGenerator,
-) (*blinder, error) {
+) (*Blinder, error) {
 	outputsPubKeyByIndex := make(map[int][]byte, 0)
 	for index, output := range pset.UnsignedTx.Outputs {
 		if len(output.Script) > 0 {
@@ -141,7 +141,7 @@ func NewBlinderByIndex(
 	outputsPubKeyByIndex map[int][]byte,
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
 	rng randomNumberGenerator,
-) (*blinder, error) {
+) (*Blinder, error) {
 	if err := pset.SanityCheck(); err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func NewBlinderByIndex(
 		return nil, err
 	}
 
-	return &blinder{
+	return &Blinder{
 		pset:                        pset,
 		inputsBlindingData:          inputsBlindingData,
 		issuanceBlindingPrivateKeys: issuanceBlindingPrivateKeys,
@@ -169,7 +169,7 @@ func NewBlinderByIndex(
 
 // Blind method blinds the outputs of the partial transaction and also the
 // inputs' issuances if any issuanceBlindingPrivateKeys has been provided
-func (b *blinder) Blind() error {
+func (b *Blinder) Blind() error {
 	err := b.validate()
 	if err != nil {
 		return err
@@ -189,9 +189,9 @@ func (b *blinder) Blind() error {
 	return b.blindInputs(issuanceBlindingData)
 }
 
-// validate checks that the all the required blinder's fields are valid and
+// validate checks that the all the required Blinder's fields are valid and
 // that the partial transaction provided is valid and ready to be blinded
-func (b *blinder) validate() error {
+func (b *Blinder) validate() error {
 	for _, input := range b.pset.Inputs {
 		if input.NonWitnessUtxo == nil && input.WitnessUtxo == nil {
 			return errors.New(
@@ -213,10 +213,10 @@ func (b *blinder) validate() error {
 	return nil
 }
 
-// unblindInputs uses the blinding keys provdided to the blinder for unblinding
+// unblindInputs uses the blinding keys provdided to the Blinder for unblinding
 // the inputs of the partial transaction (if any confidential) and returns also
 // the pseudo asset/token inputs for thos inputs containing an issuance
-func (b *blinder) unblindInputsToIssuanceBlindingData() (
+func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 	unblindedPseudoIns []confidential.UnblindOutputResult,
 	err error,
 ) {
@@ -299,7 +299,7 @@ func (b *blinder) unblindInputsToIssuanceBlindingData() (
 	return
 }
 
-func (b *blinder) blindOutputs(
+func (b *Blinder) blindOutputs(
 	inputsData []confidential.UnblindOutputResult,
 ) error {
 	outputValues := make([]uint64, 0)
@@ -350,7 +350,7 @@ func (b *blinder) blindOutputs(
 	return nil
 }
 
-func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) error {
+func (b *Blinder) blindInputs(unblinded []confidential.UnblindOutputResult) error {
 	// do not blind anything if no blinding keys are provided
 	if b.issuanceBlindingPrivateKeys == nil || len(b.issuanceBlindingPrivateKeys) == 0 {
 		return nil
@@ -418,7 +418,7 @@ func (b *blinder) blindInputs(unblinded []confidential.UnblindOutputResult) erro
 
 // generateOutputBlindingFactors generates the asset and token blinding factors
 // for every output to blind
-func (b *blinder) generateOutputBlindingFactors(
+func (b *Blinder) generateOutputBlindingFactors(
 	inputValues []uint64,
 	outputValues []uint64,
 	inputAbfs [][]byte,
@@ -465,7 +465,7 @@ func (b *blinder) generateOutputBlindingFactors(
 // createBlindedOutputs generates a blinding nonce, an asset and a value
 // commitments, a range and a surjection proof for every output that must
 // be blinded, fee out excluded
-func (b *blinder) createBlindedOutputs(
+func (b *Blinder) createBlindedOutputs(
 	outputValues []uint64,
 	outputAbfs [][]byte,
 	outputVbfs [][]byte,
@@ -581,7 +581,7 @@ func (b *blinder) createBlindedOutputs(
 	return nil
 }
 
-func (b *blinder) blindAsset(index int, asset, vbf, abf []byte) error {
+func (b *Blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 	if len(b.issuanceBlindingPrivateKeys) < index || len(b.issuanceBlindingPrivateKeys[index].AssetKey) != 32 {
 		return errors.New("missing private blinding key for issuance asset amount")
 	}
@@ -634,7 +634,7 @@ func (b *blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 	return nil
 }
 
-func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
+func (b *Blinder) blindToken(index int, token, vbf, abf []byte) error {
 	if len(b.issuanceBlindingPrivateKeys) < index || len(b.issuanceBlindingPrivateKeys[index].TokenKey) != 32 {
 		return errors.New("missing private blinding key for issuance token amount")
 	}
@@ -687,7 +687,7 @@ func (b *blinder) blindToken(index int, token, vbf, abf []byte) error {
 	return nil
 }
 
-func (b *blinder) sortedOutputIndexesToBlind() []int {
+func (b *Blinder) sortedOutputIndexesToBlind() []int {
 	sortedOutputsIndexes := make([]int, 0, len(b.blindingPubKeyByOutputIndex))
 	for index := range b.blindingPubKeyByOutputIndex {
 		sortedOutputsIndexes = append(sortedOutputsIndexes, index)

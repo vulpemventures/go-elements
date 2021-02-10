@@ -124,6 +124,24 @@ func NewBlinder(
 	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
 	rng randomNumberGenerator,
 ) (*blinder, error) {
+	outputsPubKeyByIndex := make(map[int][]byte, 0)
+	for index, output := range pset.UnsignedTx.Outputs {
+		if len(output.Script) > 0 {
+			outputsPubKeyByIndex[index] = blindingPubkeys[index]
+		}
+	}
+
+	return NewBlinderByIndex(pset, blindingDataLikes, outputsPubKeyByIndex, issuanceBlindingPrivateKeys, rng)
+}
+
+// NewBlinderByIndex is a factory function using a map to select outputs to blind
+func NewBlinderByIndex(
+	pset *Pset,
+	blindingDataLikes []BlindingDataLike,
+	outputsPubKeyByIndex map[int][]byte,
+	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
+	rng randomNumberGenerator,
+) (*blinder, error) {
 	if err := pset.SanityCheck(); err != nil {
 		return nil, err
 	}
@@ -133,13 +151,6 @@ func NewBlinder(
 		gen = generateRandomNumber
 	} else {
 		gen = rng
-	}
-
-	outputsPubKeyByIndex := make(map[int][]byte, 0)
-	for index, output := range pset.UnsignedTx.Outputs {
-		if len(output.Script) > 0 {
-			outputsPubKeyByIndex[index] = blindingPubkeys[index]
-		}
 	}
 
 	inputsBlindingData, err := blindingDataLikeToUnblindResult(blindingDataLikes, pset)

@@ -115,25 +115,6 @@ func VerifyBlinding(
 	return verifyBlinding(pset, inputsBlindingData, outBlindKeysByIndex, inIssuanceKeys), nil
 }
 
-// NewBlinder returns a new instance of Blinder, if the passed Pset struct is
-// in a valid form, else an error.
-func NewBlinder(
-	pset *Pset,
-	blindingDataLikes []BlindingDataLike,
-	blindingPubkeys [][]byte,
-	issuanceBlindingPrivateKeys []IssuanceBlindingPrivateKeys,
-	rng randomNumberGenerator,
-) (*Blinder, error) {
-	outputsPubKeyByIndex := make(map[int][]byte, 0)
-	for index, output := range pset.UnsignedTx.Outputs {
-		if len(output.Script) > 0 {
-			outputsPubKeyByIndex[index] = blindingPubkeys[index]
-		}
-	}
-
-	return NewBlinderByIndex(pset, blindingDataLikes, outputsPubKeyByIndex, issuanceBlindingPrivateKeys, rng)
-}
-
 // NewBlinderByIndex is a factory function using a map to select outputs to blind
 func NewBlinderByIndex(
 	pset *Pset,

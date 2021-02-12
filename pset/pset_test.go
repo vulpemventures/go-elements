@@ -1457,59 +1457,14 @@ func blindTransaction(
 	outBlindKeys [][]byte,
 	issuanceBlindKeys []IssuanceBlindingPrivateKeys,
 ) error {
-	outprivKeyMap := make(map[int][]byte)
-	outBlindPubKeys := make([][]byte, 0, len(outBlindKeys))
-	for index, k := range outBlindKeys {
-		outprivKeyMap[index] = k
-		_, pubkey := btcec.PrivKeyFromBytes(btcec.S256(), k)
-		outBlindPubKeys = append(outBlindPubKeys, pubkey.SerializeCompressed())
-	}
-
-	psetBase64, err := p.ToBase64()
-	if err != nil {
-		return err
-	}
-
-	for {
-		blindDataLike := make([]BlindingDataLike, len(inBlindKeys), len(inBlindKeys))
-		for i, inBlinKey := range inBlindKeys {
-			blindDataLike[i] = PrivateBlindingKey(inBlinKey)
-		}
-
-		ptx, _ := NewPsetFromBase64(psetBase64)
-		blinder, err := NewBlinder(
-			ptx,
-			blindDataLike,
-			outBlindPubKeys,
-			issuanceBlindKeys,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-
-		for {
-			if err := blinder.Blind(); err != nil {
-				if err != ErrGenerateSurjectionProof {
-					return err
-				}
-				continue
-			}
-			break
-		}
-
-		verify, err := VerifyBlinding(ptx, blindDataLike, outprivKeyMap, issuanceBlindKeys)
-		if err != nil {
-			return err
-		}
-
-		if verify {
-			*p = *ptx
-			break
+	outputsPrivKeyByIndex := make(map[int][]byte, 0)
+	for index, output := range p.UnsignedTx.Outputs {
+		if len(output.Script) > 0 {
+			outputsPrivKeyByIndex[index] = outBlindKeys[index]
 		}
 	}
 
-	return nil
+	return blindTransactionByIndex(p, inBlindKeys, outputsPrivKeyByIndex, issuanceBlindKeys)
 }
 
 func blindTransactionByIndex(

@@ -17,7 +17,7 @@ env:
 
 script:
   - if [ -n "$(gofmt -l .)" ]; then echo "Go code is not formatted"; exit 1; fi
-  - go test -count=1 -race ./... -v
+  - make test
 
 after_script:
   - docker-compose -f tmp/docker-compose.yml down && rm -rf tmp

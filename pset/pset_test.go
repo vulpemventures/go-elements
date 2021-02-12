@@ -1491,7 +1491,7 @@ func blindTransactionByIndex(
 		}
 
 		ptx, _ := NewPsetFromBase64(psetBase64)
-		blinder, err := NewBlinderByIndex(
+		blinder, err := NewBlinder(
 			ptx,
 			blindDataLike,
 			outBlindPubKeysMap,

@@ -115,8 +115,8 @@ func VerifyBlinding(
 	return verifyBlinding(pset, inputsBlindingData, outBlindKeysByIndex, inIssuanceKeys), nil
 }
 
-// NewBlinderByIndex is a factory function using a map to select outputs to blind
-func NewBlinderByIndex(
+// NewBlinder is a factory function using a map to select outputs to blind
+func NewBlinder(
 	pset *Pset,
 	blindingDataLikes []BlindingDataLike,
 	outputsPubKeyByIndex map[int][]byte,

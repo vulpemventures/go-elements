@@ -8,7 +8,7 @@ import (
 const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 //new generators, 7 bytes compared to bech32
-var gen = []int{0x7d52fba40bd886, 0x5e8dbf1a03950c, 0x1c3a3c74072a18, 0x385d72fa0e5139, 0x7093e5a608865b}
+var gen = []int64{0x7d52fba40bd886, 0x5e8dbf1a03950c, 0x1c3a3c74072a18, 0x385d72fa0e5139, 0x7093e5a608865b}
 
 // Decode decodes a blech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
@@ -209,11 +209,11 @@ func blech32Checksum(hrp string, data []byte) []byte {
 }
 
 // For more details on the polymod calculation, please refer to BIP 173.
-func blech32Polymod(values []int) int {
-	chk := 1
+func blech32Polymod(values []int) int64 {
+	chk := int64(1)
 	for _, v := range values {
-		b := chk >> 55                      //25->55 compared to bech32
-		chk = (chk&0x7fffffffffffff)<<5 ^ v //0x1ffffff->0x7fffffffffffff compared to bech32
+		b := chk >> 55                                           //25->55 compared to bech32
+		chk = (chk&int64(0x7fffffffffffff))<<int64(5) ^ int64(v) //0x1ffffff->0x7fffffffffffff compared to bech32
 		for i := 0; i < 5; i++ {
 			if (b>>uint(i))&1 == 1 {
 				chk ^= gen[i]

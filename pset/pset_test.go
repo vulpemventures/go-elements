@@ -979,6 +979,115 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	}
 }
 
+func TestBroadcastBlindedTxWithBlindedAndUnblindedOutputs(t *testing.T) {
+	/**
+	* This test attempts to broadcast a confidential transaction composed by 1
+	* P2WPKH confidential input and 2 outputs: 1 confidential & 1 unconfidential.
+	* The 3rd output is for the fees, that in Elements side chains are explicit.
+	**/
+
+	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubkey := privkey.PubKey()
+	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindingPublicKey := blindingPrivateKey.PubKey()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
+	confidentialAddress, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
+
+	// Fund sender address.
+	if _, err := faucet(confidentialAddress); err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(confidentialAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The transaction will have 1 input and 3 outputs.
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputIndex := uint32(utxos[0]["vout"].(float64))
+	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
+
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
+	receiverScript := h2b("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue, receiverScript)
+
+	changeScript := p2wpkh.WitnessScript
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
+
+	// Create a new pset.
+	inputs := []*transaction.TxInput{txInput}
+	outputs := []*transaction.TxOutput{receiverOutput, changeOutput}
+	p, err := New(inputs, outputs, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add sighash type and witness utxo to the partial input.
+	updater, err := NewUpdater(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txHex, err := fetchTx(utxos[0]["txid"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, _ := transaction.NewTxFromHex(txHex)
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:           assetCommitment,
+		Value:           valueCommitment,
+		Script:          p2wpkh.WitnessScript,
+		Nonce:           tx.Outputs[txInputIndex].Nonce,
+		RangeProof:      tx.Outputs[txInputIndex].RangeProof,
+		SurjectionProof: tx.Outputs[txInputIndex].SurjectionProof,
+	}
+
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	//blind outputs
+	inBlindingPrvKeys := [][]byte{blindingPrivateKey.Serialize()}
+	outBlindingPrvKeys := make(map[int][]byte)
+	pk, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	outBlindingPrvKeys[0] = pk.Serialize()
+
+	if err := blindTransactionByIndex(
+		p,
+		inBlindingPrvKeys,
+		outBlindingPrvKeys,
+		nil,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	addFeesToTransaction(p, 500)
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := broadcastTransaction(p); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	/**
 	* This test attempts to broadcast a confidential issuance transaction
@@ -1344,13 +1453,30 @@ func addFeesToTransaction(p *Pset, feeAmount uint64) {
 
 func blindTransaction(
 	p *Pset,
-	inBlindKeys, outBlindKeys [][]byte,
+	inBlindKeys [][]byte,
+	outBlindKeys [][]byte,
 	issuanceBlindKeys []IssuanceBlindingPrivateKeys,
 ) error {
-	outBlindPubKeys := make([][]byte, 0, len(outBlindKeys))
-	for _, k := range outBlindKeys {
+	outputsPrivKeyByIndex := make(map[int][]byte, 0)
+	for index, output := range p.UnsignedTx.Outputs {
+		if len(output.Script) > 0 {
+			outputsPrivKeyByIndex[index] = outBlindKeys[index]
+		}
+	}
+
+	return blindTransactionByIndex(p, inBlindKeys, outputsPrivKeyByIndex, issuanceBlindKeys)
+}
+
+func blindTransactionByIndex(
+	p *Pset,
+	inBlindKeys [][]byte,
+	outBlindKeysMap map[int][]byte,
+	issuanceBlindKeys []IssuanceBlindingPrivateKeys,
+) error {
+	outBlindPubKeysMap := make(map[int][]byte)
+	for index, k := range outBlindKeysMap {
 		_, pubkey := btcec.PrivKeyFromBytes(btcec.S256(), k)
-		outBlindPubKeys = append(outBlindPubKeys, pubkey.SerializeCompressed())
+		outBlindPubKeysMap[index] = pubkey.SerializeCompressed()
 	}
 
 	psetBase64, err := p.ToBase64()
@@ -1359,11 +1485,16 @@ func blindTransaction(
 	}
 
 	for {
+		blindDataLike := make([]BlindingDataLike, len(inBlindKeys), len(inBlindKeys))
+		for i, inBlinKey := range inBlindKeys {
+			blindDataLike[i] = PrivateBlindingKey(inBlinKey)
+		}
+
 		ptx, _ := NewPsetFromBase64(psetBase64)
 		blinder, err := NewBlinder(
 			ptx,
-			inBlindKeys,
-			outBlindPubKeys,
+			blindDataLike,
+			outBlindPubKeysMap,
 			issuanceBlindKeys,
 			nil,
 		)
@@ -1381,11 +1512,17 @@ func blindTransaction(
 			break
 		}
 
-		if VerifyBlinding(ptx, inBlindKeys, outBlindKeys, issuanceBlindKeys) {
+		verify, err := VerifyBlinding(ptx, blindDataLike, outBlindKeysMap, issuanceBlindKeys)
+		if err != nil {
+			return err
+		}
+
+		if verify {
 			*p = *ptx
 			break
 		}
 	}
+
 	return nil
 }
 
@@ -1491,11 +1628,11 @@ func broadcastTransaction(p *Pset) (string, error) {
 }
 
 func faucet(address string) (string, error) {
-	baseUrl, err := apiBaseUrl()
+	baseURL, err := apiBaseUrl()
 	if err != nil {
 		return "", err
 	}
-	url := fmt.Sprintf("%s/faucet", baseUrl)
+	url := fmt.Sprintf("%s/faucet", baseURL)
 	payload := map[string]string{"address": address}
 	body, _ := json.Marshal(payload)
 

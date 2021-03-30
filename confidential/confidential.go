@@ -420,7 +420,7 @@ func surjectionProof(args SurjectionProofArgs) ([]byte, bool) {
 		ctx,
 		fixedInputTags,
 		args.nInputsToUse(),
-		*fixedOutputTag,
+		fixedOutputTag,
 		maxIterations,
 		args.Seed,
 	)
@@ -432,7 +432,7 @@ func surjectionProof(args SurjectionProofArgs) ([]byte, bool) {
 		ctx,
 		proof,
 		inputGenerators,
-		*outputGenerator,
+		outputGenerator,
 		inputIndex,
 		args.InputAssetBlindingFactors[inputIndex],
 		args.OutputAssetBlindingFactor,
@@ -445,7 +445,7 @@ func surjectionProof(args SurjectionProofArgs) ([]byte, bool) {
 		ctx,
 		proof,
 		inputGenerators,
-		*outputGenerator,
+		outputGenerator,
 	) {
 		return nil, false
 	}
@@ -482,15 +482,15 @@ func verifySurjectionProof(args VerifySurjectionProofArgs) bool {
 		ctx,
 		proof,
 		inGenerators,
-		*outGenerator,
+		outGenerator,
 	)
 }
 
-func inAssetGenerators(inAssets, inAssetBlinders [][]byte) ([]secp256k1.Generator, error) {
+func inAssetGenerators(inAssets, inAssetBlinders [][]byte) ([]*secp256k1.Generator, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	inGenerators := make([]secp256k1.Generator, 0, len(inAssets))
+	inGenerators := make([]*secp256k1.Generator, 0, len(inAssets))
 	for i, inAsset := range inAssets {
 		gen, err := secp256k1.GeneratorGenerateBlinded(
 			ctx,
@@ -500,7 +500,7 @@ func inAssetGenerators(inAssets, inAssetBlinders [][]byte) ([]secp256k1.Generato
 		if err != nil {
 			return nil, err
 		}
-		inGenerators = append(inGenerators, *gen)
+		inGenerators = append(inGenerators, gen)
 	}
 	return inGenerators, nil
 }
@@ -511,20 +511,20 @@ func outAssetGenerator(outAsset, outAssetBlinder []byte) (*secp256k1.Generator, 
 		return nil, err
 	}
 	outGenerator := res[0]
-	return &outGenerator, nil
+	return outGenerator, nil
 }
 
-func inFixedTags(inAssets [][]byte) ([]secp256k1.FixedAssetTag, error) {
+func inFixedTags(inAssets [][]byte) ([]*secp256k1.FixedAssetTag, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	fixedInputTags := make([]secp256k1.FixedAssetTag, 0, len(inAssets))
+	fixedInputTags := make([]*secp256k1.FixedAssetTag, 0, len(inAssets))
 	for _, inTag := range inAssets {
 		fixedAssetTag, err := secp256k1.FixedAssetTagParse(inTag)
 		if err != nil {
 			return nil, err
 		}
-		fixedInputTags = append(fixedInputTags, *fixedAssetTag)
+		fixedInputTags = append(fixedInputTags, fixedAssetTag)
 	}
 	return fixedInputTags, nil
 }
@@ -535,7 +535,7 @@ func outFixedTag(outAsset []byte) (*secp256k1.FixedAssetTag, error) {
 		return nil, err
 	}
 	outFixedTag := res[0]
-	return &outFixedTag, nil
+	return outFixedTag, nil
 }
 
 func calcAssetHash(in *transaction.TxInput) ([]byte, error) {

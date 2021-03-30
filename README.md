@@ -48,8 +48,9 @@ $ go get github.com/vulpemventures/go-elements@latest
 - [x] Unblinding ins / Blinding outs / Blinding issuance ins
 - [x] Signing a confidential input (use 0 value amounts to produce the hash for the signature)
 - [x] Asset issuance
-- [ ] Asset re-issuance
+- [x] Asset re-issuance
 - [x] Slip77
+- [ ] Upcoming [PSET spec](https://github.com/ElementsProject/elements/pull/951) support
 
 ## 🖥 Development
 
@@ -73,8 +74,7 @@ $ go get -t -v ./...
 
 ```
 $ nigiri start --liquid
-$ export API_URL=http://localhost:3001
-$ go test ./... -v
+$ make test
 ```
 
 * More detailed documentation

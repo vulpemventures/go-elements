@@ -28,7 +28,7 @@ func TestBlockDeserialization(t *testing.T) {
 			assert.Equal(
 				t,
 				v["numOfTx"].(string),
-				strconv.Itoa(len(block.Transactions)),
+				strconv.Itoa(len(block.Transactions.Transactions)),
 			)
 		})
 	}

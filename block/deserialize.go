@@ -10,27 +10,29 @@ import (
 )
 
 func deserialize(buf *bytes.Buffer) (*Block, error) {
-	d := bufferutil.NewDeserializer(buf)
-
-	header, err := deserializeHeader(d)
+	header, err := DeserializeHeader(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	transactions, err := deserializeTransactions(d, buf)
+	transactions, err := DeserializeTransactions(buf)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Block{
-		Header:       header,
-		Transactions: transactions,
+		Header: header,
+		Transactions: &Transactions{
+			Transactions: transactions,
+		},
 	}, nil
 }
 
-func deserializeHeader(
-	d *bufferutil.Deserializer,
+func DeserializeHeader(
+	buf *bytes.Buffer,
 ) (*Header, error) {
+	d := bufferutil.NewDeserializer(buf)
+
 	version, err := d.ReadUint32()
 	if err != nil {
 		return nil, err
@@ -67,13 +69,15 @@ func deserializeHeader(
 		return nil, err
 	}
 
+	extData.IsDyna = isDyna
+
 	return &Header{
-		version:       version,
-		prevBlockHash: prevBlockHash,
-		merkleRoot:    merkleRoot,
-		time:          timestamp,
-		height:        blockHeight,
-		ext:           extData,
+		Version:       version,
+		PrevBlockHash: prevBlockHash,
+		MerkleRoot:    merkleRoot,
+		Timestamp:     timestamp,
+		Height:        blockHeight,
+		ExtData:       extData,
 	}, nil
 }
 
@@ -97,8 +101,8 @@ func deserializeExtData(
 	}
 
 	return &ExtData{
-		proof:             proof,
-		dynamicFederation: dynamicFederation,
+		Proof:             proof,
+		DynamicFederation: dynamicFederation,
 	}, nil
 }
 
@@ -121,9 +125,9 @@ func deserializeDynamicFederation(
 	}
 
 	return &DynamicFederation{
-		current:          currentParams,
-		proposed:         proposedParams,
-		signBlockWitness: signBlockWitness,
+		Current:          currentParams,
+		Proposed:         proposedParams,
+		SignBlockWitness: signBlockWitness,
 	}, nil
 }
 
@@ -160,8 +164,8 @@ func deserializeDynamicFederationParams(
 
 	if !nul {
 		dynamicFederationParams = &DynamicFederationParams{
-			compactParams: compactParams,
-			fullParams:    fullParams,
+			CompactParams: compactParams,
+			FullParams:    fullParams,
 		}
 	}
 
@@ -192,9 +196,9 @@ func deserializeCompactParams(
 	}
 
 	return &CompactParams{
-		signBlockScript:       signBlockScript,
-		signBlockWitnessLimit: signBlockWitnessLimit,
-		elidedRoot:            elidedRoot,
+		SignBlockScript:       signBlockScript,
+		SignBlockWitnessLimit: signBlockWitnessLimit,
+		ElidedRoot:            elidedRoot,
 	}, nil
 }
 
@@ -254,11 +258,11 @@ func deserializeFullParams(
 	}
 
 	return &FullParams{
-		signBlockScript:       signBlockScript,
-		signBlockWitnessLimit: signBlockWitnessLimit,
-		fedpegProgram:         fedpegProgram,
-		fedpegScript:          fedpegScript,
-		extensionSpace:        extensionSpace,
+		SignBlockScript:       signBlockScript,
+		SignBlockWitnessLimit: signBlockWitnessLimit,
+		FedpegProgram:         fedpegProgram,
+		FedpegScript:          fedpegScript,
+		ExtensionSpace:        extensionSpace,
 	}, nil
 }
 
@@ -309,15 +313,16 @@ func deserializeProof(
 	}
 
 	return &Proof{
-		challenge: challenge,
-		solution:  solution,
+		Challenge: challenge,
+		Solution:  solution,
 	}, nil
 }
 
-func deserializeTransactions(
-	d *bufferutil.Deserializer,
+func DeserializeTransactions(
 	buf *bytes.Buffer,
 ) ([]*transaction.Transaction, error) {
+	d := bufferutil.NewDeserializer(buf)
+
 	txCount, err := d.ReadVarInt()
 	if err != nil {
 		return nil, err

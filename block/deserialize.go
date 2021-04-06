@@ -22,7 +22,7 @@ func deserialize(buf *bytes.Buffer) (*Block, error) {
 
 	return &Block{
 		Header: header,
-		Transactions: &Transactions{
+		TransactionsData: &Transactions{
 			Transactions: transactions,
 		},
 	}, nil

@@ -15,7 +15,7 @@ func (b *Block) SerializeBlock() ([]byte, error) {
 		return nil, err
 	}
 
-	err = b.Transactions.SerializeTransactions(s)
+	err = b.TransactionsData.SerializeTransactions(s)
 	if err != nil {
 		return nil, err
 	}

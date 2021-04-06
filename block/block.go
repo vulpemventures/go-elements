@@ -20,8 +20,8 @@ const (
 )
 
 type Block struct {
-	Header       *Header
-	Transactions *Transactions
+	Header           *Header
+	TransactionsData *Transactions
 }
 
 type Transactions struct {

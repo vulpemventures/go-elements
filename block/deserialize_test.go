@@ -48,7 +48,6 @@ func TestBlockDeserialization(t *testing.T) {
 }
 
 func TestBlockDeserializationIntegration(t *testing.T) {
-
 	privkey, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)

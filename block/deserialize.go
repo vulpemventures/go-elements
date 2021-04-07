@@ -38,11 +38,10 @@ func DeserializeHeader(
 		return nil, err
 	}
 
-	isDyna := false
-	if version>>31 == 1 {
-		isDyna = true
+	isDyna := version>>31 == 1
+	if isDyna {
+		version = blockVersion
 	}
-	version = blockVersion
 
 	prevBlockHash, err := d.ReadSlice(hashSize)
 	if err != nil {
@@ -68,8 +67,6 @@ func DeserializeHeader(
 	if err != nil {
 		return nil, err
 	}
-
-	extData.IsDyna = isDyna
 
 	return &Header{
 		Version:       version,
@@ -103,6 +100,7 @@ func deserializeExtData(
 	return &ExtData{
 		Proof:             proof,
 		DynamicFederation: dynamicFederation,
+		IsDyna:            isDyna,
 	}, nil
 }
 
@@ -134,11 +132,9 @@ func deserializeDynamicFederation(
 func deserializeDynamicFederationParams(
 	d *bufferutil.Deserializer,
 ) (*DynamicFederationParams, error) {
-	var dynamicFederationParams *DynamicFederationParams
 	var compactParams *CompactParams
 	var fullParams *FullParams
 	var err error
-	nul := false
 
 	serializeType, err := d.ReadUint8()
 	if err != nil {
@@ -147,7 +143,7 @@ func deserializeDynamicFederationParams(
 
 	switch serializeType {
 	case null:
-		nul = true
+		return nil, nil
 	case compact:
 		compactParams, err = deserializeCompactParams(d)
 		if err != nil {
@@ -162,14 +158,10 @@ func deserializeDynamicFederationParams(
 		return nil, errors.New("bad serialize type for dynafed parameters")
 	}
 
-	if !nul {
-		dynamicFederationParams = &DynamicFederationParams{
-			CompactParams: compactParams,
-			FullParams:    fullParams,
-		}
-	}
-
-	return dynamicFederationParams, nil
+	return &DynamicFederationParams{
+		CompactParams: compactParams,
+		FullParams:    fullParams,
+	}, nil
 }
 
 func deserializeCompactParams(

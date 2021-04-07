@@ -60,28 +60,23 @@ func (h *Header) SerializeHeader(
 		}
 	}
 
-	err := s.WriteSlice(h.PrevBlockHash)
-	if err != nil {
+	if err := s.WriteSlice(h.PrevBlockHash); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(h.MerkleRoot)
-	if err != nil {
+	if err := s.WriteSlice(h.MerkleRoot); err != nil {
 		return err
 	}
 
-	err = s.WriteUint32(h.Timestamp)
-	if err != nil {
+	if err := s.WriteUint32(h.Timestamp); err != nil {
 		return err
 	}
 
-	err = s.WriteUint32(h.Height)
-	if err != nil {
+	if err := s.WriteUint32(h.Height); err != nil {
 		return err
 	}
 
-	err = h.ExtData.serialize(s)
-	if err != nil {
+	if err := h.ExtData.serialize(s); err != nil {
 		return err
 	}
 
@@ -109,23 +104,19 @@ func (e *ExtData) serialize(
 func (p *Proof) serialize(
 	s *bufferutil.Serializer,
 ) error {
-	err := s.WriteVarInt(uint64(len(p.Challenge)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(p.Challenge))); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(p.Challenge)
-	if err != nil {
+	if err := s.WriteSlice(p.Challenge); err != nil {
 		return err
 	}
 
-	err = s.WriteVarInt(uint64(len(p.Solution)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(p.Solution))); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(p.Solution)
-	if err != nil {
+	if err := s.WriteSlice(p.Solution); err != nil {
 		return err
 	}
 
@@ -136,42 +127,35 @@ func (d *DynamicFederation) serialize(
 	s *bufferutil.Serializer,
 ) error {
 	if d.Current == nil {
-		err := s.WriteUint8(null)
-		if err != nil {
+		if err := s.WriteUint8(null); err != nil {
 			return err
 		}
 	} else {
-		err := d.Current.serialize(s)
-		if err != nil {
+		if err := d.Current.serialize(s); err != nil {
 			return err
 		}
 	}
 
 	if d.Proposed == nil {
-		err := s.WriteUint8(null)
-		if err != nil {
+		if err := s.WriteUint8(null); err != nil {
 			return err
 		}
 	} else {
-		err := d.Proposed.serialize(s)
-		if err != nil {
+		if err := d.Proposed.serialize(s); err != nil {
 			return err
 		}
 	}
 
-	err := s.WriteVarInt(uint64(len(d.SignBlockWitness)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(d.SignBlockWitness))); err != nil {
 		return err
 	}
 
 	for i := 0; i < len(d.SignBlockWitness); i++ {
-		err = s.WriteVarInt(uint64(len(d.SignBlockWitness[i])))
-		if err != nil {
+		if err := s.WriteVarInt(uint64(len(d.SignBlockWitness[i]))); err != nil {
 			return err
 		}
 
-		err = s.WriteSlice(d.SignBlockWitness[i])
-		if err != nil {
+		if err := s.WriteSlice(d.SignBlockWitness[i]); err != nil {
 			return err
 		}
 	}
@@ -183,32 +167,27 @@ func (d *DynamicFederationParams) serialize(
 	s *bufferutil.Serializer,
 ) error {
 	if d.CompactParams == nil && d.FullParams == nil {
-		err := s.WriteUint8(null)
-		if err != nil {
+		if err := s.WriteUint8(null); err != nil {
 			return err
 		}
 	}
 
 	if d.CompactParams != nil {
-		err := s.WriteUint8(compact)
-		if err != nil {
+		if err := s.WriteUint8(compact); err != nil {
 			return err
 		}
 
-		err = d.CompactParams.serialize(s)
-		if err != nil {
+		if err := d.CompactParams.serialize(s); err != nil {
 			return err
 		}
 	}
 
 	if d.FullParams != nil {
-		err := s.WriteUint8(full)
-		if err != nil {
+		if err := s.WriteUint8(full); err != nil {
 			return err
 		}
 
-		err = d.FullParams.serialize(s)
-		if err != nil {
+		if err := d.FullParams.serialize(s); err != nil {
 			return err
 		}
 	}
@@ -219,23 +198,19 @@ func (d *DynamicFederationParams) serialize(
 func (c *CompactParams) serialize(
 	s *bufferutil.Serializer,
 ) error {
-	err := s.WriteVarInt(uint64(len(c.SignBlockScript)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(c.SignBlockScript))); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(c.SignBlockScript)
-	if err != nil {
+	if err := s.WriteSlice(c.SignBlockScript); err != nil {
 		return err
 	}
 
-	err = s.WriteUint32(c.SignBlockWitnessLimit)
-	if err != nil {
+	if err := s.WriteUint32(c.SignBlockWitnessLimit); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(c.ElidedRoot)
-	if err != nil {
+	if err := s.WriteSlice(c.ElidedRoot); err != nil {
 		return err
 	}
 
@@ -245,54 +220,44 @@ func (c *CompactParams) serialize(
 func (f *FullParams) serialize(
 	s *bufferutil.Serializer,
 ) error {
-	err := s.WriteVarInt(uint64(len(f.SignBlockScript)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(f.SignBlockScript))); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(f.SignBlockScript)
-	if err != nil {
+	if err := s.WriteSlice(f.SignBlockScript); err != nil {
 		return err
 	}
 
-	err = s.WriteUint32(f.SignBlockWitnessLimit)
-	if err != nil {
+	if err := s.WriteUint32(f.SignBlockWitnessLimit); err != nil {
 		return err
 	}
 
-	err = s.WriteVarInt(uint64(len(f.FedpegProgram)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(f.FedpegProgram))); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(f.FedpegProgram)
-	if err != nil {
+	if err := s.WriteSlice(f.FedpegProgram); err != nil {
 		return err
 	}
 
-	err = s.WriteVarInt(uint64(len(f.FedpegScript)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(f.FedpegScript))); err != nil {
 		return err
 	}
 
-	err = s.WriteSlice(f.FedpegScript)
-	if err != nil {
+	if err := s.WriteSlice(f.FedpegScript); err != nil {
 		return err
 	}
 
-	err = s.WriteVarInt(uint64(len(f.ExtensionSpace)))
-	if err != nil {
+	if err := s.WriteVarInt(uint64(len(f.ExtensionSpace))); err != nil {
 		return err
 	}
 
 	for i := 0; i < len(f.ExtensionSpace); i++ {
-		err = s.WriteVarInt(uint64(len(f.ExtensionSpace[i])))
-		if err != nil {
+		if err := s.WriteVarInt(uint64(len(f.ExtensionSpace[i]))); err != nil {
 			return err
 		}
 
-		err = s.WriteSlice(f.ExtensionSpace[i])
-		if err != nil {
+		if err := s.WriteSlice(f.ExtensionSpace[i]); err != nil {
 			return err
 		}
 	}

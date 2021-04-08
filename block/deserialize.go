@@ -40,7 +40,7 @@ func DeserializeHeader(
 
 	isDyna := version>>31 == 1
 	if isDyna {
-		version = blockVersion
+		version &= 0x7fff_ffff
 	}
 
 	prevBlockHash, err := d.ReadSlice(hashSize)

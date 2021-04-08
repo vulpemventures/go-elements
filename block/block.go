@@ -12,8 +12,7 @@ const (
 	compact
 	full
 
-	hashSize     = 32
-	blockVersion = 536870912
+	hashSize = 32
 
 	proofVersion = 536870912
 	dynaVersion  = 2684354560

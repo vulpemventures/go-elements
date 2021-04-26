@@ -1,10 +1,11 @@
 package pegin
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
+	"errors"
 
 	"github.com/btcsuite/btcutil"
 
@@ -37,7 +38,7 @@ type AddressInfo struct {
 }
 
 // GetAddressInfo simulates getpeginaddress RPC call which returns mainChain
-// address to which BTC should be send in BTC network and claim script that is
+// address to which BTC should be sent in BTC network and claim script that is
 // to be used in claimpegin RPC alongside with bitcoinTx and txoutproof
 func GetAddressInfo(
 	privateKey btcec.PrivateKey,
@@ -233,8 +234,21 @@ func calculateContract(
 			if err != nil {
 				return nil, err
 			}
-			if tweaked2 != maybeTweaked2 { //TODO remove
-				fmt.Println()
+
+			_, tweaked2Bytes, err := secp256k1.EcPubkeySerialize(
+				ctx,
+				tweaked2,
+				secp256k1.EcUncompressed,
+			)
+
+			_, maybeTweaked2Bytes, err := secp256k1.EcPubkeySerialize(
+				ctx,
+				maybeTweaked2,
+				secp256k1.EcUncompressed,
+			)
+
+			if !bytes.Equal(tweaked2Bytes[:64], maybeTweaked2Bytes[:64]) {
+				return nil, errors.New("sanity check failed")
 			}
 
 		} else {
@@ -252,7 +266,7 @@ func calculateContract(
 }
 
 // IsLiquidV1 checks weather provided fedpeg script is of v1 or newer
-// Consensus-critical. Matching against telescoped multisig used on Liquid v1:
+// Consensus-critical. Matching against telescoped multisig used on Liquid v1
 func IsLiquidV1(script []byte) (bool, error) {
 	pops, err := address.ParseScript(script)
 	if err != nil {

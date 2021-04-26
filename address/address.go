@@ -95,7 +95,7 @@ func ToBase58(b *Base58) string {
 }
 
 // FromBech32 decodes a bech32 encoded string, returning the human-readable
-// part and the data part excluding the checksum.
+// part and the Data part excluding the checksum.
 func FromBech32(address string) (*Bech32, error) {
 	// Bech32 encoded segwit addresses start with a human-readable part
 	// (hrp) followed by '1'. For Liquid mainnet the hrp is "ex", and for
@@ -133,14 +133,14 @@ func FromBech32(address string) (*Bech32, error) {
 		return nil, err
 	}
 
-	// The regrouped data must be between 2 and 40 bytes.
+	// The regrouped Data must be between 2 and 40 bytes.
 	if len(regrouped) < 2 || len(regrouped) > 40 {
-		return nil, errors.New("invalid data length")
+		return nil, errors.New("invalid Data Length")
 	}
 
 	// For witness version 0, address MUST be exactly 20 or 32 bytes.
 	if version == 0 && len(regrouped) != 20 && len(regrouped) != 32 {
-		return nil, errors.New("invalid data length for witness ")
+		return nil, errors.New("invalid Data Length for witness ")
 	}
 
 	return &Bech32{prefix, version, regrouped}, nil
@@ -207,7 +207,7 @@ func ToBase58Confidential(b *Base58Confidential) string {
 }
 
 // FromBlech32 decodes a blech32 encoded string, returning the human-readable
-// part and the data part excluding the checksum.
+// part and the Data part excluding the checksum.
 func FromBlech32(address string) (*Blech32, error) {
 	// Blech32 encoded segwit addresses start with a human-readable part
 	// (hrp) followed by '1'. For Liquid mainnet the hrp is "ex", and for
@@ -247,12 +247,12 @@ func FromBlech32(address string) (*Blech32, error) {
 	}
 
 	if len(regrouped) < 2 || len(regrouped) > 40+33 {
-		return nil, fmt.Errorf("invalid data length")
+		return nil, fmt.Errorf("invalid Data Length")
 	}
 
 	// For witness version 0, address MUST be exactly 20+33 or 32+33 bytes.
 	if version == 0 && len(regrouped) != 20+33 && len(regrouped) != 32+33 {
-		return nil, fmt.Errorf("invalid data length for witness "+
+		return nil, fmt.Errorf("invalid Data Length for witness "+
 			"version 0: %v", len(regrouped))
 	}
 
@@ -557,7 +557,7 @@ func decodeBlech32(address string, net network.Network) (int, error) {
 	case 32:
 		return ConfidentialP2Wsh, nil
 	default:
-		return 0, errors.New("invalid program length")
+		return 0, errors.New("invalid program Length")
 	}
 }
 
@@ -576,7 +576,7 @@ func decodeBech32(address string, net network.Network) (int, error) {
 	case 32:
 		return P2Wsh, nil
 	default:
-		return 0, errors.New("invalid program length")
+		return 0, errors.New("invalid program Length")
 	}
 }
 

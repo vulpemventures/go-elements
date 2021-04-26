@@ -1,9 +1,7 @@
 package address
 
 import (
-	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +40,5 @@ func TestMultisigExtractFedScriptV1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(binary.LittleEndian.Uint16(scriptDetails.Pops[22].Data))
-	assert.Equal(t, MultiSigTy, scriptDetails.Class)
+	assert.Equal(t, NonStandardTy, scriptDetails.Class)
 }

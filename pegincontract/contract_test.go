@@ -1,4 +1,4 @@
-package pegin
+package pegincontract
 
 import (
 	"encoding/hex"
@@ -100,7 +100,7 @@ func TestCalculateContract(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			contractBytes, err := calculateContract(fedpegScriptBytes, scriptPubKeyBytes)
+			contractBytes, err := Calculate(fedpegScriptBytes, scriptPubKeyBytes)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("calculateContract() error = %v, wantErr %v", err, tt.wantErr)

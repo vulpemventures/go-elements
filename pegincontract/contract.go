@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"errors"
 
+	"github.com/btcsuite/btcd/txscript"
+
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
@@ -24,6 +26,7 @@ func Calculate(
 	if err != nil {
 		return nil, err
 	}
+	defer secp256k1.ContextDestroy(ctx)
 
 	isLiquidV1Watchman, err := IsLiquidV1(federationScript)
 	if err != nil {
@@ -40,7 +43,7 @@ func Calculate(
 	liquidOpElseFound := false
 	for _, v := range pops {
 		// For liquidv1 initial watchman template, don't tweak emergency keys
-		if isLiquidV1Watchman && v.Opcode.Value == address.OP_ELSE {
+		if isLiquidV1Watchman && v.Opcode.Value == txscript.OP_ELSE {
 			liquidOpElseFound = true
 		}
 
@@ -133,23 +136,23 @@ func IsLiquidV1(script []byte) (bool, error) {
 	}
 
 	// Stack depth check for branch choice
-	if pops[0].Opcode.Value != address.OP_DEPTH {
+	if pops[0].Opcode.Value != txscript.OP_DEPTH {
 		return false, nil
 	}
 
 	// Take in value, then check equality
-	if pops[2].Opcode.Value != address.OP_EQUAL {
+	if pops[2].Opcode.Value != txscript.OP_EQUAL {
 		return false, nil
 	}
 
 	// IF EQUAL
-	if pops[3].Opcode.Value != address.OP_IF {
+	if pops[3].Opcode.Value != txscript.OP_IF {
 		return false, nil
 	}
 
 	// Take in value k, make sure minimally encoded number from 1 to 16
-	if pops[4].Opcode.Value > address.OP_16 ||
-		(pops[4].Opcode.Value < address.OP_1NEGATE && !checkMinimalPush(pops[4])) {
+	if pops[4].Opcode.Value > txscript.OP_16 ||
+		(pops[4].Opcode.Value < txscript.OP_1NEGATE && !checkMinimalPush(pops[4])) {
 
 		return false, nil
 	}
@@ -158,7 +161,7 @@ func IsLiquidV1(script []byte) (bool, error) {
 	opElseFound := false
 	opElseIndex := -1
 	for i := 5; i < len(pops); i++ {
-		if pops[i].Opcode.Value == address.OP_ELSE {
+		if pops[i].Opcode.Value == txscript.OP_ELSE {
 			opElseFound = true
 			opElseIndex = i
 		}
@@ -168,25 +171,25 @@ func IsLiquidV1(script []byte) (bool, error) {
 	}
 
 	// Take minimally-encoded CSV push number k'
-	if pops[opElseIndex+1].Opcode.Value > address.OP_16 ||
-		(pops[opElseIndex+1].Opcode.Value < address.OP_1NEGATE && !checkMinimalPush(pops[opElseIndex+1])) {
+	if pops[opElseIndex+1].Opcode.Value > txscript.OP_16 ||
+		(pops[opElseIndex+1].Opcode.Value < txscript.OP_1NEGATE && !checkMinimalPush(pops[opElseIndex+1])) {
 
 		return false, nil
 	}
 
 	// CSV
-	if pops[opElseIndex+2].Opcode.Value != address.OP_CHECKSEQUENCEVERIFY {
+	if pops[opElseIndex+2].Opcode.Value != txscript.OP_CHECKSEQUENCEVERIFY {
 		return false, nil
 	}
 
 	// Drop the CSV number
-	if pops[opElseIndex+3].Opcode.Value != address.OP_DROP {
+	if pops[opElseIndex+3].Opcode.Value != txscript.OP_DROP {
 		return false, nil
 	}
 
 	// Take the minimally-encoded n of k-of-n multisig arg
-	if pops[opElseIndex+4].Opcode.Value > address.OP_16 ||
-		(pops[opElseIndex+4].Opcode.Value < address.OP_1NEGATE && !checkMinimalPush(pops[opElseIndex+4])) {
+	if pops[opElseIndex+4].Opcode.Value > txscript.OP_16 ||
+		(pops[opElseIndex+4].Opcode.Value < txscript.OP_1NEGATE && !checkMinimalPush(pops[opElseIndex+4])) {
 
 		return false, nil
 	}
@@ -195,7 +198,7 @@ func IsLiquidV1(script []byte) (bool, error) {
 	opEndIfFound := false
 	opEndIfIndex := -1
 	for i := opElseIndex + 5; i < len(pops); i++ {
-		if pops[i].Opcode.Value == address.OP_ENDIF {
+		if pops[i].Opcode.Value == txscript.OP_ENDIF {
 			opEndIfFound = true
 			opEndIfIndex = i
 		}
@@ -205,7 +208,7 @@ func IsLiquidV1(script []byte) (bool, error) {
 	}
 
 	// CHECKMULTISIG
-	if pops[opEndIfIndex+1].Opcode.Value != address.OP_CHECKMULTISIG {
+	if pops[opEndIfIndex+1].Opcode.Value != txscript.OP_CHECKMULTISIG {
 		return false, nil
 	}
 
@@ -215,7 +218,7 @@ func IsLiquidV1(script []byte) (bool, error) {
 func checkMinimalPush(parsedOpcode address.ParsedOpcode) bool {
 	if len(parsedOpcode.Data) == 0 {
 		// Should have used OP_0.
-		return parsedOpcode.Opcode.Value == address.OP_0
+		return parsedOpcode.Opcode.Value == txscript.OP_0
 	} else if len(parsedOpcode.Data) == 1 &&
 		parsedOpcode.Data[0] >= 1 &&
 		parsedOpcode.Data[0] <= 16 {
@@ -229,10 +232,10 @@ func checkMinimalPush(parsedOpcode address.ParsedOpcode) bool {
 		return int(parsedOpcode.Opcode.Value) == len(parsedOpcode.Data)
 	} else if len(parsedOpcode.Data) <= 255 {
 		// Must have used OP_PUSHDATA.
-		return int(parsedOpcode.Opcode.Value) == address.OP_PUSHDATA1
+		return int(parsedOpcode.Opcode.Value) == txscript.OP_PUSHDATA1
 	} else if len(parsedOpcode.Data) <= 65535 {
 		// Must have used OP_PUSHDATA2.
-		return int(parsedOpcode.Opcode.Value) == address.OP_PUSHDATA2
+		return int(parsedOpcode.Opcode.Value) == txscript.OP_PUSHDATA2
 	}
 	return true
 }

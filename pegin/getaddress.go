@@ -42,12 +42,12 @@ func GetAddressInfo(
 ) (*AddressInfo, error) {
 	liquidNetwork, btcNetwork := getNetworkParams(networkType)
 
-	p2wkh, err := getClaimWitnessScript(publicKey, liquidNetwork)
+	p2wkh, err := ClaimWitnessScript(publicKey, liquidNetwork)
 	if err != nil {
 		return nil, err
 	}
 
-	mainChainAddress, err := createMainChainAddress(
+	mainChainAddress, err := PeginAddress(
 		contract,
 		btcNetwork,
 		isDynaFedEnabled,
@@ -80,7 +80,7 @@ func getNetworkParams(
 	return liquidNetwork, btcNetwork
 }
 
-func getClaimWitnessScript(
+func ClaimWitnessScript(
 	publicKeyBytes []byte,
 	net *network.Network,
 ) (string, error) {
@@ -98,7 +98,7 @@ func getClaimWitnessScript(
 	return hex.EncodeToString(p2wpkh.WitnessScript), nil
 }
 
-func createMainChainAddress(
+func PeginAddress(
 	contract []byte,
 	btcNetwork *chaincfg.Params,
 	isDynaFedEnabled bool,

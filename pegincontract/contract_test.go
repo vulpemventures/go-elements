@@ -101,7 +101,6 @@ func TestCalculateContract(t *testing.T) {
 			}
 
 			contractBytes, err := Calculate(fedpegScriptBytes, scriptPubKeyBytes)
-
 			if (err != nil) != tt.wantErr {
 				t.Errorf("calculateContract() error = %v, wantErr %v", err, tt.wantErr)
 				return

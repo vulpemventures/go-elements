@@ -140,7 +140,7 @@ func (out *TxOutput) SerializeSize() int {
 
 // IsConfidential returns whether the output is a confidential one
 func (out *TxOutput) IsConfidential() bool {
-	return len(out.RangeProof) > 0 && len(out.SurjectionProof) > 0
+	return len(out.Nonce) > 1
 }
 
 // Transaction defines an elements transaction message.

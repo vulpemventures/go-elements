@@ -300,6 +300,8 @@ github.com/vulpemventures/go-secp256k1-zkp v1.0.2 h1:K8zh2NegPd3JzZXWMv+ikWPHx/y
 github.com/vulpemventures/go-secp256k1-zkp v1.0.2/go.mod h1:zo7CpgkuPgoe7fAV+inyxsI9IhGmcoFgyD8nqZaPSOM=
 github.com/vulpemventures/go-secp256k1-zkp v1.1.0 h1:Z3qKc/lYxEQ1cukwwjD4n7EBCrg7N6of4hylVsD+lOA=
 github.com/vulpemventures/go-secp256k1-zkp v1.1.0/go.mod h1:zo7CpgkuPgoe7fAV+inyxsI9IhGmcoFgyD8nqZaPSOM=
+github.com/vulpemventures/go-secp256k1-zkp v1.1.1-0.20210422114014-d9d676d706c1 h1:9rPKzVfNwHve4TkCtcECzT1/zTCuN90K08VXjaI0bb0=
+github.com/vulpemventures/go-secp256k1-zkp v1.1.1-0.20210422114014-d9d676d706c1/go.mod h1:zo7CpgkuPgoe7fAV+inyxsI9IhGmcoFgyD8nqZaPSOM=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=

@@ -1,21 +1,22 @@
 package pegincontract
 
 import (
-	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/wire"
-	"github.com/vulpemventures/go-elements/block"
+	"github.com/vulpemventures/go-elements/elementsutil"
+
+	"github.com/btcsuite/btcd/txscript"
+
+	"github.com/vulpemventures/go-elements/payment"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -141,7 +142,9 @@ func TestCalculateContract(t *testing.T) {
 }
 
 func TestClaimPegin(t *testing.T) {
-	federationScript := "52210307fd375ed7cced0f50723e3e1a97bbe7ccff7318c815df4e99a59bc94dbcd819210367c4f666f18279009c941e57fab3e42653c6553e5ca092c104d1db279e328a2852ae"
+	isDynaFedEnabled := false
+
+	federationScript := "512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
 	fedpegScriptBytes, err := hex.DecodeString(federationScript)
 	if err != nil {
 		t.Fatal(err)
@@ -158,6 +161,7 @@ func TestClaimPegin(t *testing.T) {
 		privateKey.PubKey().SerializeCompressed(),
 		liquidNetwork,
 	)
+	t.Log(hex.EncodeToString(claimScript))
 
 	contract, err := Calculate(
 		fedpegScriptBytes,
@@ -170,80 +174,149 @@ func TestClaimPegin(t *testing.T) {
 	mainChainAddress, err := pegin.MainChainAddress(
 		contract,
 		btcNetwork,
-		false,
+		isDynaFedEnabled,
 		fedpegScriptBytes,
 	)
 	t.Log(mainChainAddress)
 
-	//btcTxID, err := faucet(mainChainAddress)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
 	output := outputCommand("nigiri", "faucet", mainChainAddress)
 	btcTxID := strings.TrimPrefix(strings.TrimSpace(string(output[:])), "txId: ")
 	t.Log(btcTxID)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
-	//btcTxHex, err := fetchTxHex(btcTxID)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
 	jsonOut := outputCommand("nigiri", "rpc", "gettransaction", btcTxID)
 	btcTxHex := getValueByKey(jsonOut, "hex")
 	t.Log(btcTxHex)
-	btcBytes, err := hex.DecodeString(btcTxHex)
+	btcTxBytes, err := hex.DecodeString(btcTxHex)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	btcTxOutProof, err := getTxOutProof(btcTxID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(btcTxOutProof)
-
-	//arg := fmt.Sprintf("[\"%v\"]", btcTxID)
-	//btcTxOutProof := outputCommand("nigiri", "rpc", "gettxoutproof", arg)
-	//t.Log(strings.TrimSpace(string(btcTxOutProof[:])))
-	//btcTxOutProofBytes, err := hex.DecodeString(strings.TrimSpace(string(btcTxOutProof[:])))
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-
-	btcTxOutProofBytes, err := hex.DecodeString(btcTxOutProof)
+	arg := fmt.Sprintf("[\"%v\"]", btcTxID)
+	btcTxOutProof := outputCommand("nigiri", "rpc", "gettxoutproof", arg)
+	t.Log(strings.TrimSpace(string(btcTxOutProof[:])))
+	btcTxOutProofBytes, err := hex.DecodeString(strings.TrimSpace(string(btcTxOutProof[:])))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	//TODO replace with pegin.Claim
-	merkleBlock, err := block.NewMerkleBlockFromBuffer(
-		bytes.NewBuffer(btcTxOutProofBytes),
+	peggedAssetBytes, err := hex.DecodeString(network.Regtest.AssetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lbtc = append(
+		[]byte{0x01},
+		elementsutil.ReverseBytes(peggedAssetBytes)...,
+	)
+
+	parentBlockHash := "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"
+	parentBlockHashBytes, err := hex.DecodeString(parentBlockHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privateKey, err = btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p2wpkh := payment.FromPublicKey(
+		privateKey.PubKey(),
+		liquidNetwork,
+		nil,
+	)
+
+	claimTx, err := pegin.Claim(
+		btcNetwork,
+		isDynaFedEnabled,
+		lbtc,
+		parentBlockHashBytes,
+		fedpegScriptBytes,
+		contract,
+		btcTxBytes,
+		btcTxOutProofBytes,
+		claimScript,
+		p2wpkh.WitnessScript,
+		0.1,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	hashMerkleRoot, matchedHashes, err := merkleBlock.ExtractMatches()
+	//SIGN
+	redeemScript := contract
+	_, amount, err := pegin.GetPeginTxOutIndexAndAmount(
+		btcTxBytes,
+		fedpegScriptBytes,
+		contract,
+		btcNetwork,
+		isDynaFedEnabled,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(merkleBlock.BlockHeader.MerkleRoot, hashMerkleRoot.CloneBytes()) {
-		t.Fatal(err)
-	}
-
-	var tx wire.MsgTx
-	buff := bytes.NewReader(btcBytes)
-	err = tx.BtcDecode(buff, wire.ProtocolVersion, wire.LatestEncoding)
+	finalValue, err := elementsutil.SatoshiToElementsValue(uint64(amount))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	h := tx.TxHash()
-	if len(matchedHashes) != 1 || !h.IsEqual(&matchedHashes[0]) {
+	sigHash := claimTx.HashForWitnessV0(
+		0,
+		redeemScript,
+		finalValue,
+		txscript.SigHashAll,
+	)
+
+	witness := make([][]byte, 0)
+	witness = append(witness, sigHash[:])
+	witness = append(witness, redeemScript)
+	claimTx.Inputs[0].Witness = witness
+
+	witnessScriptHash := sha256.Sum256(contract)
+	builder := txscript.NewScriptBuilder()
+	builder.AddOp(txscript.OP_0).AddData(witnessScriptHash[:])
+	p2wshScript, err := builder.Script()
+	if err != nil {
 		t.Fatal(err)
 	}
+	claimTx.Inputs[0].Script = p2wshScript
+
+	claimHex, err := claimTx.ToHex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(claimHex)
+
+	//output = outputCommand("nigiri", "rpc", "--liquid", "sendrawtransaction", claimHex)
+	//fmt.Println(output)
+
+	tid, err := broadcast(claimHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(tid)
+}
+
+func broadcast(txHex string) (string, error) {
+	url := fmt.Sprintf("%s/tx", "http://localhost:3001")
+
+	resp, err := http.Post(url, "text/plain", strings.NewReader(txHex))
+	if err != nil {
+		return "", err
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	res := string(data)
+	if len(res) <= 0 || strings.Contains(res, "sendrawtransaction") {
+		return "", fmt.Errorf("failed to broadcast tx: %s", res)
+	}
+	return res, nil
 }
 
 func getNetworkParams(
@@ -265,7 +338,10 @@ func getNetworkParams(
 
 func outputCommand(name string, arg ...string) []byte {
 	cmd := exec.Command(name, arg...)
-	bytes, _ := cmd.Output()
+	bytes, err := cmd.Output()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	return bytes
 }
 
@@ -273,81 +349,4 @@ func getValueByKey(JSONobject []byte, key string) string {
 	var data map[string]interface{}
 	json.Unmarshal(JSONobject, &data)
 	return data[key].(string)
-}
-
-//func faucet(address string) (string, error) {
-//	baseURL, err := apiBaseUrl()
-//	if err != nil {
-//		return "", err
-//	}
-//	url := fmt.Sprintf("%s/faucet", baseURL)
-//	payload := map[string]string{"address": address}
-//	body, _ := json.Marshal(payload)
-//
-//	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	data, err := ioutil.ReadAll(resp.Body)
-//	if err != nil {
-//		return "", err
-//	}
-//	if res := string(data); len(res) <= 0 || strings.Contains(res, "sendtoaddress") {
-//		return "", fmt.Errorf("cannot fund address with faucet: %s", res)
-//	}
-//
-//	respBody := map[string]string{}
-//	if err := json.Unmarshal(data, &respBody); err != nil {
-//		return "", err
-//	}
-//	return respBody["txId"], nil
-//}
-//
-//func fetchTxHex(txId string) (string, error) {
-//	baseUrl, err := apiBaseUrl()
-//	if err != nil {
-//		return "", err
-//	}
-//	url := fmt.Sprintf("%s/tx/%s/hex", baseUrl, txId)
-//
-//	resp, err := http.Get(url)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	data, err := ioutil.ReadAll(resp.Body)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	return string(data), nil
-//}
-//
-func getTxOutProof(txId string) (string, error) {
-	baseUrl, err := apiBaseUrl()
-	if err != nil {
-		return "", err
-	}
-	url := fmt.Sprintf("%s/tx/%s/merkle-proof", baseUrl, txId)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", err
-	}
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
-}
-
-func apiBaseUrl() (string, error) {
-	u, ok := os.LookupEnv("API_URL")
-	if !ok {
-		return "", errors.New("API_URL environment variable is not set")
-	}
-	return u, nil
 }

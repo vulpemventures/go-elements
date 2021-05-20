@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/btcsuite/btcd/wire"
+
 	"github.com/btcsuite/btcd/blockchain"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 )
 
 type MerkleBlock struct {
-	BlockHeader       *Header
+	BlockHeader       *wire.BlockHeader
 	PartialMerkleTree *PartialMerkleTree
 }
 
@@ -180,63 +181,64 @@ func (m *MerkleBlock) calcTreeWidth(height uint32) uint32 {
 	return (m.PartialMerkleTree.TxTotalCount + (1 << height) - 1) >> height
 }
 
-func deserializePartialMerkleTree(buf *bytes.Buffer) (*PartialMerkleTree, error) {
-	d := bufferutil.NewDeserializer(buf)
+func deserializePartialMerkleTree(
+	buf *bytes.Buffer,
+	mb wire.MsgMerkleBlock,
+) (*PartialMerkleTree, error) {
+	//d := bufferutil.NewDeserializer(buf)
+	//
+	//txTotalCount, err := d.ReadUint32()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//numOfHashes, err := d.ReadVarInt()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	txHashes := make([][]byte, 0, len(mb.Hashes))
+	for _, v := range mb.Hashes {
 
-	txTotalCount, err := d.ReadUint32()
-	if err != nil {
-		return nil, err
+		txHashes = append(txHashes, v.CloneBytes())
 	}
-
-	numOfHashes, err := d.ReadVarInt()
-	if err != nil {
-		return nil, err
-	}
-
-	txHashes := make([][]byte, 0, numOfHashes)
-	for i := 0; i < int(numOfHashes); i++ {
-		hash, err := d.ReadSlice(32)
-		if err != nil {
-			return nil, err
-		}
-		txHashes = append(txHashes, hash)
-	}
-
-	numOfBytesOfFlagBits, err := d.ReadVarInt()
-	if err != nil {
-		return nil, err
-	}
-
-	b := make([]byte, 0, numOfBytesOfFlagBits)
-	for i := 0; i < int(numOfBytesOfFlagBits); i++ {
-		bit, err := d.ReadUint8()
-		if err != nil {
-			return nil, err
-		}
-		b = append(b, bit)
-	}
+	//
+	//numOfBytesOfFlagBits, err := d.ReadVarInt()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//b := make([]byte, 0, numOfBytesOfFlagBits)
+	//for i := 0; i < int(numOfBytesOfFlagBits); i++ {
+	//	bit, err := d.ReadUint8()
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	b = append(b, bit)
+	//}
 
 	return &PartialMerkleTree{
-		TxTotalCount: txTotalCount,
+		TxTotalCount: mb.Transactions,
 		TxHashes:     txHashes,
 		FBad:         false,
-		VBits:        serializeVBits(b),
+		VBits:        serializeVBits(mb.Flags),
 	}, nil
 }
 
 func deserializeMerkleBlock(buf *bytes.Buffer) (*MerkleBlock, error) {
-	header, err := DeserializeHeader(buf)
+	mb := wire.MsgMerkleBlock{}
+	err := mb.BtcDecode(buf, wire.ProtocolVersion, wire.LatestEncoding)
 	if err != nil {
 		return nil, err
 	}
 
-	partialMerkleTree, err := deserializePartialMerkleTree(buf)
+	partialMerkleTree, err := deserializePartialMerkleTree(buf, mb)
 	if err != nil {
 		return nil, err
 	}
 
 	return &MerkleBlock{
-		BlockHeader:       header,
+		BlockHeader:       &mb.Header,
 		PartialMerkleTree: partialMerkleTree,
 	}, nil
 }

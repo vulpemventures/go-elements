@@ -3,7 +3,9 @@ package pegin
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/vulpemventures/go-elements/block"
@@ -41,7 +43,7 @@ func MainChainAddress(
 	}
 
 	var mainChainAddress string
-	if isDynaFedEnabled || address.IsScriptHash(pops) {
+	if !isDynaFedEnabled || address.IsScriptHash(pops) { //TODO check IsScriptHash
 		//P2SH - P2WSH(P2CH)
 		witnessScriptHash := sha256.Sum256(contract)
 		builder := txscript.NewScriptBuilder()
@@ -91,6 +93,7 @@ func ClaimWitnessScript(
 
 func Claim(
 	btcNetwork *chaincfg.Params,
+	isDynaFedEnabled bool,
 	peggedAsset []byte,
 	parentGenesisBlockHash []byte,
 	fedpegScript []byte,
@@ -112,6 +115,7 @@ func Claim(
 		fedpegScript,
 		contract,
 		btcNetwork,
+		isDynaFedEnabled,
 	)
 	if err != nil {
 		return nil, err
@@ -155,11 +159,6 @@ type FedpegInfo struct {
 	FedpegProgram []byte
 }
 
-// TODO - get fedpeg details from live blockchain
-func GetFedpegInfo() (*FedpegInfo, error) {
-	return &FedpegInfo{}, nil
-}
-
 func createPeginInput(
 	btcTx []byte,
 	peggedAsset []byte,
@@ -169,6 +168,7 @@ func createPeginInput(
 	fedpegScript []byte,
 	contract []byte,
 	btcNetwork *chaincfg.Params,
+	isDynaFedEnabled bool,
 ) (*transaction.TxInput, int64, error) {
 	merkleBlock, err := block.NewMerkleBlockFromBuffer(
 		bytes.NewBuffer(btcTxOutProof),
@@ -182,7 +182,7 @@ func createPeginInput(
 		return nil, 0, err
 	}
 
-	if !bytes.Equal(merkleBlock.BlockHeader.MerkleRoot, hashMerkleRoot.CloneBytes()) {
+	if !merkleBlock.BlockHeader.MerkleRoot.IsEqual(hashMerkleRoot) {
 		return nil, 0, errors.New("invalid tx out proof")
 	}
 
@@ -201,11 +201,12 @@ func createPeginInput(
 	}
 
 	//validate claim script against claim_script/contract
-	outIndex, amount, err := getPeginTxOutIndexAndAmount(
+	outIndex, amount, err := GetPeginTxOutIndexAndAmount(
 		btcTx,
 		fedpegScript,
 		contract,
 		btcNetwork,
+		isDynaFedEnabled,
 	)
 	if err != nil {
 		return nil, 0, err
@@ -213,12 +214,15 @@ func createPeginInput(
 
 	peginWitness, err := createPeginWitness(
 		amount,
-		btcTx,
 		peggedAsset,
 		parentGenesisBlockHash,
 		claimScript,
+		btcTx,
 		btcTxOutProof,
 	)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	input := transaction.NewTxInput(matchedHashes[0].CloneBytes(), outIndex)
 	input.IsPegin = true
@@ -227,19 +231,20 @@ func createPeginInput(
 	return input, amount, nil
 }
 
-func getPeginTxOutIndexAndAmount(
+func GetPeginTxOutIndexAndAmount(
 	btcTx []byte,
 	fedpegScript []byte,
 	contract []byte,
 	btcNetwork *chaincfg.Params,
+	isDynaFedEnabled bool,
 ) (uint32, int64, error) {
 	pops, err := address.ParseScript(fedpegScript)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	var mainChainScript []byte
-	if address.IsScriptHash(pops) {
+	mainChainScript := []byte{}
+	if !isDynaFedEnabled || address.IsScriptHash(pops) {
 		witnessScriptHash := sha256.Sum256(contract)
 		builder := txscript.NewScriptBuilder()
 		builder.AddOp(txscript.OP_0).AddData(witnessScriptHash[:])
@@ -251,7 +256,10 @@ func getPeginTxOutIndexAndAmount(
 		if err != nil {
 			return 0, 0, err
 		}
-		mainChainScript = ps2h.ScriptAddress()
+
+		prefix := []byte{txscript.OP_HASH160, byte(len(ps2h.ScriptAddress()))}
+		mainChainScript = append(prefix, ps2h.ScriptAddress()...)
+		mainChainScript = append(mainChainScript, txscript.OP_EQUAL)
 	} else {
 		witnessScriptHash := sha256.Sum256(contract)
 		p2wsh, err := btcutil.NewAddressWitnessScriptHash(
@@ -262,6 +270,9 @@ func getPeginTxOutIndexAndAmount(
 			return 0, 0, err
 		}
 		mainChainScript = p2wsh.ScriptAddress()
+
+		prefix := []byte{txscript.OP_0, byte(len(p2wsh.ScriptAddress()))}
+		mainChainScript = append(prefix, p2wsh.ScriptAddress()...)
 	}
 
 	var tx wire.MsgTx
@@ -283,7 +294,7 @@ func getPeginTxOutIndexAndAmount(
 	}
 
 	if notFound {
-		return 0, 0, errors.New("cant find output in btc tx for contract/claim script") //TODO
+		return 0, 0, errors.New("cant find output in btc tx for provided contract")
 	}
 
 	return outIndex, amount, nil
@@ -299,27 +310,33 @@ func createPeginWitness(
 ) ([][]byte, error) {
 	peginWitness := make([][]byte, 0)
 
-	serialisedAmount, err := serializeValue(amount)
+	serialisedAmount, err := SerializeValue(amount)
 	if err != nil {
 		return nil, err
 	}
 
-	stripedTx, err := stripWitnessFromBtcTx(btcTx)
+	stripedTx, err := StripWitnessFromBtcTx(btcTx)
 	if err != nil {
 		return nil, err
 	}
 
 	peginWitness = append(peginWitness, serialisedAmount)
-	peginWitness = append(peginWitness, peggedAsset)
+	peginWitness = append(peginWitness, peggedAsset[1:])
 	peginWitness = append(peginWitness, parentGenesisBlockHash)
 	peginWitness = append(peginWitness, claimScript)
 	peginWitness = append(peginWitness, stripedTx)
 	peginWitness = append(peginWitness, btcTxOutProof)
 
+	fmt.Println("start")
+	for _, v := range peginWitness {
+		fmt.Println(hex.EncodeToString(v))
+	}
+	fmt.Println("end")
+
 	return peginWitness, nil
 }
 
-func serializeValue(value int64) ([]byte, error) {
+func SerializeValue(value int64) ([]byte, error) {
 	valueBytes, err := elementsutil.SatoshiToElementsValue(uint64(value))
 	if err != nil {
 		return nil, err
@@ -329,7 +346,7 @@ func serializeValue(value int64) ([]byte, error) {
 	return revValueBytes[:len(revValueBytes)-1], nil
 }
 
-func stripWitnessFromBtcTx(btcTx []byte) ([]byte, error) {
+func StripWitnessFromBtcTx(btcTx []byte) ([]byte, error) {
 	var tx wire.MsgTx
 	buff := bytes.NewReader(btcTx)
 	err := tx.BtcDecode(buff, wire.ProtocolVersion, wire.LatestEncoding)

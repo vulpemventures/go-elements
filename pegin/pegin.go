@@ -3,9 +3,7 @@ package pegin
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"fmt"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/vulpemventures/go-elements/block"
@@ -101,7 +99,6 @@ func Claim(
 	btcTx []byte,
 	btcTxOutProof []byte,
 	claimScript []byte,
-	receiverScript []byte,
 	milisatsPerByte float64,
 ) (*transaction.Transaction, error) {
 	claimTx := transaction.NewTx(2)
@@ -125,7 +122,7 @@ func Claim(
 	if err != nil {
 		return nil, err
 	}
-	receiverOutput := transaction.NewTxOutput(peggedAsset, startValue, receiverScript)
+	receiverOutput := transaction.NewTxOutput(peggedAsset, startValue, claimScript)
 
 	dummyFeeValue, _ := elementsutil.SatoshiToElementsValue(uint64(0))
 	feeOutput := transaction.NewTxOutput(peggedAsset, dummyFeeValue, []byte{})
@@ -228,9 +225,6 @@ func createPeginInput(
 	input.IsPegin = true
 	input.PeginWitness = peginWitness
 
-	fmt.Println(fmt.Sprintf("prevoutHash: %v", hex.EncodeToString(matchedHashes[0].CloneBytes())))
-	fmt.Println(fmt.Sprintf("prevoutHash current: %v", matchedHashes[0].String()))
-
 	return input, amount, nil
 }
 
@@ -329,15 +323,6 @@ func createPeginWitness(
 	peginWitness = append(peginWitness, claimScript)
 	peginWitness = append(peginWitness, stripedTx)
 	peginWitness = append(peginWitness, btcTxOutProof)
-
-	fmt.Println("start")
-	fmt.Println(fmt.Sprintf("amount %v", hex.EncodeToString(serialisedAmount)))
-	fmt.Println(fmt.Sprintf("peggedAsset %v", hex.EncodeToString(peggedAsset[1:])))
-	fmt.Println(fmt.Sprintf("parentGenesisBlockHash %v", hex.EncodeToString(elementsutil.ReverseBytes(parentGenesisBlockHash[1:]))))
-	fmt.Println(fmt.Sprintf("claimScript %v", hex.EncodeToString(claimScript)))
-	fmt.Println(fmt.Sprintf("stripedTx %v", hex.EncodeToString(stripedTx)))
-	fmt.Println(fmt.Sprintf("btcTxOutProof %v", hex.EncodeToString(btcTxOutProof)))
-	fmt.Println("end")
 
 	return peginWitness, nil
 }

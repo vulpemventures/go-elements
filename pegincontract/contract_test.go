@@ -1,26 +1,22 @@
 package pegincontract
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/vulpemventures/go-elements/elementsutil"
-
-	"github.com/btcsuite/btcd/txscript"
-
-	"github.com/vulpemventures/go-elements/payment"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/network"
+	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/pegin"
 )
 
@@ -143,8 +139,7 @@ func TestCalculateContract(t *testing.T) {
 
 func TestClaimPegin(t *testing.T) {
 	isDynaFedEnabled := false
-
-	federationScript := "512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
+	federationScript := "51"
 	fedpegScriptBytes, err := hex.DecodeString(federationScript)
 	if err != nil {
 		t.Fatal(err)
@@ -206,6 +201,7 @@ func TestClaimPegin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var lbtc = append(
 		[]byte{0x01},
 		elementsutil.ReverseBytes(peggedAssetBytes)...,
@@ -217,17 +213,6 @@ func TestClaimPegin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	privateKey, err = btcec.NewPrivateKey(btcec.S256())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	p2wpkh := payment.FromPublicKey(
-		privateKey.PubKey(),
-		liquidNetwork,
-		nil,
-	)
-
 	claimTx, err := pegin.Claim(
 		btcNetwork,
 		isDynaFedEnabled,
@@ -238,7 +223,6 @@ func TestClaimPegin(t *testing.T) {
 		btcTxBytes,
 		btcTxOutProofBytes,
 		claimScript,
-		p2wpkh.WitnessScript,
 		1,
 	)
 	if err != nil {
@@ -246,7 +230,6 @@ func TestClaimPegin(t *testing.T) {
 	}
 
 	//SIGN
-	redeemScript := contract
 	_, amount, err := pegin.GetPeginTxOutIndexAndAmount(
 		btcTxBytes,
 		fedpegScriptBytes,
@@ -262,10 +245,10 @@ func TestClaimPegin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	p := payment.FromPublicKey(privateKey.PubKey(), liquidNetwork, nil)
 	sigHash := claimTx.HashForWitnessV0(
 		0,
-		redeemScript,
+		p.Script,
 		finalValue,
 		txscript.SigHashAll,
 	)
@@ -273,56 +256,22 @@ func TestClaimPegin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
 
+	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
 	witness := make([][]byte, 0)
 	witness = append(witness, sigWithHashType[:])
-	witness = append(witness, redeemScript)
+	witness = append(witness, privateKey.PubKey().SerializeCompressed())
 	claimTx.Inputs[0].Witness = witness
-
-	witnessScriptHash := sha256.Sum256(contract)
-	builder := txscript.NewScriptBuilder()
-	builder.AddOp(txscript.OP_0).AddData(witnessScriptHash[:])
-	p2wshScript, err := builder.Script()
-	if err != nil {
-		t.Fatal(err)
-	}
-	claimTx.Inputs[0].Script = p2wshScript
-
 	claimHex, err := claimTx.ToHex()
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(fmt.Sprintf("claimHexFinal: %v", claimHex))
 
-	//output = outputCommand("nigiri", "rpc", "--liquid", "sendrawtransaction", claimHex)
-	//fmt.Println(output)
+	output = outputCommand("nigiri", "rpc", "--liquid", "sendrawtransaction", claimHex)
+	txID := strings.TrimSpace(string(output[:]))
+	t.Log(fmt.Sprintf("claimTxID: %v", txID))
 
-	tid, err := broadcast(claimHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(tid)
-}
-
-func broadcast(txHex string) (string, error) {
-	url := fmt.Sprintf("%s/tx", "http://localhost:3001")
-
-	resp, err := http.Post(url, "text/plain", strings.NewReader(txHex))
-	if err != nil {
-		return "", err
-	}
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	res := string(data)
-	if len(res) <= 0 || strings.Contains(res, "sendrawtransaction") {
-		return "", fmt.Errorf("failed to broadcast tx: %s", res)
-	}
-	return res, nil
+	assert.NotEmpty(t, txID)
 }
 
 func getNetworkParams(
@@ -338,7 +287,6 @@ func getNetworkParams(
 		liquidNetwork = &network.Regtest
 		btcNetwork = &chaincfg.RegressionNetParams
 	}
-
 	return liquidNetwork, btcNetwork
 }
 

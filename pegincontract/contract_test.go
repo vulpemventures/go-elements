@@ -138,6 +138,8 @@ func TestCalculateContract(t *testing.T) {
 }
 
 func TestClaimPegin(t *testing.T) {
+	t.Skip("skipping test since it requires nigiri")
+
 	isDynaFedEnabled := false
 	federationScript := "51"
 	fedpegScriptBytes, err := hex.DecodeString(federationScript)

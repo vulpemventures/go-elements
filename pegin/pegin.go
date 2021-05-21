@@ -104,7 +104,7 @@ func Claim(
 	receiverScript []byte,
 	milisatsPerByte float64,
 ) (*transaction.Transaction, error) {
-	claimTx := &transaction.Transaction{}
+	claimTx := transaction.NewTx(2)
 
 	input, amount, err := createPeginInput(
 		btcTx,
@@ -143,7 +143,7 @@ func Claim(
 		return nil, err
 	}
 
-	feeValueElements, err := elementsutil.SatoshiToElementsValue(finalValue)
+	feeValueElements, err := elementsutil.SatoshiToElementsValue(feeValue)
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +227,9 @@ func createPeginInput(
 	input := transaction.NewTxInput(matchedHashes[0].CloneBytes(), outIndex)
 	input.IsPegin = true
 	input.PeginWitness = peginWitness
+
+	fmt.Println(fmt.Sprintf("prevoutHash: %v", hex.EncodeToString(matchedHashes[0].CloneBytes())))
+	fmt.Println(fmt.Sprintf("prevoutHash current: %v", matchedHashes[0].String()))
 
 	return input, amount, nil
 }
@@ -322,15 +325,18 @@ func createPeginWitness(
 
 	peginWitness = append(peginWitness, serialisedAmount)
 	peginWitness = append(peginWitness, peggedAsset[1:])
-	peginWitness = append(peginWitness, parentGenesisBlockHash)
+	peginWitness = append(peginWitness, elementsutil.ReverseBytes(parentGenesisBlockHash[:]))
 	peginWitness = append(peginWitness, claimScript)
 	peginWitness = append(peginWitness, stripedTx)
 	peginWitness = append(peginWitness, btcTxOutProof)
 
 	fmt.Println("start")
-	for _, v := range peginWitness {
-		fmt.Println(hex.EncodeToString(v))
-	}
+	fmt.Println(fmt.Sprintf("amount %v", hex.EncodeToString(serialisedAmount)))
+	fmt.Println(fmt.Sprintf("peggedAsset %v", hex.EncodeToString(peggedAsset[1:])))
+	fmt.Println(fmt.Sprintf("parentGenesisBlockHash %v", hex.EncodeToString(elementsutil.ReverseBytes(parentGenesisBlockHash[1:]))))
+	fmt.Println(fmt.Sprintf("claimScript %v", hex.EncodeToString(claimScript)))
+	fmt.Println(fmt.Sprintf("stripedTx %v", hex.EncodeToString(stripedTx)))
+	fmt.Println(fmt.Sprintf("btcTxOutProof %v", hex.EncodeToString(btcTxOutProof)))
 	fmt.Println("end")
 
 	return peginWitness, nil

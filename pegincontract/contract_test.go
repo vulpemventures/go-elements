@@ -161,7 +161,7 @@ func TestClaimPegin(t *testing.T) {
 		privateKey.PubKey().SerializeCompressed(),
 		liquidNetwork,
 	)
-	t.Log(hex.EncodeToString(claimScript))
+	t.Log(fmt.Sprintf("claimScript: %v", hex.EncodeToString(claimScript)))
 
 	contract, err := Calculate(
 		fedpegScriptBytes,
@@ -170,6 +170,7 @@ func TestClaimPegin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Log(fmt.Sprintf("contract: %v", hex.EncodeToString(contract)))
 
 	mainChainAddress, err := pegin.MainChainAddress(
 		contract,
@@ -177,17 +178,17 @@ func TestClaimPegin(t *testing.T) {
 		isDynaFedEnabled,
 		fedpegScriptBytes,
 	)
-	t.Log(mainChainAddress)
+	t.Log(fmt.Sprintf("mainchainAddress: %v", mainChainAddress))
 
 	output := outputCommand("nigiri", "faucet", mainChainAddress)
 	btcTxID := strings.TrimPrefix(strings.TrimSpace(string(output[:])), "txId: ")
-	t.Log(btcTxID)
+	t.Log(fmt.Sprintf("btcTxID: %v", btcTxID))
 
 	time.Sleep(3 * time.Second)
 
 	jsonOut := outputCommand("nigiri", "rpc", "gettransaction", btcTxID)
 	btcTxHex := getValueByKey(jsonOut, "hex")
-	t.Log(btcTxHex)
+	t.Log(fmt.Sprintf("btcTxHex: %v", btcTxHex))
 	btcTxBytes, err := hex.DecodeString(btcTxHex)
 	if err != nil {
 		t.Fatal(err)
@@ -195,7 +196,7 @@ func TestClaimPegin(t *testing.T) {
 
 	arg := fmt.Sprintf("[\"%v\"]", btcTxID)
 	btcTxOutProof := outputCommand("nigiri", "rpc", "gettxoutproof", arg)
-	t.Log(strings.TrimSpace(string(btcTxOutProof[:])))
+	t.Log(fmt.Sprintf("btcTxOutProof: %v", strings.TrimSpace(string(btcTxOutProof[:]))))
 	btcTxOutProofBytes, err := hex.DecodeString(strings.TrimSpace(string(btcTxOutProof[:])))
 	if err != nil {
 		t.Fatal(err)
@@ -238,7 +239,7 @@ func TestClaimPegin(t *testing.T) {
 		btcTxOutProofBytes,
 		claimScript,
 		p2wpkh.WitnessScript,
-		0.1,
+		1,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -268,9 +269,14 @@ func TestClaimPegin(t *testing.T) {
 		finalValue,
 		txscript.SigHashAll,
 	)
+	sig, err := privateKey.Sign(sigHash[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
 
 	witness := make([][]byte, 0)
-	witness = append(witness, sigHash[:])
+	witness = append(witness, sigWithHashType[:])
 	witness = append(witness, redeemScript)
 	claimTx.Inputs[0].Witness = witness
 
@@ -287,7 +293,7 @@ func TestClaimPegin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(claimHex)
+	fmt.Println(fmt.Sprintf("claimHexFinal: %v", claimHex))
 
 	//output = outputCommand("nigiri", "rpc", "--liquid", "sendrawtransaction", claimHex)
 	//fmt.Println(output)

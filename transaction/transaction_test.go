@@ -8,6 +8,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/vulpemventures/go-elements/network"
+
+	"github.com/stretchr/testify/assert"
+
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/elementsutil"
 )
@@ -217,4 +221,102 @@ func TestT(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println(tx)
+}
+
+//TODO remove
+func TestValue(t *testing.T) {
+	valStr := "00e1f50500000000"
+
+	val, err := hex.DecodeString(valStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	valRev := elementsutil.ReverseBytes(val[:])
+	finalVal := append([]byte{0x01}, valRev...)
+
+	satoshiValue, err := elementsutil.ElementsToSatoshiValue(finalVal)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	fmt.Println(satoshiValue)
+
+	valueBytes, err := elementsutil.SatoshiToElementsValue(satoshiValue)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	revValueBytes := elementsutil.ReverseBytes(valueBytes[:])
+
+	finStr := hex.EncodeToString(revValueBytes[:len(revValueBytes)-1])
+	assert.Equal(t, valStr, finStr)
+}
+
+func TestValueReverse(t *testing.T) {
+	valueBytes, err := elementsutil.SatoshiToElementsValue(uint64(100000000))
+	if err != nil {
+		t.FailNow()
+	}
+
+	revValueBytes := elementsutil.ReverseBytes(valueBytes[:])
+
+	valToStore := revValueBytes[:len(revValueBytes)-1]
+
+	finStr := hex.EncodeToString(valToStore)
+	assert.Equal(t, "00e1f50500000000", finStr)
+}
+
+func TestAssetReverse(t *testing.T) {
+	asset := network.Regtest.AssetID
+	assetBytes, err := hex.DecodeString(asset)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	revValueBytes := elementsutil.ReverseBytes(assetBytes[:])
+
+	valToStore := revValueBytes[:len(revValueBytes)-1]
+
+	finStr := hex.EncodeToString(valToStore)
+	fmt.Println(finStr)
+}
+
+func TestAsset(t *testing.T) {
+	valStr := "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"
+
+	val, err := hex.DecodeString(valStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	valRev := elementsutil.ReverseBytes(val[:])
+
+	fmt.Println(hex.EncodeToString(valRev))
+
+	//revValueBytes := elementsutil.ReverseBytes(valRev[:])
+	//
+	//finStr := hex.EncodeToString(revValueBytes[:len(revValueBytes)-1])
+	//fmt.Println(finStr)
+	//assert.Equal(t, valStr, finStr)
+}
+
+func TestTT(t *testing.T) {
+	peggedAssetBytes, err := hex.DecodeString(network.Regtest.AssetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lbtc = append(
+		[]byte{0x01},
+		elementsutil.ReverseBytes(peggedAssetBytes)...,
+	)
+	fmt.Println(fmt.Sprintf("peggedAsset: %v", hex.EncodeToString(lbtc)))
+	fmt.Println(hex.EncodeToString(lbtc[1:]))
+
+	//parentBlockHash := "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"
+	//parentBlockHashBytes, err := hex.DecodeString(parentBlockHash)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//fmt.Println(fmt.Sprintf("parentBlockHash: %v", hex.EncodeToString(parentBlockHashBytes)))
 }

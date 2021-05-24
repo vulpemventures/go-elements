@@ -29,6 +29,8 @@ type AddressInfo struct {
 	MainChainAddress string
 }
 
+// MainChainAddress creates btc address to which BTC amount is to be sent that is
+// to be pegged in Liquid network
 func MainChainAddress(
 	contract []byte,
 	btcNetwork *chaincfg.Params,
@@ -71,6 +73,8 @@ func MainChainAddress(
 	return mainChainAddress, nil
 }
 
+// ClaimWitnessScript returns claim script that is to be used to calculate contract
+// (pegincontract.Calculate) and craft raw pegin transaction (pegin.Claim)
 func ClaimWitnessScript(
 	publicKeyBytes []byte,
 	net *network.Network,
@@ -89,6 +93,8 @@ func ClaimWitnessScript(
 	return p2wpkh.WitnessScript, nil
 }
 
+// Claim crafts raw claim pegin transaction which is to be signed and broadcated
+// to network
 func Claim(
 	btcNetwork *chaincfg.Params,
 	isDynaFedEnabled bool,

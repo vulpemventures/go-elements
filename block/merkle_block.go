@@ -182,40 +182,13 @@ func (m *MerkleBlock) calcTreeWidth(height uint32) uint32 {
 }
 
 func deserializePartialMerkleTree(
-	buf *bytes.Buffer,
 	mb wire.MsgMerkleBlock,
 ) (*PartialMerkleTree, error) {
-	//d := bufferutil.NewDeserializer(buf)
-	//
-	//txTotalCount, err := d.ReadUint32()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//numOfHashes, err := d.ReadVarInt()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
 	txHashes := make([][]byte, 0, len(mb.Hashes))
 	for _, v := range mb.Hashes {
 
 		txHashes = append(txHashes, v.CloneBytes())
 	}
-	//
-	//numOfBytesOfFlagBits, err := d.ReadVarInt()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//b := make([]byte, 0, numOfBytesOfFlagBits)
-	//for i := 0; i < int(numOfBytesOfFlagBits); i++ {
-	//	bit, err := d.ReadUint8()
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	b = append(b, bit)
-	//}
 
 	return &PartialMerkleTree{
 		TxTotalCount: mb.Transactions,
@@ -232,7 +205,7 @@ func deserializeMerkleBlock(buf *bytes.Buffer) (*MerkleBlock, error) {
 		return nil, err
 	}
 
-	partialMerkleTree, err := deserializePartialMerkleTree(buf, mb)
+	partialMerkleTree, err := deserializePartialMerkleTree(mb)
 	if err != nil {
 		return nil, err
 	}

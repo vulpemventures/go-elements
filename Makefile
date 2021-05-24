@@ -5,4 +5,5 @@ help:
 
 test: 
 	export API_URL=http://localhost:3001; \
+	export API_BTC_URL=http://localhost:3000; \
 	go test -count=1 -v ./... 

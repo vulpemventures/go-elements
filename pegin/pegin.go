@@ -43,7 +43,7 @@ func MainChainAddress(
 	}
 
 	var mainChainAddress string
-	if !isDynaFedEnabled || address.IsScriptHash(pops) { //TODO check IsScriptHash
+	if !isDynaFedEnabled || address.IsScriptHash(pops) {
 		//P2SH - P2WSH(P2CH)
 		witnessScriptHash := sha256.Sum256(contract)
 		builder := txscript.NewScriptBuilder()

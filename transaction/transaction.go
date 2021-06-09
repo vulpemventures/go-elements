@@ -650,7 +650,7 @@ func (tx *Transaction) ToHex() (string, error) {
 
 func (tx *Transaction) anyWitnessInput() bool {
 	for _, input := range tx.Inputs {
-		if input.Witness != nil && len(input.Witness) > 0 {
+		if (input.Witness != nil && len(input.Witness) > 0) || (input.PeginWitness != nil && len(input.PeginWitness) > 0) {
 			return true
 		}
 	}

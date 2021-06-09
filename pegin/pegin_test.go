@@ -7,7 +7,10 @@ import (
 
 	"github.com/vulpemventures/go-elements/block"
 	"github.com/vulpemventures/go-elements/elementsutil"
+	"github.com/vulpemventures/go-elements/network"
+	"github.com/vulpemventures/go-elements/transaction"
 
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/wire"
 
 	"github.com/stretchr/testify/assert"
@@ -76,4 +79,73 @@ func TestSerializeTxOutProof(t *testing.T) {
 	}
 
 	assert.Equal(t, true, exists)
+}
+
+func TestSerializePeginWitness(t *testing.T) {
+	claimScript := "0014f66ddc42aa6626cc7ff78ef28e333ef9c37a0da3"
+	btcTxHex := "020000000001017637eca164aaf48a5bf200b46457053ea41ed12efc58fb0039c674c6c3c526700000000017160014f410f2ef1b4a9437f690691898798823b466e3d1feffffff0200e1f5050000000017a91472c44f957fc011d97e3406667dca5b1c930c4026878053e90b0000000017a914d28abf72575acf237f29fa17f7ec2ac4eff56d77870247304402207715a047ae2fd9c8f9b1dd9efafc97dcaf7af5c2fec95b735dab4c73a1004934022037b5ba40c7c27497ad73e915f0f12c4bb2443d21839e1ce7879d15b85231ffd901210231881188f837f134f4afea25ce26c36b6bf01bcf1b76862751b95ea5d781278594000000"
+	btcTxOutProof := "00000030b60a7067a3b57066cb0b1a17b4f4e2883c3352b3ffb74ef92b833df29818d535c8c1d8494c95182deea29dd2d02738f043e5ae6178a3a3f4478d1c85302dd3e7cfa0c060ffff7f20000000000200000002e6e5209a17f2ad4482a618a58cc9d7d772a53de242867066c786868289d234663177663c3649d6a5dc057bbbb2f33c176d6b52223b180084a0d73618e44259cf0105"
+
+	peggedAssetBytes, err := hex.DecodeString(network.Regtest.AssetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	parentBlockHash := "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"
+	parentBlockHashBytes, err := hex.DecodeString(parentBlockHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fedpegScriptBytes, err := hex.DecodeString("51")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	btcTxBytes, err := hex.DecodeString(btcTxHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	btcTxOutProofBytes, err := hex.DecodeString(btcTxOutProof)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	claimScriptBytes, err := hex.DecodeString(claimScript)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tx, err := Claim(
+		&chaincfg.RegressionNetParams,
+		false,
+		append([]byte{0x01}, elementsutil.ReverseBytes(peggedAssetBytes)...),
+		parentBlockHashBytes,
+		fedpegScriptBytes,
+		fedpegScriptBytes, // contract = fedpegscript here
+		btcTxBytes,
+		btcTxOutProofBytes,
+		claimScriptBytes,
+		1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	peginWitness := tx.Inputs[0].PeginWitness
+	assert.NotNil(t, peginWitness)
+
+	txHex, err := tx.ToHex()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	transactionAfterToHex, err := transaction.NewTxFromHex(txHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	peginWitnessAfterToHex := transactionAfterToHex.Inputs[0].PeginWitness
+	assert.Equal(t, peginWitness, peginWitnessAfterToHex)
 }

@@ -3,6 +3,7 @@ package transaction
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
@@ -354,6 +355,23 @@ func (tx *Transaction) TxHash() chainhash.Hash {
 	// Encode the transaction and calculate double sha256 on the result.
 	buf, _ := tx.serialize(nil, false, true, false)
 	return chainhash.DoubleHashH(buf)
+}
+
+// IssuanceHash generates the Hash for the issuance transaction.
+func (tx *Transaction) IssuanceHash() (chainhash.Hash, error) {
+	hasIssuance := false
+	for _, v := range tx.Inputs {
+		if v.Issuance != nil {
+			hasIssuance = true
+		}
+	}
+	if !hasIssuance {
+		return [32]byte{}, errors.New("no input with issuance")
+	}
+
+	// Encode the transaction and calculate double sha256 on the result.
+	buf, _ := tx.serialize(nil, false, false, false)
+	return chainhash.DoubleHashH(buf), nil
 }
 
 // WitnessHash generates the hash of the transaction serialized according to

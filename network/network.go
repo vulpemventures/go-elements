@@ -22,6 +22,9 @@ type Network struct {
 	Confidential byte
 	// Bitcoin Asset Hash for the current network
 	AssetID string
+	// BIP44 coin type used in the hierarchical deterministic path for
+	// address generation.
+	HDCoinType uint32
 }
 
 // Liquid defines the network parameters for the main Liquid network.
@@ -36,6 +39,7 @@ var Liquid = Network{
 	Wif:          0x80,
 	Confidential: 12,
 	AssetID:      "6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d",
+	HDCoinType:   1776,
 }
 
 // Regtest defines the network parameters for the regression test network.
@@ -50,4 +54,5 @@ var Regtest = Network{
 	Wif:          0xef,
 	Confidential: 4,
 	AssetID:      "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	HDCoinType:   1,
 }

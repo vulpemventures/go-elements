@@ -708,13 +708,11 @@ func (tx *Transaction) serialize(buf *bytes.Buffer, allowWitness, zeroFlag, forS
 		s.WriteSlice(txIn.Hash)
 		index := txIn.Index
 		issuance := txIn.Issuance
-		if !zeroFlag {
-			if issuance != nil {
-				index = (index | OutpointIssuanceFlag) >> 0
-			}
-			if txIn.IsPegin {
-				index = (index | OutpointPeginFlag) >> 0
-			}
+		if issuance != nil {
+			index = (index | OutpointIssuanceFlag) >> 0
+		}
+		if txIn.IsPegin {
+			index = (index | OutpointPeginFlag) >> 0
 		}
 		s.WriteUint32(index)
 		s.WriteVarSlice(txIn.Script)

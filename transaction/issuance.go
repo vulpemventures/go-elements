@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"math"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/vulpemventures/fastsha256"
@@ -117,14 +116,12 @@ func NewTxIssuance(
 
 	confAssetAmount, err := toConfidentialAssetAmount(
 		assetAmount,
-		precision,
 	)
 	if err != nil {
 		return nil, err
 	}
 	confTokenAmount, err := toConfidentialTokenAmount(
 		tokenAmount,
-		precision,
 	)
 	if err != nil {
 		return nil, err
@@ -202,22 +199,20 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 	return token[:], nil
 }
 
-func toConfidentialAssetAmount(assetAmount uint64, precision uint) ([]byte, error) {
-	amount := assetAmount * uint64(math.Pow10(int(precision)))
-	confAmount, err := elementsutil.SatoshiToElementsValue(amount)
+func toConfidentialAssetAmount(assetAmount uint64) ([]byte, error) {
+	confAmount, err := elementsutil.SatoshiToElementsValue(assetAmount)
 	if err != nil {
 		return nil, err
 	}
 	return confAmount[:], nil
 }
 
-func toConfidentialTokenAmount(tokenAmount uint64, precision uint) ([]byte, error) {
+func toConfidentialTokenAmount(tokenAmount uint64) ([]byte, error) {
 	if tokenAmount == 0 {
 		return []byte{0x00}, nil
 	}
 
-	amount := tokenAmount * uint64(math.Pow10(int(precision)))
-	confAmount, err := elementsutil.SatoshiToElementsValue(amount)
+	confAmount, err := elementsutil.SatoshiToElementsValue(tokenAmount)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package psetv2
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 )
 
 const (
@@ -29,6 +30,12 @@ const (
 	PsbtElementsOutBlinderIndex         = 0x08
 	PsbtElementsOutBlindValueProof      = 0x09
 	PsbtElementsOutBlindAssetProof      = 0x0a
+)
+
+var (
+	ErrMissingOutAsset  = errors.New("missing output asset")
+	ErrMissingOutAmount = errors.New("missing output amount")
+	ErrMissingScript    = errors.New("missing output script")
 )
 
 type Output struct {
@@ -76,6 +83,10 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 
 	kp := &keyPair{}
 
+	outputAssetFound := false
+	outputAmountFound := false
+	outputScriptFound := false
+
 	//read bytes and do the deserialization until separator is found at the
 	//end of global map
 	for {
@@ -117,15 +128,17 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 			)
 		case PsbtOutAmount:
 			output.outputAmount = int64(binary.LittleEndian.Uint64(kp.value))
+			outputAmountFound = true
 		case PsbtOutScript:
 			output.outputScript = kp.value
+			outputScriptFound = true
 		case PsbtGlobalProprietary:
 			pd := &proprietaryData{}
 			if err := pd.proprietaryDataFromKeyPair(*kp); err != nil {
 				return nil, err
 			}
 
-			if bytes.Equal(pd.identifier, psetMagic) {
+			if bytes.Equal(pd.identifier, psetMagic[:len(psetMagic)-1]) {
 				switch pd.subtype {
 				case PsbtElementsOutValueCommitment:
 					var outValueCommitment [33]byte
@@ -135,6 +148,7 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 					var outputAsset [32]byte
 					copy(outputAsset[:], kp.value[:])
 					output.outputAsset = outputAsset
+					outputAssetFound = true
 				case PsbtElementsOutAssetCommitment:
 					var outputAssetCommitment [33]byte
 					copy(outputAssetCommitment[:], kp.value[:])
@@ -172,6 +186,19 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 			}
 			output.unknowns = unknowns
 		}
+	}
+
+	//validate mandatory fields
+	if !outputAssetFound {
+		return nil, ErrMissingOutAsset
+	}
+
+	if !outputAmountFound {
+		return nil, ErrMissingOutAmount
+	}
+
+	if !outputScriptFound {
+		return nil, ErrMissingScript
 	}
 
 	return output, nil

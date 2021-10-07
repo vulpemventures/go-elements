@@ -34,6 +34,8 @@ var (
 	ErrInvalidElementsTxModifiableValue = errors.New("invalid elements tx modifiable value")
 	ErrInvalidXPub                      = errors.New("invalid xpub")
 	ErrInvalidXPubDerivationPathLength  = errors.New("incorrect length of global xpub derivation data")
+	ErrInvalidPsetVersion               = errors.New("incorrect pset version")
+	ErrInvalidTxVersion                 = errors.New("incorrect tx version")
 )
 
 type Global struct {
@@ -210,6 +212,23 @@ func deserializeGlobal(buf *bytes.Buffer) (*Global, error) {
 			global.unknowns = unknowns
 		}
 
+	}
+
+	//check mandatory fields
+	if global.version != 2 {
+		return nil, ErrInvalidPsetVersion
+	}
+
+	if global.txInfo.version == 0 {
+		return nil, ErrInvalidTxVersion
+	}
+
+	if global.txInfo.inputCount == 0 {
+		return nil, ErrInvalidTxVersion
+	}
+
+	if global.txInfo.outputCount == 0 {
+		return nil, ErrInvalidTxVersion
 	}
 
 	return global, nil

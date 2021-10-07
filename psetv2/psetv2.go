@@ -16,6 +16,7 @@ const (
 var (
 	psetMagic = []byte{0x70, 0x73, 0x65, 0x74, 0xFF} //'pset' string with magic separator 0xFF
 
+	ErrInvalidPsbtFormat            = errors.New("invalid PSBT serialization format")
 	ErrNoMoreKeyPairs               = errors.New("no more key-pairs")
 	ErrInvalidKeySize               = errors.New("invalid key size")
 	ErrInvalidProprietaryKey        = errors.New("invalid proprietaryData key")
@@ -78,15 +79,17 @@ func deserialize(buf *bytes.Buffer) (*Pset, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		inputs = append(inputs, *input)
 	}
 
 	outputs := make([]Output, 0)
-	for i := 0; i < int(global.txInfo.inputCount); i++ {
+	for i := 0; i < int(global.txInfo.outputCount); i++ {
 		output, err := deserializeOutput(buf)
 		if err != nil {
 			return nil, err
 		}
+
 		outputs = append(outputs, *output)
 	}
 

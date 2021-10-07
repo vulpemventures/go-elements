@@ -14,12 +14,13 @@ import (
 var (
 	// ErrInvalidPsbtFormat is a generic error for any situation in which a
 	// provided Psbt serialization does not conform to the rules of BIP174.
-	ErrInvalidPsbtFormat             = errors.New("invalid PSBT serialization format")
 	ErrDuplicatePubKeyInPartSig      = errors.New("duplicate pubkey in partial signature")
 	ErrDuplicatePubKeyInBip32DerPath = errors.New("duplicate pubkey in bip32 der path")
 	// ErrInvalidKeydata indicates that a key-value pair in the PSBT
 	// serialization contains data in the key which is not valid.
-	ErrInvalidKeydata = errors.New("invalid key data")
+	ErrInvalidKeydata     = errors.New("invalid key data")
+	ErrMissingPrevTxID    = errors.New("missing previous tx id")
+	ErrMissingOutputIndex = errors.New("missing output index")
 )
 
 const (
@@ -167,6 +168,9 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 
 	kp := &keyPair{}
 
+	outputIndexFound := false
+	prevTxIDFound := false
+
 	//read bytes and do the deserialization until separator is found at the
 	//end of global map
 	for {
@@ -279,8 +283,10 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 			var prevTxId [32]byte
 			copy(prevTxId[:], kp.value[:])
 			input.previousTxid = prevTxId
+			prevTxIDFound = true
 		case PsetInOutputIndex:
 			input.previousOutputIndex = binary.LittleEndian.Uint32(kp.value)
+			outputIndexFound = true
 		case PsetInSequence:
 			input.sequence = binary.LittleEndian.Uint32(kp.value)
 		case PsetInRequiredTimeLocktime:
@@ -301,7 +307,6 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 					var issuanceValueCommitment [33]byte
 					copy(issuanceValueCommitment[:], kp.value[:])
 					input.issuanceValueCommitment = issuanceValueCommitment
-				//TODO validation as per doc
 				case PsbtElementsInIssuanceValueRangeproof:
 					input.issuanceValueRangeproof = kp.value
 				case PsbtElementsInIssuanceKeysRangeproof:
@@ -331,7 +336,6 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 					var issuanceInflationKeysCommitment [33]byte
 					copy(issuanceInflationKeysCommitment[:], kp.value[:])
 					input.issuanceInflationKeysCommitment = issuanceInflationKeysCommitment
-					//TODO validation as per doc
 				case PsbtElementsInIssuanceBlindingNonce:
 					var issuanceBlindingNonce [32]byte
 					copy(issuanceBlindingNonce[:], kp.value[:])
@@ -358,7 +362,17 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 			input.unknowns = unknowns
 		}
 	}
-	return nil, nil
+
+	//validate mandatory fields
+	if !prevTxIDFound {
+		return nil, ErrMissingPrevTxID
+	}
+
+	if !outputIndexFound {
+		return nil, ErrMissingOutputIndex
+	}
+
+	return &input, nil
 }
 
 func readTxOut(txout []byte) (*transaction.TxOutput, error) {

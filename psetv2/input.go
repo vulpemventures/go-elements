@@ -2,10 +2,24 @@ package psetv2
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
+
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/transaction"
+)
+
+var (
+	// ErrInvalidPsbtFormat is a generic error for any situation in which a
+	// provided Psbt serialization does not conform to the rules of BIP174.
+	ErrInvalidPsbtFormat             = errors.New("invalid PSBT serialization format")
+	ErrDuplicatePubKeyInPartSig      = errors.New("duplicate pubkey in partial signature")
+	ErrDuplicatePubKeyInBip32DerPath = errors.New("duplicate pubkey in bip32 der path")
+	// ErrInvalidKeydata indicates that a key-value pair in the PSBT
+	// serialization contains data in the key which is not valid.
+	ErrInvalidKeydata = errors.New("invalid key data")
 )
 
 const (
@@ -52,7 +66,7 @@ const (
 	PsbtElementsInIssuanceInflationKeysCommitment = 0x0b
 	PsbtElementsInIssuanceBlindingNonce           = 0x0c
 	PsbtElementsInIssuanceAssetEntropy            = 0x0d
-	PsbtElementsInUtxoRangeproof                  = 0x0e
+	PsbtElementsInUtxoRangeProof                  = 0x0e
 	PsbtElementsInIssuanceBlindValueProof         = 0x0f
 	PsbtElementsInIssuanceBlindInflationKeysProof = 0x10
 )
@@ -60,25 +74,25 @@ const (
 type Input struct {
 	// The non-witness transaction this input spends from. Should only be
 	// [std::option::Option::Some] for inputs which spend non-segwit outputs or
-	// if it is unknown whether an input spends a segwit output.
-	nonWitnessUtxo transaction.Transaction
+	// if it is unknowns whether an input spends a segwit output.
+	nonWitnessUtxo *transaction.Transaction
 	// The transaction output this input spends from. Should only be
 	// [std::option::Option::Some] for inputs which spend segwit outputs,
 	// including P2SH embedded ones.
-	witnessUtxo transaction.TxOutput
+	witnessUtxo *transaction.TxOutput
 	// A map from public keys to their corresponding signature as would be
 	// pushed to the stack from a scriptSig or witness.
-	partialSigs []*psbt.PartialSig
+	partialSigs []*PartialSig
 	// The sighash type to be used for this input. Signatures for this input
 	// must use the sighash type.
-	sighashType txscript.SigHashType
+	sigHashType txscript.SigHashType
 	// The redeem script for this input.
 	redeemScript []byte
 	/// The witness script for this input.
 	witnessScript []byte
 	// A map from public keys needed to sign this input to their corresponding
 	// master key fingerprints and derivation paths.
-	bip32Derivation []*psbt.Bip32Derivation
+	bip32Derivation []*Bip32Derivation
 	// The finalized, fully-constructed scriptSig with signatures and any other
 	// scripts necessary for this input to pass validation.
 	finalScriptSig []byte
@@ -88,11 +102,11 @@ type Input struct {
 	// RIPEMD160 hash to preimage map
 	ripemd160Preimages map[[20]byte][]byte
 	// SHA256 hash to preimage map
-	sha256Preimages map[[20]byte][]byte
+	sha256Preimages map[[32]byte][]byte
 	// HSAH160 hash to preimage map
 	hash160Preimages map[[20]byte][]byte
 	// HAS256 hash to preimage map
-	hash256Preimages map[[20]byte][]byte
+	hash256Preimages map[[32]byte][]byte
 	// (PSET2) Prevout TXID of the input
 	previousTxid [32]byte
 	// (PSET2) Prevout vout of the input
@@ -105,13 +119,15 @@ type Input struct {
 	requiredHeightLocktime uint32
 	// Proprietary key-value pairs for this input.
 	// The issuance value
-	issuanceValue []byte
+	issuanceValue int64
+	// Issuance value commitment
+	issuanceValueCommitment [33]byte
 	// Issuance value rangeproof
 	issuanceValueRangeproof []byte
 	// Issuance keys rangeproof
 	issuanceKeysRangeproof []byte
 	// Pegin Transaction. Should be a bitcoin::Transaction
-	peginTx transaction.Transaction
+	peginTx *transaction.Transaction
 	// Pegin Transaction proof
 	// TODO: Look for Merkle proof structs
 	peginTxoutProof []byte
@@ -120,23 +136,271 @@ type Input struct {
 	// Claim script
 	peginClaimScript []byte
 	// Pegin Value
-	peginValue uint64
+	peginValue int64
 	// Pegin Witness
 	peginWitness []byte
-	/// Issuance inflation keys
-	issuanceInflationKeys []byte
+	// Issuance inflation keys
+	issuanceInflationKeys int64
+	// Issuance inflation keys commitment
+	issuanceInflationKeysCommitment [33]byte
 	// Issuance blinding nonce
 	issuanceBlindingNonce [32]byte
 	// Issuance asset entropy
 	issuanceAssetEntropy [32]byte
-	// input utxo rangeproof
-	inUtxoRangeproof []byte
+	// Input utxo rangeproof
+	inUtxoRangeProof []byte
+	// IssuanceBlindValueProof
+	issuanceBlindValueProof []byte
+	// Issuance blind inflation keys proof
+	issuanceBlindInflationKeysProof []byte
 	// Other fields
 	proprietaryData []proprietaryData
 	// Unknown key-value pairs for this input.
-	unknown []keyPair
+	unknowns []keyPair
 }
 
-func deserializeInputs(buf *bytes.Buffer) ([]Input, error) {
+func deserializeInput(buf *bytes.Buffer) (*Input, error) {
+	input := Input{
+		partialSigs:     make([]*PartialSig, 0),
+		bip32Derivation: make([]*Bip32Derivation, 0),
+	}
+
+	kp := &keyPair{}
+
+	//read bytes and do the deserialization until separator is found at the
+	//end of global map
+	for {
+		if err := kp.deserialize(buf); err != nil {
+			if err == ErrNoMoreKeyPairs {
+				break
+			}
+			return nil, err
+		}
+
+		switch kp.key.keyType {
+		case PsetInNonWitnessUtxo:
+			tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.value))
+			if err != nil {
+				return nil, err
+			}
+
+			input.nonWitnessUtxo = tx
+		case PsetInWitnessUtxo:
+			txOut, err := readTxOut(kp.value)
+			if err != nil {
+				return nil, err
+			}
+
+			input.witnessUtxo = txOut
+		case PsetInPartialSig:
+			partialSignature := &PartialSig{
+				PubKey:    kp.key.keyData,
+				Signature: kp.value,
+			}
+
+			if !partialSignature.checkValid() {
+				return nil, ErrInvalidPsbtFormat
+			}
+
+			// Duplicate keys are not allowed
+			for _, v := range input.partialSigs {
+				if bytes.Equal(v.PubKey, partialSignature.PubKey) {
+					return nil, ErrDuplicatePubKeyInPartSig
+				}
+			}
+
+			input.partialSigs = append(input.partialSigs, partialSignature)
+		case PsetInSighashType:
+			if len(kp.value) != 4 {
+				return nil, ErrInvalidKeydata
+			}
+
+			sigHashType := txscript.SigHashType(
+				binary.LittleEndian.Uint32(kp.value),
+			)
+
+			input.sigHashType = sigHashType
+		case PsetInRedeemScript:
+			input.redeemScript = kp.value
+		case PsetInWitnessScript:
+			input.witnessScript = kp.value
+		case PsetInBip32Derivation:
+			if !validatePubkey(kp.key.keyData) {
+				return nil, ErrInvalidPsbtFormat
+			}
+			master, derivationPath, err := readBip32Derivation(kp.value)
+			if err != nil {
+				return nil, err
+			}
+
+			// Duplicate keys are not allowed
+			for _, x := range input.bip32Derivation {
+				if bytes.Equal(x.PubKey, kp.key.keyData) {
+					return nil, ErrDuplicatePubKeyInBip32DerPath
+				}
+			}
+
+			input.bip32Derivation = append(
+				input.bip32Derivation,
+				&Bip32Derivation{
+					PubKey:               kp.key.keyData,
+					MasterKeyFingerprint: master,
+					Bip32Path:            derivationPath,
+				},
+			)
+		case PsetInFinalScriptsig:
+			input.finalScriptSig = kp.value
+		case PsetInFinalScriptwitness:
+			input.finalScriptWitness = kp.value
+		case PsetInRipemd160:
+			ripemd160Preimages := make(map[[20]byte][]byte)
+			var hash [20]byte
+			copy(hash[:], kp.key.keyData[:])
+			ripemd160Preimages[hash] = kp.value
+			input.ripemd160Preimages = ripemd160Preimages
+		case PsetInSha256:
+			sha256Preimages := make(map[[32]byte][]byte)
+			var hash [32]byte
+			copy(hash[:], kp.key.keyData[:])
+			sha256Preimages[hash] = kp.value
+			input.sha256Preimages = sha256Preimages
+		case PsetInHash160:
+			hash160Preimages := make(map[[20]byte][]byte)
+			var hash [20]byte
+			copy(hash[:], kp.key.keyData[:])
+			hash160Preimages[hash] = kp.value
+			input.hash160Preimages = hash160Preimages
+		case PsetInHash256:
+			hash256Preimages := make(map[[32]byte][]byte)
+			var hash [32]byte
+			copy(hash[:], kp.key.keyData[:])
+			input.hash256Preimages = hash256Preimages
+		case PsetInPreviousTxid:
+			var prevTxId [32]byte
+			copy(prevTxId[:], kp.value[:])
+			input.previousTxid = prevTxId
+		case PsetInOutputIndex:
+			input.previousOutputIndex = binary.LittleEndian.Uint32(kp.value)
+		case PsetInSequence:
+			input.sequence = binary.LittleEndian.Uint32(kp.value)
+		case PsetInRequiredTimeLocktime:
+			input.requiredTimeLocktime = binary.LittleEndian.Uint32(kp.value)
+		case PsetInRequiredHeightLocktime:
+			input.requiredHeightLocktime = binary.LittleEndian.Uint32(kp.value)
+		case PsbtGlobalProprietary:
+			pd := &proprietaryData{}
+			if err := pd.proprietaryDataFromKeyPair(*kp); err != nil {
+				return nil, err
+			}
+
+			if bytes.Equal(pd.identifier, psetMagic) {
+				switch pd.subtype {
+				case PsbtElementsInIssuanceValue:
+					input.issuanceValue = int64(binary.LittleEndian.Uint64(kp.value))
+				case PsbtElementsInIssuanceValueCommitment:
+					var issuanceValueCommitment [33]byte
+					copy(issuanceValueCommitment[:], kp.value[:])
+					input.issuanceValueCommitment = issuanceValueCommitment
+				//TODO validation as per doc
+				case PsbtElementsInIssuanceValueRangeproof:
+					input.issuanceValueRangeproof = kp.value
+				case PsbtElementsInIssuanceKeysRangeproof:
+					input.issuanceKeysRangeproof = kp.value
+				case PsbtElementsInPegInTx:
+					tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.value))
+					if err != nil {
+						return nil, err
+					}
+
+					input.peginTx = tx
+				case PsbtElementsInPegInTxoutProof:
+					input.peginTxoutProof = kp.value
+				case PsbtElementsInPegInGenesis:
+					var peginGenesisHash [32]byte
+					copy(peginGenesisHash[:], kp.value[:])
+					input.peginGenesisHash = peginGenesisHash
+				case PsbtElementsInPegInClaimScript:
+					input.peginClaimScript = kp.value
+				case PsbtElementsInPegInValue:
+					input.peginValue = int64(binary.LittleEndian.Uint64(kp.value))
+				case PsbtElementsInPegInWitness:
+					input.peginWitness = kp.value
+				case PsbtElementsInIssuanceInflationKeys:
+					input.issuanceInflationKeys = int64(binary.LittleEndian.Uint64(kp.value))
+				case PsbtElementsInIssuanceInflationKeysCommitment:
+					var issuanceInflationKeysCommitment [33]byte
+					copy(issuanceInflationKeysCommitment[:], kp.value[:])
+					input.issuanceInflationKeysCommitment = issuanceInflationKeysCommitment
+					//TODO validation as per doc
+				case PsbtElementsInIssuanceBlindingNonce:
+					var issuanceBlindingNonce [32]byte
+					copy(issuanceBlindingNonce[:], kp.value[:])
+					input.issuanceBlindingNonce = issuanceBlindingNonce
+				case PsbtElementsInIssuanceAssetEntropy:
+					var issuanceAssetEntropy [32]byte
+					copy(issuanceAssetEntropy[:], kp.value[:])
+					input.issuanceAssetEntropy = issuanceAssetEntropy
+				case PsbtElementsInUtxoRangeProof:
+					input.inUtxoRangeProof = kp.value
+				case PsbtElementsInIssuanceBlindValueProof:
+					input.issuanceBlindValueProof = kp.value
+				case PsbtElementsInIssuanceBlindInflationKeysProof:
+					input.issuanceBlindInflationKeysProof = kp.value
+				default:
+					input.proprietaryData = append(input.proprietaryData, *pd)
+				}
+			}
+		default:
+			unknowns, err := deserializeUnknownKeyPairs(buf)
+			if err != nil {
+				return nil, err
+			}
+			input.unknowns = unknowns
+		}
+	}
 	return nil, nil
+}
+
+func readTxOut(txout []byte) (*transaction.TxOutput, error) {
+	if len(txout) < 45 {
+		return nil, ErrInvalidPsbtFormat
+	}
+	d := bufferutil.NewDeserializer(bytes.NewBuffer(txout))
+	asset, err := d.ReadElementsAsset()
+	if err != nil {
+		return nil, err
+	}
+	value, err := d.ReadElementsValue()
+	if err != nil {
+		return nil, err
+	}
+	nonce, err := d.ReadElementsNonce()
+	if err != nil {
+		return nil, err
+	}
+	script, err := d.ReadVarSlice()
+	if err != nil {
+		return nil, err
+	}
+	surjectionProof := make([]byte, 0)
+	rangeProof := make([]byte, 0)
+	// nonce for unconf outputs is 0x00!
+	if len(nonce) > 1 {
+		surjectionProof, err = d.ReadVarSlice()
+		if err != nil {
+			return nil, err
+		}
+		rangeProof, err = d.ReadVarSlice()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &transaction.TxOutput{
+		Asset:           asset,
+		Value:           value,
+		Script:          script,
+		Nonce:           nonce,
+		RangeProof:      rangeProof,
+		SurjectionProof: surjectionProof,
+	}, nil
 }

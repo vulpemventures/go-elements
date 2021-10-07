@@ -9,22 +9,24 @@ import (
 )
 
 const (
-	separator = 0x00
-
+	separator        = 0x00
 	maxPsbtKeyLength = 10000
 )
 
 var (
+	psetMagic = []byte{0x70, 0x73, 0x65, 0x74, 0xFF} //'pset' string with magic separator 0xFF
+
 	ErrNoMoreKeyPairs               = errors.New("no more key-pairs")
 	ErrInvalidKeySize               = errors.New("invalid key size")
 	ErrInvalidProprietaryKey        = errors.New("invalid proprietaryData key")
 	ErrInvalidProprietaryIdentifier = errors.New("invalid proprietaryData identifier")
+	ErrInvalidMagicBytes            = errors.New("invalid magic bytes")
 )
 
 // Pset - Partially signed Element's transaction
 //Format:
 //<pset> := <magic> <global-map> <input-map>* <output-map>*
-//<magic> := 0x70 0x73 0x62 0x74 0xFF -> pset starts with magic bytes, after which goes global map
+//<magic> := 0x70 0x73 0x65 0x74 0xFF -> pset starts with magic bytes, after which goes global map
 //followed by more input-map's and output-map's
 //<global-map> := <keypair>* 0x00 -> there is one global-map, there can be many keypair's, global map ends with separator
 //<input-map> := <keypair>* 0x00 -> there can be many input-map's, there can be many keypair's, input map ends with separator
@@ -32,7 +34,7 @@ var (
 //<keypair> := <key> <value>
 //<key> := <keylen> <keytype> <keydata>
 //<value> := <valuelen> <valuedata>
-// Each map can contain proprietary data and unknown keypair's
+// Each map can contain proprietaryData data and unknowns keypair's
 // Full spec: https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki
 type Pset struct {
 	Global  *Global
@@ -54,21 +56,38 @@ func NewFromHex(h string) (*Pset, error) {
 }
 
 func deserialize(buf *bytes.Buffer) (*Pset, error) {
-	//deser magic
+	d := bufferutil.NewDeserializer(buf)
+
+	magic, err := d.ReadSlice(uint(len(psetMagic)))
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(magic, psetMagic) {
+		return nil, ErrInvalidMagicBytes
+	}
 
 	global, err := deserializeGlobal(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	inputs, err := deserializeInputs(buf)
-	if err != nil {
-		return nil, err
+	inputs := make([]Input, 0)
+	for i := 0; i < int(global.txInfo.inputCount); i++ {
+		input, err := deserializeInput(buf)
+		if err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, *input)
 	}
 
-	outputs, err := deserializeOutputs(buf)
-	if err != nil {
-		return nil, err
+	outputs := make([]Output, 0)
+	for i := 0; i < int(global.txInfo.inputCount); i++ {
+		output, err := deserializeOutput(buf)
+		if err != nil {
+			return nil, err
+		}
+		outputs = append(outputs, *output)
 	}
 
 	return &Pset{

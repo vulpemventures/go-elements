@@ -134,9 +134,10 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 			output.outputAmount = int64(binary.LittleEndian.Uint64(kp.value))
 			outputAmountFound = true
 		case PsbtOutScript:
-			if len(kp.value) == 0 {
-				return nil, ErrInvalidOutputScriptLength
-			}
+			//TODO check if bellow validation is needed
+			//if len(kp.value) == 0 {
+			//	return nil, ErrInvalidOutputScriptLength
+			//}
 			output.outputScript = kp.value
 			outputScriptFound = true
 		case PsbtGlobalProprietary:
@@ -153,6 +154,7 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 						return nil, ErrInvalidValueCommitmentLength
 					}
 
+					outputAmountFound = true
 					output.outputValueCommitment = outValueCommitment
 				case PsbtElementsOutAsset:
 					outputAsset := kp.value
@@ -166,6 +168,7 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 					if len(outputAssetCommitment) != 33 {
 						return nil, ErrInvalidOutAssetCommitmentLength
 					}
+					outputAssetFound = true
 
 					output.outputAssetCommitment = outputAssetCommitment
 				case PsbtElementsOutValueRangeproof:

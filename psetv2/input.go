@@ -18,9 +18,15 @@ var (
 	ErrDuplicatePubKeyInBip32DerPath = errors.New("duplicate pubkey in bip32 der path")
 	// ErrInvalidKeydata indicates that a key-value pair in the PSBT
 	// serialization contains data in the key which is not valid.
-	ErrInvalidKeydata     = errors.New("invalid key data")
-	ErrMissingPrevTxID    = errors.New("missing previous tx id")
-	ErrMissingOutputIndex = errors.New("missing output index")
+	ErrInvalidKeydata                               = errors.New("invalid key data")
+	ErrMissingPrevTxID                              = errors.New("missing previous tx id")
+	ErrMissingOutputIndex                           = errors.New("missing output index")
+	ErrInvalidPrevTxIdLength                        = errors.New("invalid previous tx id length")
+	ErrInvalidIssuanceValueCommitmentLength         = errors.New("invalid issuance value commitment length")
+	ErrInvalidPeginGenesisHashLength                = errors.New("invalid pegin genesis hash length")
+	ErrInvalidIssuanceInflationKeysCommitmentLength = errors.New("invalid issuance inflation keys commitment")
+	ErrInvalidIssuanceBlindingNonceLength           = errors.New("invalid issuance blinding nonce length")
+	ErrInvalidIssuanceAssetEntropyLength            = errors.New("invalid issuance asset entropy length")
 )
 
 const (
@@ -83,7 +89,7 @@ type Input struct {
 	witnessUtxo *transaction.TxOutput
 	// A map from public keys to their corresponding signature as would be
 	// pushed to the stack from a scriptSig or witness.
-	partialSigs []*PartialSig
+	partialSigs []PartialSig
 	// The sighash type to be used for this input. Signatures for this input
 	// must use the sighash type.
 	sigHashType txscript.SigHashType
@@ -93,7 +99,7 @@ type Input struct {
 	witnessScript []byte
 	// A map from public keys needed to sign this input to their corresponding
 	// master key fingerprints and derivation paths.
-	bip32Derivation []*Bip32Derivation
+	bip32Derivation []Bip32Derivation
 	// The finalized, fully-constructed scriptSig with signatures and any other
 	// scripts necessary for this input to pass validation.
 	finalScriptSig []byte
@@ -109,7 +115,7 @@ type Input struct {
 	// HAS256 hash to preimage map
 	hash256Preimages map[[32]byte][]byte
 	// (PSET2) Prevout TXID of the input
-	previousTxid [32]byte
+	previousTxid []byte
 	// (PSET2) Prevout vout of the input
 	previousOutputIndex uint32
 	// (PSET2) Sequence number. If omitted, defaults to 0xffffffff
@@ -122,7 +128,7 @@ type Input struct {
 	// The issuance value
 	issuanceValue int64
 	// Issuance value commitment
-	issuanceValueCommitment [33]byte
+	issuanceValueCommitment []byte
 	// Issuance value rangeproof
 	issuanceValueRangeproof []byte
 	// Issuance keys rangeproof
@@ -133,7 +139,7 @@ type Input struct {
 	// TODO: Look for Merkle proof structs
 	peginTxoutProof []byte
 	// Pegin genesis hash
-	peginGenesisHash [32]byte
+	peginGenesisHash []byte
 	// Claim script
 	peginClaimScript []byte
 	// Pegin Value
@@ -143,11 +149,11 @@ type Input struct {
 	// Issuance inflation keys
 	issuanceInflationKeys int64
 	// Issuance inflation keys commitment
-	issuanceInflationKeysCommitment [33]byte
+	issuanceInflationKeysCommitment []byte
 	// Issuance blinding nonce
-	issuanceBlindingNonce [32]byte
+	issuanceBlindingNonce []byte
 	// Issuance asset entropy
-	issuanceAssetEntropy [32]byte
+	issuanceAssetEntropy []byte
 	// Input utxo rangeproof
 	inUtxoRangeProof []byte
 	// IssuanceBlindValueProof
@@ -162,8 +168,8 @@ type Input struct {
 
 func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 	input := Input{
-		partialSigs:     make([]*PartialSig, 0),
-		bip32Derivation: make([]*Bip32Derivation, 0),
+		partialSigs:     make([]PartialSig, 0),
+		bip32Derivation: make([]Bip32Derivation, 0),
 	}
 
 	kp := &keyPair{}
@@ -197,7 +203,7 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 
 			input.witnessUtxo = txOut
 		case PsetInPartialSig:
-			partialSignature := &PartialSig{
+			partialSignature := PartialSig{
 				PubKey:    kp.key.keyData,
 				Signature: kp.value,
 			}
@@ -246,7 +252,7 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 
 			input.bip32Derivation = append(
 				input.bip32Derivation,
-				&Bip32Derivation{
+				Bip32Derivation{
 					PubKey:               kp.key.keyData,
 					MasterKeyFingerprint: master,
 					Bip32Path:            derivationPath,
@@ -280,9 +286,12 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 			copy(hash[:], kp.key.keyData[:])
 			input.hash256Preimages = hash256Preimages
 		case PsetInPreviousTxid:
-			var prevTxId [32]byte
-			copy(prevTxId[:], kp.value[:])
-			input.previousTxid = prevTxId
+			previousTxid := kp.value
+			if len(previousTxid) != 32 {
+				return nil, ErrInvalidPrevTxIdLength
+			}
+
+			input.previousTxid = previousTxid
 			prevTxIDFound = true
 		case PsetInOutputIndex:
 			input.previousOutputIndex = binary.LittleEndian.Uint32(kp.value)
@@ -304,8 +313,11 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 				case PsbtElementsInIssuanceValue:
 					input.issuanceValue = int64(binary.LittleEndian.Uint64(kp.value))
 				case PsbtElementsInIssuanceValueCommitment:
-					var issuanceValueCommitment [33]byte
-					copy(issuanceValueCommitment[:], kp.value[:])
+					issuanceValueCommitment := kp.value
+					if len(issuanceValueCommitment) != 33 {
+						return nil, ErrInvalidIssuanceValueCommitmentLength
+					}
+
 					input.issuanceValueCommitment = issuanceValueCommitment
 				case PsbtElementsInIssuanceValueRangeproof:
 					input.issuanceValueRangeproof = kp.value
@@ -321,8 +333,11 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 				case PsbtElementsInPegInTxoutProof:
 					input.peginTxoutProof = kp.value
 				case PsbtElementsInPegInGenesis:
-					var peginGenesisHash [32]byte
-					copy(peginGenesisHash[:], kp.value[:])
+					peginGenesisHash := kp.value[:]
+					if len(peginGenesisHash) != 32 {
+						return nil, ErrInvalidPeginGenesisHashLength
+					}
+
 					input.peginGenesisHash = peginGenesisHash
 				case PsbtElementsInPegInClaimScript:
 					input.peginClaimScript = kp.value
@@ -333,16 +348,25 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 				case PsbtElementsInIssuanceInflationKeys:
 					input.issuanceInflationKeys = int64(binary.LittleEndian.Uint64(kp.value))
 				case PsbtElementsInIssuanceInflationKeysCommitment:
-					var issuanceInflationKeysCommitment [33]byte
-					copy(issuanceInflationKeysCommitment[:], kp.value[:])
+					issuanceInflationKeysCommitment := kp.value[:]
+					if len(issuanceInflationKeysCommitment) != 33 {
+						return nil, ErrInvalidIssuanceInflationKeysCommitmentLength
+					}
+
 					input.issuanceInflationKeysCommitment = issuanceInflationKeysCommitment
 				case PsbtElementsInIssuanceBlindingNonce:
-					var issuanceBlindingNonce [32]byte
-					copy(issuanceBlindingNonce[:], kp.value[:])
+					issuanceBlindingNonce := kp.value[:]
+					if len(issuanceBlindingNonce) != 32 {
+						return nil, ErrInvalidIssuanceBlindingNonceLength
+					}
+
 					input.issuanceBlindingNonce = issuanceBlindingNonce
 				case PsbtElementsInIssuanceAssetEntropy:
-					var issuanceAssetEntropy [32]byte
-					copy(issuanceAssetEntropy[:], kp.value[:])
+					issuanceAssetEntropy := kp.value[:]
+					if len(issuanceAssetEntropy) != 32 {
+						return nil, ErrInvalidIssuanceAssetEntropyLength
+					}
+
 					input.issuanceAssetEntropy = issuanceAssetEntropy
 				case PsbtElementsInUtxoRangeProof:
 					input.inUtxoRangeProof = kp.value

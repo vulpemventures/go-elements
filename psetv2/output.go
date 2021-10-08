@@ -33,9 +33,13 @@ const (
 )
 
 var (
-	ErrMissingOutAsset  = errors.New("missing output asset")
-	ErrMissingOutAmount = errors.New("missing output amount")
-	ErrMissingScript    = errors.New("missing output script")
+	ErrMissingOutAsset                 = errors.New("missing output asset")
+	ErrMissingOutAmount                = errors.New("missing output amount")
+	ErrMissingScript                   = errors.New("missing output script")
+	ErrInvalidValueCommitmentLength    = errors.New("invalid value commitment length")
+	ErrInvalidOutAssetLength           = errors.New("invalid output asset length")
+	ErrInvalidOutAssetCommitmentLength = errors.New("invalid output asset commitment length")
+	ErrInvalidOutputScriptLength       = errors.New("invalid output script length")
 )
 
 type Output struct {
@@ -45,17 +49,17 @@ type Output struct {
 	witnessScript []byte
 	// A map from public keys needed to spend this output to their
 	// corresponding master key fingerprints and derivation paths.
-	bip32Derivation []*Bip32Derivation
+	bip32Derivation []Bip32Derivation
 	// (PSET2) The amount of the output
 	outputAmount int64
 	// (PSET2) The output script
 	outputScript []byte
 	// The 33 byte Value Commitment for this output.
-	outputValueCommitment [33]byte
+	outputValueCommitment []byte
 	// The explicit 32 byte asset tag for this output.
-	outputAsset [32]byte
+	outputAsset []byte
 	// The 33 byte Asset Commitment
-	outputAssetCommitment [33]byte
+	outputAssetCommitment []byte
 	// The rangeproof for the value of this output.
 	outputValueRangeproof []byte
 	// The asset surjection proof for this output's asset.
@@ -120,7 +124,7 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 
 			output.bip32Derivation = append(
 				output.bip32Derivation,
-				&Bip32Derivation{
+				Bip32Derivation{
 					PubKey:               kp.key.keyData,
 					MasterKeyFingerprint: master,
 					Bip32Path:            derivationPath,
@@ -130,6 +134,9 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 			output.outputAmount = int64(binary.LittleEndian.Uint64(kp.value))
 			outputAmountFound = true
 		case PsbtOutScript:
+			if len(kp.value) == 0 {
+				return nil, ErrInvalidOutputScriptLength
+			}
 			output.outputScript = kp.value
 			outputScriptFound = true
 		case PsbtGlobalProprietary:
@@ -141,17 +148,25 @@ func deserializeOutput(buf *bytes.Buffer) (*Output, error) {
 			if bytes.Equal(pd.identifier, psetMagic[:len(psetMagic)-1]) {
 				switch pd.subtype {
 				case PsbtElementsOutValueCommitment:
-					var outValueCommitment [33]byte
-					copy(outValueCommitment[:], kp.value[:])
+					outValueCommitment := kp.value
+					if len(outValueCommitment) != 33 {
+						return nil, ErrInvalidValueCommitmentLength
+					}
+
 					output.outputValueCommitment = outValueCommitment
 				case PsbtElementsOutAsset:
-					var outputAsset [32]byte
-					copy(outputAsset[:], kp.value[:])
+					outputAsset := kp.value
+					if len(outputAsset) != 32 {
+						return nil, ErrInvalidOutAssetLength
+					}
 					output.outputAsset = outputAsset
 					outputAssetFound = true
 				case PsbtElementsOutAssetCommitment:
-					var outputAssetCommitment [33]byte
-					copy(outputAssetCommitment[:], kp.value[:])
+					outputAssetCommitment := kp.value
+					if len(outputAssetCommitment) != 33 {
+						return nil, ErrInvalidOutAssetCommitmentLength
+					}
+
 					output.outputAssetCommitment = outputAssetCommitment
 				case PsbtElementsOutValueRangeproof:
 					output.outputValueRangeproof = kp.value

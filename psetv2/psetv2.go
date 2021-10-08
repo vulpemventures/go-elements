@@ -2,6 +2,7 @@ package psetv2
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 
@@ -15,7 +16,7 @@ const (
 
 var (
 	psetMagic = []byte{0x70, 0x73, 0x65, 0x74, 0xFF} //'pset' string with magic separator 0xFF
-
+	//psetMagic                       = []byte{0x70, 0x73, 0x62, 0x74, 0xFF}
 	ErrInvalidPsbtFormat            = errors.New("invalid PSBT serialization format")
 	ErrNoMoreKeyPairs               = errors.New("no more key-pairs")
 	ErrInvalidKeySize               = errors.New("invalid key size")
@@ -53,6 +54,16 @@ func NewFromHex(h string) (*Pset, error) {
 		return nil, err
 	}
 	buf := bytes.NewBuffer(hexBytes)
+	return NewFromBuffer(buf)
+}
+
+func NewPsetFromBase64(psetBase64 string) (*Pset, error) {
+	psetBytes, err := base64.StdEncoding.DecodeString(psetBase64)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(psetBytes)
 	return NewFromBuffer(buf)
 }
 

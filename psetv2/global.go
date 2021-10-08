@@ -36,6 +36,7 @@ var (
 	ErrInvalidXPubDerivationPathLength  = errors.New("incorrect length of global xpub derivation data")
 	ErrInvalidPsetVersion               = errors.New("incorrect pset version")
 	ErrInvalidTxVersion                 = errors.New("incorrect tx version")
+	ErrInvalidScalarLength              = errors.New("invalid scalar length")
 )
 
 type Global struct {
@@ -47,7 +48,7 @@ type Global struct {
 	// derivation path as defined by BIP 32
 	xPub []DerivationPathInfo
 	// scalars used for blinding
-	scalars [][32]byte
+	scalars [][]byte
 	// elements tx modifiable flag
 	elementsTxModifiableFlag uint8
 	// other proprietaryData fields
@@ -90,7 +91,7 @@ func deserializeGlobal(buf *bytes.Buffer) (*Global, error) {
 	global := &Global{
 		txInfo:          TxInfo{},
 		xPub:            make([]DerivationPathInfo, 0),
-		scalars:         make([][32]byte, 0),
+		scalars:         make([][]byte, 0),
 		proprietaryData: make([]proprietaryData, 0),
 	}
 	kp := &keyPair{}
@@ -182,10 +183,11 @@ func deserializeGlobal(buf *bytes.Buffer) (*Global, error) {
 				switch pd.subtype {
 				case PsbtElementsGlobalScalar:
 					scalar := pd.keyData
+					if len(scalar) != 32 {
+						return nil, ErrInvalidScalarLength
+					}
 
-					var arr [32]byte
-					copy(arr[:], scalar[:])
-					global.scalars = append(global.scalars, arr)
+					global.scalars = append(global.scalars, scalar)
 				case PsbtElementsGlobalTxModifiable:
 					elementsTxModifiable := pd.value
 					if len(elementsTxModifiable) != 1 {

@@ -10,12 +10,12 @@ func (b *Block) SerializeBlock() ([]byte, error) {
 		return nil, err
 	}
 
-	err = b.Header.SerializeHeader(s)
+	err = b.Header.Serialize(s)
 	if err != nil {
 		return nil, err
 	}
 
-	err = b.TransactionsData.SerializeTransactions(s)
+	err = b.TransactionsData.Serialize(s)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func (b *Block) SerializeBlock() ([]byte, error) {
 	return s.Bytes(), nil
 }
 
-func (t *Transactions) SerializeTransactions(
+func (t *Transactions) Serialize(
 	s *bufferutil.Serializer,
 ) error {
 	err := s.WriteVarInt(uint64(len(t.Transactions)))
@@ -45,7 +45,7 @@ func (t *Transactions) SerializeTransactions(
 	return nil
 }
 
-func (h *Header) SerializeHeader(
+func (h *Header) Serialize(
 	s *bufferutil.Serializer,
 ) error {
 	if h.ExtData.IsDyna {

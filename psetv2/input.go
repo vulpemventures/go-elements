@@ -31,51 +31,51 @@ var (
 
 const (
 	//Per input types: BIP 127, 174, 370, 371
-	PsetInNonWitnessUtxo         = 0x00 //BIP 174
-	PsetInWitnessUtxo            = 0x01 //BIP 174
-	PsetInPartialSig             = 0x02 //BIP 174
-	PsetInSighashType            = 0x03 //BIP 174
-	PsetInRedeemScript           = 0x04 //BIP 174
-	PsetInWitnessScript          = 0x05 //BIP 174
-	PsetInBip32Derivation        = 0x06 //BIP 174
-	PsetInFinalScriptsig         = 0x07 //BIP 174
-	PsetInFinalScriptwitness     = 0x08 //BIP 174
+	PsbtInNonWitnessUtxo         = 0x00 //BIP 174
+	PsbtInWitnessUtxo            = 0x01 //BIP 174
+	PsbtInPartialSig             = 0x02 //BIP 174
+	PsbtInSighashType            = 0x03 //BIP 174
+	PsbtInRedeemScript           = 0x04 //BIP 174
+	PsbtInWitnessScript          = 0x05 //BIP 174
+	PsbtInBip32Derivation        = 0x06 //BIP 174
+	PsbtInFinalScriptsig         = 0x07 //BIP 174
+	PsbtInFinalScriptwitness     = 0x08 //BIP 174
 	PsbtInPorCommitment          = 0x09 //BIP 127
-	PsetInRipemd160              = 0x0a //BIP 174
-	PsetInSha256                 = 0x0b //BIP 174
-	PsetInHash160                = 0x0c //BIP 174
-	PsetInHash256                = 0x0d //BIP 174
-	PsetInPreviousTxid           = 0x0e //BIP 370
-	PsetInOutputIndex            = 0x0f //BIP 370
-	PsetInSequence               = 0x10 //BIP 370
-	PsetInRequiredTimeLocktime   = 0x11 //BIP 370
-	PsetInRequiredHeightLocktime = 0x12 //BIP 370
+	PsbtInRipemd160              = 0x0a //BIP 174
+	PsbtInSha256                 = 0x0b //BIP 174
+	PsbtInHash160                = 0x0c //BIP 174
+	PsbtInHash256                = 0x0d //BIP 174
+	PsbtInPreviousTxid           = 0x0e //BIP 370
+	PsbtInOutputIndex            = 0x0f //BIP 370
+	PsbtInSequence               = 0x10 //BIP 370
+	PsbtInRequiredTimeLocktime   = 0x11 //BIP 370
+	PsbtInRequiredHeightLocktime = 0x12 //BIP 370
 	PsbtInTapKeySig              = 0x13 //BIP 371
 	PsbtInTapScriptSig           = 0x14 //BIP 371
 	PsbtInTapLeafScript          = 0x15 //BIP 371
 	PsbtInTapBip32Derivation     = 0x16 //BIP 371
 	PsbtInTapInternalKey         = 0x17 //BIP 371
 	PsbtInTapMerkleRoot          = 0x18 //BIP 371
-	PsetInProprietary            = 0xFC //BIP 174
+	PsbtInProprietary            = 0xFC //BIP 174
 
 	//Elements Proprietary types
-	PsbtElementsInIssuanceValue                   = 0x00
-	PsbtElementsInIssuanceValueCommitment         = 0x01
-	PsbtElementsInIssuanceValueRangeproof         = 0x02
-	PsbtElementsInIssuanceKeysRangeproof          = 0x03
-	PsbtElementsInPegInTx                         = 0x04
-	PsbtElementsInPegInTxoutProof                 = 0x05
-	PsbtElementsInPegInGenesis                    = 0x06
-	PsbtElementsInPegInClaimScript                = 0x07
-	PsbtElementsInPegInValue                      = 0x08
-	PsbtElementsInPegInWitness                    = 0x09
-	PsbtElementsInIssuanceInflationKeys           = 0x0a
-	PsbtElementsInIssuanceInflationKeysCommitment = 0x0b
-	PsbtElementsInIssuanceBlindingNonce           = 0x0c
-	PsbtElementsInIssuanceAssetEntropy            = 0x0d
-	PsbtElementsInUtxoRangeProof                  = 0x0e
-	PsbtElementsInIssuanceBlindValueProof         = 0x0f
-	PsbtElementsInIssuanceBlindInflationKeysProof = 0x10
+	PsetElementsInIssuanceValue                   = 0x00
+	PsetElementsInIssuanceValueCommitment         = 0x01
+	PsetElementsInIssuanceValueRangeproof         = 0x02
+	PsetElementsInIssuanceKeysRangeproof          = 0x03
+	PsetElementsInPegInTx                         = 0x04
+	PsetElementsInPegInTxoutProof                 = 0x05
+	PsetElementsInPegInGenesis                    = 0x06
+	PsetElementsInPegInClaimScript                = 0x07
+	PsetElementsInPegInValue                      = 0x08
+	PsetElementsInPegInWitness                    = 0x09
+	PsetElementsInIssuanceInflationKeys           = 0x0a
+	PsetElementsInIssuanceInflationKeysCommitment = 0x0b
+	PsetElementsInIssuanceBlindingNonce           = 0x0c
+	PsetElementsInIssuanceAssetEntropy            = 0x0d
+	PsetElementsInUtxoRangeProof                  = 0x0e
+	PsetElementsInIssuanceBlindValueProof         = 0x0f
+	PsetElementsInIssuanceBlindInflationKeysProof = 0x10
 )
 
 type Input struct {
@@ -92,14 +92,14 @@ type Input struct {
 	partialSigs []PartialSig
 	// The sighash type to be used for this input. Signatures for this input
 	// must use the sighash type.
-	sigHashType txscript.SigHashType
+	sigHashType *txscript.SigHashType
 	// The redeem script for this input.
 	redeemScript []byte
 	/// The witness script for this input.
 	witnessScript []byte
 	// A map from public keys needed to sign this input to their corresponding
 	// master key fingerprints and derivation paths.
-	bip32Derivation []Bip32Derivation
+	bip32Derivation []DerivationPathWithPubKey
 	// The finalized, fully-constructed scriptSig with signatures and any other
 	// scripts necessary for this input to pass validation.
 	finalScriptSig []byte
@@ -117,16 +117,16 @@ type Input struct {
 	// (PSET2) Prevout TXID of the input
 	previousTxid []byte
 	// (PSET2) Prevout vout of the input
-	previousOutputIndex uint32
+	previousOutputIndex *uint32
 	// (PSET2) Sequence number. If omitted, defaults to 0xffffffff
-	sequence uint32
+	sequence *uint32
 	// (PSET2) Minimum required locktime, as a UNIX timestamp. If present, must be greater than or equal to 500000000
-	requiredTimeLocktime uint32
+	requiredTimeLocktime *uint32
 	// (PSET2) Minimum required locktime, as a blockheight. If present, must be less than 500000000
-	requiredHeightLocktime uint32
+	requiredHeightLocktime *uint32
 	// Proprietary key-value pairs for this input.
 	// The issuance value
-	issuanceValue int64
+	issuanceValue *int64
 	// Issuance value commitment
 	issuanceValueCommitment []byte
 	// Issuance value rangeproof
@@ -143,11 +143,11 @@ type Input struct {
 	// Claim script
 	peginClaimScript []byte
 	// Pegin Value
-	peginValue int64
+	peginValue *int64
 	// Pegin Witness
 	peginWitness []byte
 	// Issuance inflation keys
-	issuanceInflationKeys int64
+	issuanceInflationKeys *int64
 	// Issuance inflation keys commitment
 	issuanceInflationKeysCommitment []byte
 	// Issuance blinding nonce
@@ -166,10 +166,487 @@ type Input struct {
 	unknowns []keyPair
 }
 
+func (i Input) serialize() ([]byte, error) {
+	s, err := bufferutil.NewSerializer(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	inputKeyPairs, err := i.getKeyPairs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range inputKeyPairs {
+		kpBytes, err := serializeKeyPair(v)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.WriteSlice(kpBytes); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := s.WriteUint8(separator); err != nil {
+		return nil, err
+	}
+
+	return s.Bytes(), nil
+}
+
+func (i *Input) getKeyPairs() ([]keyPair, error) {
+	keyPairs := make([]keyPair, 0)
+
+	if i.nonWitnessUtxo != nil {
+		nonWitnessUtxoBytes, err := i.nonWitnessUtxo.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		nonWitnessKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInNonWitnessUtxo,
+				keyData: nil,
+			},
+			value: nonWitnessUtxoBytes,
+		}
+		keyPairs = append(keyPairs, nonWitnessKeyPair)
+	}
+
+	if i.witnessUtxo != nil {
+		witnessUtxoBytes, err := writeTxOut(i.witnessUtxo)
+		if err != nil {
+			return nil, err
+		}
+		nonWitnessKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInWitnessUtxo,
+				keyData: nil,
+			},
+			value: witnessUtxoBytes,
+		}
+		keyPairs = append(keyPairs, nonWitnessKeyPair)
+	}
+
+	if i.partialSigs != nil {
+		for _, v := range i.partialSigs {
+			partialSigKeyPair := keyPair{
+				key: key{
+					keyType: PsbtInPartialSig,
+					keyData: v.PubKey,
+				},
+				value: v.Signature,
+			}
+			keyPairs = append(keyPairs, partialSigKeyPair)
+		}
+	}
+
+	if i.sigHashType != nil {
+		sigHashTypeBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(sigHashTypeBytes, uint32(*i.sigHashType))
+		fallBackLockTimeKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInSighashType,
+				keyData: nil,
+			},
+			value: sigHashTypeBytes,
+		}
+		keyPairs = append(keyPairs, fallBackLockTimeKeyPair)
+	}
+
+	if i.redeemScript != nil {
+		redeemScriptKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInRedeemScript,
+				keyData: nil,
+			},
+			value: i.redeemScript,
+		}
+		keyPairs = append(keyPairs, redeemScriptKeyPair)
+	}
+
+	if i.witnessScript != nil {
+		witnessScriptKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInWitnessScript,
+				keyData: nil,
+			},
+			value: i.witnessScript,
+		}
+		keyPairs = append(keyPairs, witnessScriptKeyPair)
+	}
+
+	if i.bip32Derivation != nil {
+		for _, v := range i.bip32Derivation {
+			bip32DerivationPathKeyPair := keyPair{
+				key: key{
+					keyType: PsbtInBip32Derivation,
+					keyData: v.PubKey,
+				},
+				value: SerializeBIP32Derivation(v.MasterKeyFingerprint, v.Bip32Path),
+			}
+			keyPairs = append(keyPairs, bip32DerivationPathKeyPair)
+		}
+	}
+
+	if i.finalScriptSig != nil {
+		finalScriptSigKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInFinalScriptsig,
+				keyData: nil,
+			},
+			value: i.finalScriptSig,
+		}
+		keyPairs = append(keyPairs, finalScriptSigKeyPair)
+	}
+
+	if i.finalScriptWitness != nil {
+		finalScriptWitnessKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInFinalScriptwitness,
+				keyData: nil,
+			},
+			value: i.finalScriptWitness,
+		}
+		keyPairs = append(keyPairs, finalScriptWitnessKeyPair)
+	}
+
+	if i.ripemd160Preimages != nil {
+		for k, v := range i.ripemd160Preimages {
+			ripemd160PreimagesKeyPair := keyPair{
+				key: key{
+					keyType: PsbtInRipemd160,
+					keyData: k[:],
+				},
+				value: v,
+			}
+			keyPairs = append(keyPairs, ripemd160PreimagesKeyPair)
+		}
+	}
+
+	if i.sha256Preimages != nil {
+		for k, v := range i.sha256Preimages {
+			sha256PreimagesKeyPair := keyPair{
+				key: key{
+					keyType: PsbtInSha256,
+					keyData: k[:],
+				},
+				value: v,
+			}
+			keyPairs = append(keyPairs, sha256PreimagesKeyPair)
+		}
+	}
+
+	if i.hash160Preimages != nil {
+		for k, v := range i.hash160Preimages {
+			hash160PreimagesKeyPair := keyPair{
+				key: key{
+					keyType: PsbtInHash160,
+					keyData: k[:],
+				},
+				value: v,
+			}
+			keyPairs = append(keyPairs, hash160PreimagesKeyPair)
+		}
+	}
+
+	if i.hash256Preimages != nil {
+		for k, v := range i.hash256Preimages {
+			hash256PreimagesKeyPair := keyPair{
+				key: key{
+					keyType: PsbtInHash256,
+					keyData: k[:],
+				},
+				value: v,
+			}
+			keyPairs = append(keyPairs, hash256PreimagesKeyPair)
+		}
+	}
+
+	if i.previousTxid != nil {
+		previousTxidKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInPreviousTxid,
+				keyData: nil,
+			},
+			value: i.previousTxid,
+		}
+		keyPairs = append(keyPairs, previousTxidKeyPair)
+	}
+
+	if i.previousOutputIndex != nil {
+		previousOutputIndexBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(previousOutputIndexBytes, *i.previousOutputIndex)
+		previousOutputIndexKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInOutputIndex,
+				keyData: nil,
+			},
+			value: previousOutputIndexBytes,
+		}
+		keyPairs = append(keyPairs, previousOutputIndexKeyPair)
+	}
+
+	if i.sequence != nil {
+		sequenceBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(sequenceBytes, *i.sequence)
+		sequenceKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInSequence,
+				keyData: nil,
+			},
+			value: sequenceBytes,
+		}
+		keyPairs = append(keyPairs, sequenceKeyPair)
+	}
+
+	if i.requiredTimeLocktime != nil {
+		requiredTimeLocktimeBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(requiredTimeLocktimeBytes, *i.requiredTimeLocktime)
+		requiredTimeLocktimeKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInRequiredTimeLocktime,
+				keyData: nil,
+			},
+			value: requiredTimeLocktimeBytes,
+		}
+		keyPairs = append(keyPairs, requiredTimeLocktimeKeyPair)
+	}
+
+	if i.requiredHeightLocktime != nil {
+		requiredHeightLocktimeBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(requiredHeightLocktimeBytes, *i.requiredHeightLocktime)
+		requiredHeightLocktimeKeyPair := keyPair{
+			key: key{
+				keyType: PsbtInRequiredTimeLocktime,
+				keyData: nil,
+			},
+			value: requiredHeightLocktimeBytes,
+		}
+		keyPairs = append(keyPairs, requiredHeightLocktimeKeyPair)
+	}
+
+	if i.issuanceValue != nil {
+		issuanceValueBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint64(issuanceValueBytes, uint64(*i.issuanceValue))
+		issuanceValueKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceValue, nil),
+			},
+			value: issuanceValueBytes,
+		}
+		keyPairs = append(keyPairs, issuanceValueKeyPair)
+	}
+
+	if i.issuanceValueCommitment != nil {
+		issuanceValueCommitmentKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceValueCommitment, nil),
+			},
+			value: i.issuanceValueCommitment,
+		}
+		keyPairs = append(keyPairs, issuanceValueCommitmentKeyPair)
+	}
+
+	if i.issuanceValueRangeproof != nil {
+		issuanceValueRangeproofKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceValueRangeproof, nil),
+			},
+			value: i.issuanceValueRangeproof,
+		}
+		keyPairs = append(keyPairs, issuanceValueRangeproofKeyPair)
+	}
+
+	if i.issuanceKeysRangeproof != nil {
+		issuanceKeysRangeproofKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceKeysRangeproof, nil),
+			},
+			value: i.issuanceKeysRangeproof,
+		}
+		keyPairs = append(keyPairs, issuanceKeysRangeproofKeyPair)
+	}
+
+	if i.peginTx != nil {
+		peginTxBytes, err := i.peginTx.Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		peginTxKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInPegInTx, nil),
+			},
+			value: peginTxBytes,
+		}
+		keyPairs = append(keyPairs, peginTxKeyPair)
+	}
+
+	if i.peginTxoutProof != nil {
+		peginTxoutProofKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInPegInTxoutProof, nil),
+			},
+			value: i.peginTxoutProof,
+		}
+		keyPairs = append(keyPairs, peginTxoutProofKeyPair)
+	}
+
+	if i.peginGenesisHash != nil {
+		peginGenesisHashKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInPegInGenesis, nil),
+			},
+			value: i.peginGenesisHash,
+		}
+		keyPairs = append(keyPairs, peginGenesisHashKeyPair)
+	}
+
+	if i.peginClaimScript != nil {
+		peginClaimScriptKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInPegInClaimScript, nil),
+			},
+			value: i.peginClaimScript,
+		}
+		keyPairs = append(keyPairs, peginClaimScriptKeyPair)
+	}
+
+	if i.peginValue != nil {
+		var peginValueBytes []byte
+		binary.LittleEndian.PutUint64(peginValueBytes, uint64(*i.peginValue))
+
+		peginValueKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInPegInValue, nil),
+			},
+			value: peginValueBytes,
+		}
+		keyPairs = append(keyPairs, peginValueKeyPair)
+	}
+
+	if i.peginWitness != nil {
+		peginWitnessKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInPegInWitness, nil),
+			},
+			value: i.peginWitness,
+		}
+		keyPairs = append(keyPairs, peginWitnessKeyPair)
+	}
+
+	if i.issuanceInflationKeys != nil {
+		var issuanceInflationKeysBytes []byte
+		binary.LittleEndian.PutUint64(issuanceInflationKeysBytes, uint64(*i.issuanceInflationKeys))
+
+		issuanceInflationKeysKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceInflationKeys, nil),
+			},
+			value: issuanceInflationKeysBytes,
+		}
+		keyPairs = append(keyPairs, issuanceInflationKeysKeyPair)
+	}
+
+	if i.issuanceInflationKeysCommitment != nil {
+		issuanceInflationKeysCommitmentKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceInflationKeysCommitment, nil),
+			},
+			value: i.issuanceInflationKeysCommitment,
+		}
+		keyPairs = append(keyPairs, issuanceInflationKeysCommitmentKeyPair)
+	}
+
+	if i.issuanceBlindingNonce != nil {
+		issuanceBlindingNonceKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceBlindingNonce, nil),
+			},
+			value: i.issuanceBlindingNonce,
+		}
+		keyPairs = append(keyPairs, issuanceBlindingNonceKeyPair)
+	}
+
+	if i.issuanceAssetEntropy != nil {
+		issuanceAssetEntropyKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceAssetEntropy, nil),
+			},
+			value: i.issuanceAssetEntropy,
+		}
+		keyPairs = append(keyPairs, issuanceAssetEntropyKeyPair)
+	}
+
+	if i.inUtxoRangeProof != nil {
+		inUtxoRangeProofKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInUtxoRangeProof, nil),
+			},
+			value: i.inUtxoRangeProof,
+		}
+		keyPairs = append(keyPairs, inUtxoRangeProofKeyPair)
+	}
+
+	if i.issuanceBlindValueProof != nil {
+		issuanceBlindValueProofKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceBlindValueProof, nil),
+			},
+			value: i.issuanceBlindValueProof,
+		}
+		keyPairs = append(keyPairs, issuanceBlindValueProofKeyPair)
+	}
+
+	if i.issuanceBlindInflationKeysProof != nil {
+		issuanceBlindInflationKeysProofKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsInIssuanceBlindInflationKeysProof, nil),
+			},
+			value: i.issuanceBlindInflationKeysProof,
+		}
+		keyPairs = append(keyPairs, issuanceBlindInflationKeysProofKeyPair)
+	}
+
+	for _, v := range i.proprietaryData {
+		kp := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(v.subtype, v.keyData),
+			},
+			value: v.value,
+		}
+		keyPairs = append(keyPairs, kp)
+	}
+
+	for _, v := range i.unknowns {
+		keyPairs = append(keyPairs, v)
+	}
+
+	return keyPairs, nil
+}
+
 func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 	input := Input{
 		partialSigs:     make([]PartialSig, 0),
-		bip32Derivation: make([]Bip32Derivation, 0),
+		bip32Derivation: make([]DerivationPathWithPubKey, 0),
 	}
 
 	kp := &keyPair{}
@@ -188,21 +665,21 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 		}
 
 		switch kp.key.keyType {
-		case PsetInNonWitnessUtxo:
+		case PsbtInNonWitnessUtxo:
 			tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.value))
 			if err != nil {
 				return nil, err
 			}
 
 			input.nonWitnessUtxo = tx
-		case PsetInWitnessUtxo:
+		case PsbtInWitnessUtxo:
 			txOut, err := readTxOut(kp.value)
 			if err != nil {
 				return nil, err
 			}
 
 			input.witnessUtxo = txOut
-		case PsetInPartialSig:
+		case PsbtInPartialSig:
 			partialSignature := PartialSig{
 				PubKey:    kp.key.keyData,
 				Signature: kp.value,
@@ -220,7 +697,7 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 			}
 
 			input.partialSigs = append(input.partialSigs, partialSignature)
-		case PsetInSighashType:
+		case PsbtInSighashType:
 			if len(kp.value) != 4 {
 				return nil, ErrInvalidKeydata
 			}
@@ -229,12 +706,12 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 				binary.LittleEndian.Uint32(kp.value),
 			)
 
-			input.sigHashType = sigHashType
-		case PsetInRedeemScript:
+			input.sigHashType = &sigHashType
+		case PsbtInRedeemScript:
 			input.redeemScript = kp.value
-		case PsetInWitnessScript:
+		case PsbtInWitnessScript:
 			input.witnessScript = kp.value
-		case PsetInBip32Derivation:
+		case PsbtInBip32Derivation:
 			if !validatePubkey(kp.key.keyData) {
 				return nil, ErrInvalidPsbtFormat
 			}
@@ -252,40 +729,40 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 
 			input.bip32Derivation = append(
 				input.bip32Derivation,
-				Bip32Derivation{
+				DerivationPathWithPubKey{
 					PubKey:               kp.key.keyData,
 					MasterKeyFingerprint: master,
 					Bip32Path:            derivationPath,
 				},
 			)
-		case PsetInFinalScriptsig:
+		case PsbtInFinalScriptsig:
 			input.finalScriptSig = kp.value
-		case PsetInFinalScriptwitness:
+		case PsbtInFinalScriptwitness:
 			input.finalScriptWitness = kp.value
-		case PsetInRipemd160:
+		case PsbtInRipemd160:
 			ripemd160Preimages := make(map[[20]byte][]byte)
 			var hash [20]byte
 			copy(hash[:], kp.key.keyData[:])
 			ripemd160Preimages[hash] = kp.value
 			input.ripemd160Preimages = ripemd160Preimages
-		case PsetInSha256:
+		case PsbtInSha256:
 			sha256Preimages := make(map[[32]byte][]byte)
 			var hash [32]byte
 			copy(hash[:], kp.key.keyData[:])
 			sha256Preimages[hash] = kp.value
 			input.sha256Preimages = sha256Preimages
-		case PsetInHash160:
+		case PsbtInHash160:
 			hash160Preimages := make(map[[20]byte][]byte)
 			var hash [20]byte
 			copy(hash[:], kp.key.keyData[:])
 			hash160Preimages[hash] = kp.value
 			input.hash160Preimages = hash160Preimages
-		case PsetInHash256:
+		case PsbtInHash256:
 			hash256Preimages := make(map[[32]byte][]byte)
 			var hash [32]byte
 			copy(hash[:], kp.key.keyData[:])
 			input.hash256Preimages = hash256Preimages
-		case PsetInPreviousTxid:
+		case PsbtInPreviousTxid:
 			previousTxid := kp.value
 			if len(previousTxid) != 32 {
 				return nil, ErrInvalidPrevTxIdLength
@@ -293,15 +770,19 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 
 			input.previousTxid = previousTxid
 			prevTxIDFound = true
-		case PsetInOutputIndex:
-			input.previousOutputIndex = binary.LittleEndian.Uint32(kp.value)
+		case PsbtInOutputIndex:
+			prevOutIndex := binary.LittleEndian.Uint32(kp.value)
+			input.previousOutputIndex = &prevOutIndex
 			outputIndexFound = true
-		case PsetInSequence:
-			input.sequence = binary.LittleEndian.Uint32(kp.value)
-		case PsetInRequiredTimeLocktime:
-			input.requiredTimeLocktime = binary.LittleEndian.Uint32(kp.value)
-		case PsetInRequiredHeightLocktime:
-			input.requiredHeightLocktime = binary.LittleEndian.Uint32(kp.value)
+		case PsbtInSequence:
+			sequence := binary.LittleEndian.Uint32(kp.value)
+			input.sequence = &sequence
+		case PsbtInRequiredTimeLocktime:
+			requiredTimeLocktime := binary.LittleEndian.Uint32(kp.value)
+			input.requiredTimeLocktime = &requiredTimeLocktime
+		case PsbtInRequiredHeightLocktime:
+			requiredHeightLocktime := binary.LittleEndian.Uint32(kp.value)
+			input.requiredHeightLocktime = &requiredHeightLocktime
 		case PsbtGlobalProprietary:
 			pd := &proprietaryData{}
 			if err := pd.proprietaryDataFromKeyPair(*kp); err != nil {
@@ -310,69 +791,72 @@ func deserializeInput(buf *bytes.Buffer) (*Input, error) {
 
 			if bytes.Equal(pd.identifier, psetMagic) {
 				switch pd.subtype {
-				case PsbtElementsInIssuanceValue:
-					input.issuanceValue = int64(binary.LittleEndian.Uint64(kp.value))
-				case PsbtElementsInIssuanceValueCommitment:
+				case PsetElementsInIssuanceValue:
+					issuanceValue := int64(binary.LittleEndian.Uint64(kp.value))
+					input.issuanceValue = &issuanceValue
+				case PsetElementsInIssuanceValueCommitment:
 					issuanceValueCommitment := kp.value
 					if len(issuanceValueCommitment) != 33 {
 						return nil, ErrInvalidIssuanceValueCommitmentLength
 					}
 
 					input.issuanceValueCommitment = issuanceValueCommitment
-				case PsbtElementsInIssuanceValueRangeproof:
+				case PsetElementsInIssuanceValueRangeproof:
 					input.issuanceValueRangeproof = kp.value
-				case PsbtElementsInIssuanceKeysRangeproof:
+				case PsetElementsInIssuanceKeysRangeproof:
 					input.issuanceKeysRangeproof = kp.value
-				case PsbtElementsInPegInTx:
+				case PsetElementsInPegInTx:
 					tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.value))
 					if err != nil {
 						return nil, err
 					}
 
 					input.peginTx = tx
-				case PsbtElementsInPegInTxoutProof:
+				case PsetElementsInPegInTxoutProof:
 					input.peginTxoutProof = kp.value
-				case PsbtElementsInPegInGenesis:
+				case PsetElementsInPegInGenesis:
 					peginGenesisHash := kp.value[:]
 					if len(peginGenesisHash) != 32 {
 						return nil, ErrInvalidPeginGenesisHashLength
 					}
 
 					input.peginGenesisHash = peginGenesisHash
-				case PsbtElementsInPegInClaimScript:
+				case PsetElementsInPegInClaimScript:
 					input.peginClaimScript = kp.value
-				case PsbtElementsInPegInValue:
-					input.peginValue = int64(binary.LittleEndian.Uint64(kp.value))
-				case PsbtElementsInPegInWitness:
+				case PsetElementsInPegInValue:
+					peginValue := int64(binary.LittleEndian.Uint64(kp.value))
+					input.peginValue = &peginValue
+				case PsetElementsInPegInWitness:
 					input.peginWitness = kp.value
-				case PsbtElementsInIssuanceInflationKeys:
-					input.issuanceInflationKeys = int64(binary.LittleEndian.Uint64(kp.value))
-				case PsbtElementsInIssuanceInflationKeysCommitment:
+				case PsetElementsInIssuanceInflationKeys:
+					issuanceInflationKeys := int64(binary.LittleEndian.Uint64(kp.value))
+					input.issuanceInflationKeys = &issuanceInflationKeys
+				case PsetElementsInIssuanceInflationKeysCommitment:
 					issuanceInflationKeysCommitment := kp.value[:]
 					if len(issuanceInflationKeysCommitment) != 33 {
 						return nil, ErrInvalidIssuanceInflationKeysCommitmentLength
 					}
 
 					input.issuanceInflationKeysCommitment = issuanceInflationKeysCommitment
-				case PsbtElementsInIssuanceBlindingNonce:
+				case PsetElementsInIssuanceBlindingNonce:
 					issuanceBlindingNonce := kp.value[:]
 					if len(issuanceBlindingNonce) != 32 {
 						return nil, ErrInvalidIssuanceBlindingNonceLength
 					}
 
 					input.issuanceBlindingNonce = issuanceBlindingNonce
-				case PsbtElementsInIssuanceAssetEntropy:
+				case PsetElementsInIssuanceAssetEntropy:
 					issuanceAssetEntropy := kp.value[:]
 					if len(issuanceAssetEntropy) != 32 {
 						return nil, ErrInvalidIssuanceAssetEntropyLength
 					}
 
 					input.issuanceAssetEntropy = issuanceAssetEntropy
-				case PsbtElementsInUtxoRangeProof:
+				case PsetElementsInUtxoRangeProof:
 					input.inUtxoRangeProof = kp.value
-				case PsbtElementsInIssuanceBlindValueProof:
+				case PsetElementsInIssuanceBlindValueProof:
 					input.issuanceBlindValueProof = kp.value
-				case PsbtElementsInIssuanceBlindInflationKeysProof:
+				case PsetElementsInIssuanceBlindInflationKeysProof:
 					input.issuanceBlindInflationKeysProof = kp.value
 				default:
 					input.proprietaryData = append(input.proprietaryData, *pd)

@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/vulpemventures/go-elements/transaction"
+
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
@@ -67,6 +69,72 @@ func NewPsetFromBase64(psetBase64 string) (*Pset, error) {
 	return NewFromBuffer(buf)
 }
 
+func (p *Pset) ToBase64() (string, error) {
+	buf, err := p.serialize()
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(buf), nil
+}
+
+func (p *Pset) ToHex() (string, error) {
+	buf, err := p.serialize()
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(buf), nil
+}
+
+func (p *Pset) serialize() ([]byte, error) {
+	if p == nil {
+		return nil, errors.New("")
+	}
+
+	s, err := bufferutil.NewSerializer(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.WriteSlice(psetMagic); err != nil {
+		return nil, err
+	}
+
+	globalBytes, err := p.Global.serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.WriteSlice(globalBytes); err != nil {
+		return nil, err
+	}
+
+	for _, v := range p.Inputs {
+		inputBytes, err := v.serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := s.WriteSlice(inputBytes); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, v := range p.Outputs {
+		outputBytes, err := v.serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := s.WriteSlice(outputBytes); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.Bytes(), nil
+}
+
 func deserialize(buf *bytes.Buffer) (*Pset, error) {
 	d := bufferutil.NewDeserializer(buf)
 
@@ -85,7 +153,7 @@ func deserialize(buf *bytes.Buffer) (*Pset, error) {
 	}
 
 	inputs := make([]Input, 0)
-	for i := 0; i < int(global.txInfo.inputCount); i++ {
+	for i := 0; i < int(*global.txInfo.inputCount); i++ {
 		input, err := deserializeInput(buf)
 		if err != nil {
 			return nil, err
@@ -95,7 +163,7 @@ func deserialize(buf *bytes.Buffer) (*Pset, error) {
 	}
 
 	outputs := make([]Output, 0)
-	for i := 0; i < int(global.txInfo.outputCount); i++ {
+	for i := 0; i < int(*global.txInfo.outputCount); i++ {
 		output, err := deserializeOutput(buf)
 		if err != nil {
 			return nil, err
@@ -121,8 +189,37 @@ type keyPair struct {
 }
 
 type key struct {
-	keyType int
+	keyType uint8
 	keyData []byte
+}
+
+func serializeKeyPair(kp keyPair) ([]byte, error) {
+	s, err := bufferutil.NewSerializer(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.WriteVarInt(uint64(len(kp.key.keyData) + 1)); err != nil {
+		return nil, err
+	}
+
+	if err := s.WriteUint8(kp.key.keyType); err != nil {
+		return nil, err
+	}
+
+	if err := s.WriteSlice(kp.key.keyData); err != nil {
+		return nil, err
+	}
+
+	if err := s.WriteVarInt(uint64(len(kp.value))); err != nil {
+		return nil, err
+	}
+
+	if err := s.WriteSlice(kp.value); err != nil {
+		return nil, err
+	}
+
+	return s.Bytes(), nil
 }
 
 func (k *keyPair) deserialize(buf *bytes.Buffer) error {
@@ -167,7 +264,7 @@ func (k *key) deserialize(buf *bytes.Buffer) error {
 		return err
 	}
 
-	keyType := int(key[0])
+	keyType := key[0]
 	k.keyType = keyType
 	k.keyData = nil
 	if len(key) > 1 {
@@ -179,7 +276,7 @@ func (k *key) deserialize(buf *bytes.Buffer) error {
 
 type proprietaryData struct {
 	identifier []byte
-	subtype    int
+	subtype    uint8
 	keyData    []byte
 	value      []byte
 }
@@ -215,11 +312,23 @@ func (p *proprietaryData) proprietaryDataFromKeyPair(keyPair keyPair) error {
 	value := keyPair.value
 
 	p.identifier = identifier
-	p.subtype = int(subType)
+	p.subtype = subType
 	p.keyData = keyData
 	p.value = value
 
 	return nil
+}
+
+func proprietaryKey(subType uint8, keyData []byte) []byte {
+	result := make([]byte, 0)
+	result = append(result, byte(len(psetMagic)-1))
+	result = append(result, psetMagic[:len(psetMagic)-1]...)
+	result = append(result, subType)
+	if keyData != nil {
+		result = append(result, keyData...)
+	}
+
+	return result
 }
 
 func deserializeUnknownKeyPairs(buf *bytes.Buffer) ([]keyPair, error) {
@@ -236,4 +345,32 @@ func deserializeUnknownKeyPairs(buf *bytes.Buffer) ([]keyPair, error) {
 	}
 
 	return unknowns, nil
+}
+
+func writeTxOut(txout *transaction.TxOutput) ([]byte, error) {
+	s, err := bufferutil.NewSerializer(nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.WriteSlice(txout.Asset); err != nil {
+		return nil, err
+	}
+	if err := s.WriteSlice(txout.Value); err != nil {
+		return nil, err
+	}
+	if err := s.WriteSlice(txout.Nonce); err != nil {
+		return nil, err
+	}
+	if err := s.WriteVarSlice(txout.Script); err != nil {
+		return nil, err
+	}
+	if txout.IsConfidential() {
+		if err := s.WriteVarSlice(txout.SurjectionProof); err != nil {
+			return nil, err
+		}
+		if err := s.WriteVarSlice(txout.RangeProof); err != nil {
+			return nil, err
+		}
+	}
+	return s.Bytes(), nil
 }

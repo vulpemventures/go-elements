@@ -7,11 +7,9 @@ import (
 
 //TODO add ref to btcutil
 
-// Bip32Derivation encapsulates the data for the input and output
-// Bip32Derivation key-value fields.
-//
-// TODO(roasbeef): use hdkeychain here instead?
-type Bip32Derivation struct {
+// DerivationPathWithPubKey encapsulates the data for the input and output
+// DerivationPathWithPubKey key-value fields.
+type DerivationPathWithPubKey struct {
 	// PubKey is the raw pubkey serialized in compressed format.
 	PubKey []byte
 
@@ -22,13 +20,13 @@ type Bip32Derivation struct {
 	Bip32Path []uint32
 }
 
-// checkValid ensures that the PubKey in the Bip32Derivation struct is valid.
-func (pb *Bip32Derivation) checkValid() bool {
+// checkValid ensures that the PubKey in the DerivationPathWithPubKey struct is valid.
+func (pb *DerivationPathWithPubKey) checkValid() bool {
 	return validatePubkey(pb.PubKey)
 }
 
-// Bip32Sorter implements sort.Interface for the Bip32Derivation struct.
-type Bip32Sorter []*Bip32Derivation
+// Bip32Sorter implements sort.Interface for the DerivationPathWithPubKey struct.
+type Bip32Sorter []*DerivationPathWithPubKey
 
 func (s Bip32Sorter) Len() int { return len(s) }
 

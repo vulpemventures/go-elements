@@ -19,19 +19,19 @@ func TestDeserializationAndSerialization(t *testing.T) {
 	for _, v := range tests {
 		testName := v["name"].(string)
 		t.Run(testName, func(t *testing.T) {
-			ptx, err := NewFromHex(v["hex"].(string))
+			ptx, err := NewPsetFromBase64(v["base64"].(string))
 			if err != nil {
 				t.Errorf("test: %v, err: %v", testName, err)
 				return
 			}
 
-			hex, err := ptx.ToHex()
+			b, err := ptx.ToBase64()
 			if err != nil {
 				t.Errorf("test: %v, err: %v", testName, err)
 				return
 			}
 
-			assert.Equal(t, v["hex"].(string), hex)
+			assert.Equal(t, v["base64"].(string), b)
 		})
 	}
 }

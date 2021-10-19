@@ -166,32 +166,23 @@ type Input struct {
 	unknowns []keyPair
 }
 
-func (i Input) serialize() ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
-
+func (i Input) serialize(s *bufferutil.Serializer) error {
 	inputKeyPairs, err := i.getKeyPairs()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, v := range inputKeyPairs {
-		kpBytes, err := serializeKeyPair(v)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.WriteSlice(kpBytes); err != nil {
-			return nil, err
+		if err := serializeKeyPair(v, s); err != nil {
+			return err
 		}
 	}
 
 	if err := s.WriteUint8(separator); err != nil {
-		return nil, err
+		return err
 	}
 
-	return s.Bytes(), nil
+	return nil
 }
 
 func (i *Input) getKeyPairs() ([]keyPair, error) {

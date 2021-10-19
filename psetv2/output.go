@@ -84,32 +84,23 @@ type Output struct {
 	unknowns []keyPair
 }
 
-func (o *Output) serialize() ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
-
+func (o *Output) serialize(s *bufferutil.Serializer) error {
 	outputKeyPairs, err := o.getKeyPairs()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, v := range outputKeyPairs {
-		kpBytes, err := serializeKeyPair(v)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.WriteSlice(kpBytes); err != nil {
-			return nil, err
+		if err := serializeKeyPair(v, s); err != nil {
+			return err
 		}
 	}
 
 	if err := s.WriteUint8(separator); err != nil {
-		return nil, err
+		return err
 	}
 
-	return s.Bytes(), nil
+	return nil
 }
 
 func (o *Output) getKeyPairs() ([]keyPair, error) {
@@ -150,17 +141,15 @@ func (o *Output) getKeyPairs() ([]keyPair, error) {
 		}
 	}
 
-	if o.outputAmount != nil {
-		outputAmountBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(outputAmountBytes, uint64(*o.outputAmount))
-		outputAmountKeyPair := keyPair{
+	if o.outputScript != nil {
+		outputScriptKeyPair := keyPair{
 			key: key{
-				keyType: PsbtOutAmount,
+				keyType: PsbtOutScript,
 				keyData: nil,
 			},
-			value: outputAmountBytes,
+			value: o.outputScript,
 		}
-		keyPairs = append(keyPairs, outputAmountKeyPair)
+		keyPairs = append(keyPairs, outputScriptKeyPair)
 	}
 
 	if o.outputValueCommitment != nil {
@@ -174,15 +163,17 @@ func (o *Output) getKeyPairs() ([]keyPair, error) {
 		keyPairs = append(keyPairs, outputValueCommitmentKeyPair)
 	}
 
-	if o.outputAsset != nil {
-		outputAssetKeyPair := keyPair{
+	if o.outputAmount != nil {
+		outputAmountBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(outputAmountBytes, uint64(*o.outputAmount))
+		outputAmountKeyPair := keyPair{
 			key: key{
-				keyType: PsbtGlobalProprietary,
-				keyData: proprietaryKey(PsetElementsOutAsset, nil),
+				keyType: PsbtOutAmount,
+				keyData: nil,
 			},
-			value: o.outputAsset,
+			value: outputAmountBytes,
 		}
-		keyPairs = append(keyPairs, outputAssetKeyPair)
+		keyPairs = append(keyPairs, outputAmountKeyPair)
 	}
 
 	if o.outputAssetCommitment != nil {
@@ -196,15 +187,15 @@ func (o *Output) getKeyPairs() ([]keyPair, error) {
 		keyPairs = append(keyPairs, outputAssetCommitmentKeyPair)
 	}
 
-	if o.outputScript != nil {
-		outputScriptKeyPair := keyPair{
+	if o.outputAsset != nil {
+		outputAssetKeyPair := keyPair{
 			key: key{
-				keyType: PsbtOutScript,
-				keyData: nil,
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsOutAsset, nil),
 			},
-			value: o.outputScript,
+			value: o.outputAsset,
 		}
-		keyPairs = append(keyPairs, outputScriptKeyPair)
+		keyPairs = append(keyPairs, outputAssetKeyPair)
 	}
 
 	if o.outputValueRangeproof != nil {
@@ -274,6 +265,17 @@ func (o *Output) getKeyPairs() ([]keyPair, error) {
 			value: o.outputBlindValueProof,
 		}
 		keyPairs = append(keyPairs, outputBlindValueProofKeyPair)
+	}
+
+	if o.outputBlindAssetProof != nil {
+		outputBlindAssetProofKeyPair := keyPair{
+			key: key{
+				keyType: PsbtGlobalProprietary,
+				keyData: proprietaryKey(PsetElementsOutBlindAssetProof, nil),
+			},
+			value: o.outputBlindAssetProof,
+		}
+		keyPairs = append(keyPairs, outputBlindAssetProofKeyPair)
 	}
 
 	for _, v := range o.proprietaryData {

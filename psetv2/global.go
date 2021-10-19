@@ -91,32 +91,23 @@ type DerivationPathWithXPub struct {
 	derivationPath []uint32
 }
 
-func (g *Global) serialize() ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
-
+func (g *Global) serialize(s *bufferutil.Serializer) error {
 	globalKeyPairs, err := g.getKeyPairs()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, v := range globalKeyPairs {
-		kpBytes, err := serializeKeyPair(v)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.WriteSlice(kpBytes); err != nil {
-			return nil, err
+		if err := serializeKeyPair(v, s); err != nil {
+			return err
 		}
 	}
 
 	if err := s.WriteUint8(separator); err != nil {
-		return nil, err
+		return err
 	}
 
-	return s.Bytes(), nil
+	return nil
 }
 
 func (g Global) getKeyPairs() ([]keyPair, error) {

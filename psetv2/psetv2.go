@@ -101,33 +101,18 @@ func (p *Pset) serialize() ([]byte, error) {
 		return nil, err
 	}
 
-	globalBytes, err := p.Global.serialize()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.WriteSlice(globalBytes); err != nil {
+	if err := p.Global.serialize(s); err != nil {
 		return nil, err
 	}
 
 	for _, v := range p.Inputs {
-		inputBytes, err := v.serialize()
-		if err != nil {
-			return nil, err
-		}
-
-		if err := s.WriteSlice(inputBytes); err != nil {
+		if err := v.serialize(s); err != nil {
 			return nil, err
 		}
 	}
 
 	for _, v := range p.Outputs {
-		outputBytes, err := v.serialize()
-		if err != nil {
-			return nil, err
-		}
-
-		if err := s.WriteSlice(outputBytes); err != nil {
+		if err := v.serialize(s); err != nil {
 			return nil, err
 		}
 	}
@@ -193,33 +178,28 @@ type key struct {
 	keyData []byte
 }
 
-func serializeKeyPair(kp keyPair) ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
-
+func serializeKeyPair(kp keyPair, s *bufferutil.Serializer) error {
 	if err := s.WriteVarInt(uint64(len(kp.key.keyData) + 1)); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := s.WriteUint8(kp.key.keyType); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := s.WriteSlice(kp.key.keyData); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := s.WriteVarInt(uint64(len(kp.value))); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := s.WriteSlice(kp.value); err != nil {
-		return nil, err
+		return err
 	}
 
-	return s.Bytes(), nil
+	return nil
 }
 
 func (k *keyPair) deserialize(buf *bytes.Buffer) error {

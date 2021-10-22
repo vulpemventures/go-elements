@@ -38,7 +38,7 @@ var Liquid = Network{
 	AssetID:      "6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d",
 }
 
-// Regtest defines the network parameters for the regression test network.
+// Regtest defines the network parameters for the regression regtest network.
 var Regtest = Network{
 	Name:         "regtest",
 	Bech32:       "ert",
@@ -50,4 +50,18 @@ var Regtest = Network{
 	Wif:          0xef,
 	Confidential: 4,
 	AssetID:      "5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+}
+
+// Testnet defines the network parameters for the regression testnet network.
+var Testnet = Network{
+	Name:         "testnet",
+	Bech32:       "tex",
+	Blech32:      "tlq",
+	HDPublicKey:  [4]byte{0x04, 0x35, 0x87, 0xcf},
+	HDPrivateKey: [4]byte{0x04, 0x35, 0x83, 0x94},
+	PubKeyHash:   36,
+	ScriptHash:   19,
+	Wif:          0xef,
+	Confidential: 23,
+	AssetID:      "144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49",
 }

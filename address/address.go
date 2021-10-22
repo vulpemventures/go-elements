@@ -392,6 +392,11 @@ func NetworkForAddress(address string) (*network.Network, error) {
 		return &network.Regtest, nil
 	}
 
+	if strings.HasPrefix(address, network.Testnet.Bech32) ||
+		strings.HasPrefix(address, network.Testnet.Blech32) {
+		return &network.Testnet, nil
+	}
+
 	_, prefix, err := base58.CheckDecode(address)
 	if err != nil {
 		return nil, err
@@ -407,6 +412,12 @@ func NetworkForAddress(address string) (*network.Network, error) {
 		prefix == network.Regtest.PubKeyHash ||
 		prefix == network.Regtest.ScriptHash {
 		return &network.Regtest, nil
+	}
+
+	if prefix == network.Testnet.Confidential ||
+		prefix == network.Testnet.PubKeyHash ||
+		prefix == network.Testnet.ScriptHash {
+		return &network.Testnet, nil
 	}
 
 	return nil, errors.New("unknown prefix for address")

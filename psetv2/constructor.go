@@ -2,8 +2,6 @@ package psetv2
 
 import (
 	"errors"
-
-	"github.com/vulpemventures/go-elements/transaction"
 )
 
 var (
@@ -11,12 +9,23 @@ var (
 )
 
 type Constructor struct {
-	pset *Pset
+	pset                *Pset
+	inputArgs           []InputArg
+	outputArgs          []OutputArg
+	lockForModification bool
 }
 
-func NewConstructor(pset *Pset) *Constructor {
+func NewConstructor(
+	pset *Pset,
+	inputArgs []InputArg,
+	outputArgs []OutputArg,
+	lockForModification bool,
+) *Constructor {
 	return &Constructor{
-		pset: pset,
+		inputArgs:           inputArgs,
+		outputArgs:          outputArgs,
+		lockForModification: lockForModification,
+		pset:                pset,
 	}
 }
 
@@ -25,24 +34,20 @@ type TimeLock struct {
 	RequiredHeightTimeLock *uint32
 }
 
-func (c *Constructor) Construct(
-	inputs map[TimeLock]transaction.TxInput,
-	outputs []transaction.TxOutput,
-	lockForModification bool,
-) (*Pset, error) {
-	for k, v := range inputs {
-		if err := c.pset.AddInput(k, v); err != nil {
+func (c *Constructor) Construct() (*Pset, error) {
+	for _, v := range c.inputArgs {
+		if err := c.pset.addInput(v); err != nil {
 			return nil, err
 		}
 	}
 
-	for _, v := range outputs {
-		if err := c.pset.AddOutput(v); err != nil {
+	for _, v := range c.outputArgs {
+		if err := c.pset.addOutput(v); err != nil {
 			return nil, err
 		}
 	}
 
-	if lockForModification {
+	if c.lockForModification {
 		c.pset.LockForModification()
 	}
 

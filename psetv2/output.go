@@ -129,17 +129,11 @@ func psetOutputFromTxOutput(output transaction.TxOutput) (*Output, error) {
 		outputAssetCommitment = output.Asset
 	}
 
-	var outputBlindingPubkey []byte
-	if len(output.Nonce) == 33 && (output.Nonce[0] == 2 || output.Nonce[0] == 3) {
-		outputBlindingPubkey = output.Nonce
-	}
-
 	return &Output{
 		outputScript:          script,
 		outputAmount:          outputAmount,
 		outputValueCommitment: outputCommitment,
 		outputAsset:           outputAsset,
 		outputAssetCommitment: outputAssetCommitment,
-		outputBlindingPubkey:  outputBlindingPubkey,
 	}, nil
 }

@@ -92,25 +92,30 @@ func (p *Pset) ToHex() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-func (p *Pset) AddInput(timeLock TimeLock, txInput transaction.TxInput) error {
+type InputArg struct {
+	TimeLock *TimeLock
+	TxInput  transaction.TxInput
+}
+
+func (p *Pset) addInput(inputArg InputArg) error {
 	if p.IsInputModifiable() {
 		return ErrNotModifiable
 	}
 
-	if p.IsInputDuplicate(txInput) {
+	if p.IsInputDuplicate(inputArg.TxInput) {
 		return ErrInputAlreadyExist
 	}
 
-	input, err := psetInputFromTxInput(txInput)
+	input, err := psetInputFromTxInput(inputArg.TxInput)
 	if err != nil {
 		return err
 	}
 
-	if timeLock.RequiredTimeLock != nil {
-		input.requiredTimeLocktime = timeLock.RequiredTimeLock
+	if inputArg.TimeLock.RequiredTimeLock != nil {
+		input.requiredTimeLocktime = inputArg.TimeLock.RequiredTimeLock
 	}
-	if timeLock.RequiredHeightTimeLock != nil {
-		input.requiredHeightLocktime = timeLock.RequiredHeightTimeLock
+	if inputArg.TimeLock.RequiredHeightTimeLock != nil {
+		input.requiredHeightLocktime = inputArg.TimeLock.RequiredHeightTimeLock
 	}
 
 	if input != nil {
@@ -125,12 +130,18 @@ func (p *Pset) AddInput(timeLock TimeLock, txInput transaction.TxInput) error {
 	return nil
 }
 
-func (p *Pset) AddOutput(txOutput transaction.TxOutput) error {
+type OutputArg struct {
+	BlinderIndex   uint32
+	BlindingPubKey []byte
+	TxOutput       transaction.TxOutput
+}
+
+func (p *Pset) addOutput(outputArg OutputArg) error {
 	if p.IsOutputModifiable() {
 		return ErrNotModifiable
 	}
 
-	output, err := psetOutputFromTxOutput(txOutput)
+	output, err := psetOutputFromTxOutput(outputArg.TxOutput)
 	if err != nil {
 		return err
 	}
@@ -140,8 +151,10 @@ func (p *Pset) AddOutput(txOutput transaction.TxOutput) error {
 			return ErrMissingMandatoryFields
 		}
 
-		if output.outputBlindingPubkey != nil {
+		if outputArg.BlindingPubKey != nil {
 			p.BlindingNeeded()
+			output.outputBlindingPubkey = outputArg.BlindingPubKey
+			output.outputBlinderIndex = &outputArg.BlinderIndex
 		}
 
 		p.Outputs = append(p.Outputs, *output)

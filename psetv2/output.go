@@ -84,6 +84,19 @@ type Output struct {
 	unknowns []keyPair
 }
 
+func (o *Output) IsBlinded() bool {
+	return o.outputValueCommitment != nil &&
+		o.outputAssetCommitment != nil &&
+		o.outputValueRangeproof != nil &&
+		o.outputAssetSurjectionProof != nil &&
+		o.outputEcdhPubkey != nil &&
+		o.outputBlindingPubkey != nil
+}
+
+func (o *Output) ToBlind() bool {
+	return o.outputBlindingPubkey != nil && o.outputBlinderIndex != nil
+}
+
 func psetOutputFromTxOutput(output transaction.TxOutput) (*Output, error) {
 	script := output.Script
 
@@ -106,7 +119,7 @@ func psetOutputFromTxOutput(output transaction.TxOutput) (*Output, error) {
 
 	var outputAsset []byte
 	var outputAssetCommitment []byte
-	if len(output.Asset) == 33 && output.Asset[0] == 1 {
+	if isAssetExplicit(output.Asset) {
 		outputAsset = output.Asset
 	} else {
 		if len(output.Value) != 33 {

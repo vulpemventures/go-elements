@@ -2,6 +2,7 @@ package psetv2
 
 import (
 	"bytes"
+	"crypto/rand"
 
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -77,4 +78,17 @@ func readTxOut(txout []byte) (*transaction.TxOutput, error) {
 		RangeProof:      rangeProof,
 		SurjectionProof: surjectionProof,
 	}, nil
+}
+
+func isAssetExplicit(asset []byte) bool {
+	return len(asset) == 33 && asset[0] == 1
+}
+
+func generateRandomNumber() ([]byte, error) {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }

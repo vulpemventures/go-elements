@@ -250,3 +250,14 @@ func psetInputFromTxInput(input transaction.TxInput) (*Input, error) {
 		issuanceAssetEntropy:            issuanceAssetEntropy,
 	}, nil
 }
+
+func (i *Input) GetUtxo() *transaction.TxOutput {
+	var txOut *transaction.TxOutput
+	if i.nonWitnessUtxo != nil {
+		txOut = i.nonWitnessUtxo.Outputs[*i.previousOutputIndex]
+	} else if i.witnessUtxo != nil {
+		txOut = i.witnessUtxo
+	}
+
+	return txOut
+}

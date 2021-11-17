@@ -218,6 +218,21 @@ func (p *Pset) ComputeTimeLock() *uint32 {
 	return nil
 }
 
+// OwnerProvidedOutputBlindingInfo verifies if owner of the input/output provided
+//necessary output blinding
+func (p *Pset) OwnerProvidedOutputBlindingInfo(blinderIndex int) bool {
+	var bi = uint32(blinderIndex)
+	for _, v := range p.Outputs {
+		if v.outputBlinderIndex != nil {
+			if *v.outputBlinderIndex == bi {
+				return v.outputBlindingPubkey != nil
+			}
+		}
+	}
+
+	return false
+}
+
 func (p *Pset) validateInputTimeLock(input Input) error {
 	var timeLocktime uint32
 	var heightLocktime uint32

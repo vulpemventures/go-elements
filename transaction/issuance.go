@@ -22,6 +22,7 @@ type IssuanceContract struct {
 	Ticker    string         `json:"ticker"`
 	Version   uint           `json:"version"`
 	Precision uint           `json:"precision"`
+	PubKey    string         `json:"issuer_pubkey"`
 	Entity    IssuanceEntity `json:"entity"`
 }
 

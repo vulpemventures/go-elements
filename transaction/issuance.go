@@ -111,8 +111,12 @@ func NewTxIssuance(
 			return nil, err
 		}
 
-		contractHash = chainhash.HashB(serializedContract)
+		tmp, err := orderJsonKeysLexicographically(serializedContract)
+		if err != nil {
+			return nil, err
+		}
 
+		contractHash = elementsutil.ReverseBytes(chainhash.HashB(tmp))
 	}
 
 	confAssetAmount, err := toConfidentialAssetAmount(
@@ -218,4 +222,17 @@ func toConfidentialTokenAmount(tokenAmount uint64) ([]byte, error) {
 		return nil, err
 	}
 	return confAmount[:], nil
+}
+
+func orderJsonKeysLexicographically(bytes []byte) ([]byte, error) {
+	var ifce interface{}
+	err := json.Unmarshal(bytes, &ifce)
+	if err != nil {
+		return []byte{}, err
+	}
+	output, err := json.Marshal(ifce)
+	if err != nil {
+		return []byte{}, err
+	}
+	return output, nil
 }

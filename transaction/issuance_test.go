@@ -1,9 +1,11 @@
 package transaction
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,4 +84,56 @@ func TestIssuanceGeneration(t *testing.T) {
 			hex.EncodeToString(elementsutil.ReverseBytes(token)),
 		)
 	}
+}
+
+type Payload struct {
+	Contract     IssuanceContract `json:"contract"`
+	ContractHash string           `json:"contract_hash"`
+}
+
+func TestIsContractHashValid(t *testing.T) {
+	contract := IssuanceContract{
+		Name:      "Tiero Token",
+		Ticker:    "TIERO",
+		Version:   0,
+		Precision: 8,
+		PubKey:    "02a9a7399de89ec2e7de876bbe0b512f78f13d5d0a3315047e5b14109c8bac38f2",
+		Entity: IssuanceEntity{
+			Domain: "www.domain",
+		},
+	}
+
+	issuance, err := NewTxIssuance(10, 2, 8, &contract)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := Payload{
+		Contract:     contract,
+		ContractHash: hex.EncodeToString(issuance.ContractHash),
+	}
+	payloadBytes, err := json.Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := bytes.NewReader(payloadBytes)
+
+	req, err := http.NewRequest("POST", "https://assets.blockstream.info/contract/validate", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	bodyResp, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "valid", string(bodyResp))
 }

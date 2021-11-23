@@ -111,7 +111,7 @@ func NewTxIssuance(
 			return nil, err
 		}
 
-		tmp, err := orderJsonKeysLexicographically(serializedContract)
+		tmp, err := orderJsonKeysLexographically(serializedContract)
 		if err != nil {
 			return nil, err
 		}
@@ -224,7 +224,7 @@ func toConfidentialTokenAmount(tokenAmount uint64) ([]byte, error) {
 	return confAmount[:], nil
 }
 
-func orderJsonKeysLexicographically(bytes []byte) ([]byte, error) {
+func orderJsonKeysLexographically(bytes []byte) ([]byte, error) {
 	var ifce interface{}
 	err := json.Unmarshal(bytes, &ifce)
 	if err != nil {

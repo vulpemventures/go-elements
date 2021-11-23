@@ -25,13 +25,14 @@
         "ticker": "TST",
         "version": 0,
         "precision": 0,
-        "entity": { "domain": "test.io" }
+        "entity": { "domain": "test.io" },
+        "issuer_pubkey":    "02a9a7399de89ec2e7de876bbe0b512f78f13d5d0a3315047e5b14109c8bac38f2"
       },
       "expectedAssetAmount": 1000,
       "expectedTokenAmount": 1,
-      "expectedEntropy": "2b73af1c9ae64a6903b3055361dd7b75082003a85374049982fc1e8f31b9a8cf",
-      "expectedAsset": "7af6e284f3729228895eddd45b39f72be65f8866d404e5c4374b2b97e7f178e7",
-      "expectedToken": "5b706edc0f72ea114e7a1f867c8b63a698944435e62699b9821deecc6d81bcef"
+      "expectedEntropy": "e405b6a4f891b7226cc3d9075c1a9c64ab73bb5f68e458dbe95340518c455bf7",
+      "expectedAsset": "210521aacc918a1c78106e720a667606f53eb72be593bc450329843bc3b959f5",
+      "expectedToken": "a0d7995a1d61446957834aaebd053a2c494dd9d14abc83486e4de2c4edd15943"
     }
   ]
 }

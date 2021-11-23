@@ -116,7 +116,7 @@ func NewTxIssuance(
 			return nil, err
 		}
 
-		contractHash = elementsutil.ReverseBytes(chainhash.HashB(tmp))
+		contractHash = chainhash.HashB(tmp)
 	}
 
 	confAssetAmount, err := toConfidentialAssetAmount(

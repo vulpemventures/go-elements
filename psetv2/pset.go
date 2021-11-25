@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/btcsuite/btcutil/psbt"
+
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -17,8 +19,7 @@ const (
 )
 
 var (
-	psetMagic = []byte{0x70, 0x73, 0x65, 0x74, 0xFF} //'pset' string with magic separator 0xFF
-	//psetMagic                       = []byte{0x70, 0x73, 0x62, 0x74, 0xFF}
+	psetMagic                       = []byte{0x70, 0x73, 0x65, 0x74, 0xFF} //'pset' string with magic separator 0xFF
 	ErrInvalidPsbtFormat            = errors.New("invalid PSBT serialization format")
 	ErrNoMoreKeyPairs               = errors.New("no more key-pairs")
 	ErrInvalidKeySize               = errors.New("invalid key size")
@@ -30,6 +31,13 @@ var (
 	ErrInvalidLockTimeType          = errors.New("invalid locktime type")
 	ErrInvalidLockTime              = errors.New("invalid lock time")
 	ErrMissingMandatoryFields       = errors.New("missing mandatory fields")
+	// ErrInvalidSignatureForInput indicates that the signature the user is
+	// trying to append to the PSBT is invalid, either because it does
+	// not correspond to the previous transaction hash, or redeem script,
+	// or witness script.
+	// NOTE this does not include ECDSA signature checking.
+	ErrInvalidSignatureForInput = errors.New("Signature does not correspond " +
+		"to this input")
 )
 
 // Pset - Partially signed Element's transaction
@@ -295,6 +303,16 @@ func (p *Pset) validateInputTimeLock(input Input) error {
 			if hasSigs && *oldTimeLock != newTimeLock {
 				return ErrInvalidLockTime
 			}
+		}
+	}
+
+	return nil
+}
+
+func (p *Pset) SanityCheck() error {
+	for _, tin := range p.Inputs {
+		if !tin.IsSane() {
+			return psbt.ErrInvalidPsbtFormat
 		}
 	}
 

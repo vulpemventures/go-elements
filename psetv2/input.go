@@ -261,3 +261,18 @@ func (i *Input) GetUtxo() *transaction.TxOutput {
 
 	return txOut
 }
+
+func (i *Input) IsSane() bool {
+
+	if i.nonWitnessUtxo != nil && i.witnessUtxo != nil {
+		return false
+	}
+	if i.witnessUtxo == nil && i.witnessScript != nil {
+		return false
+	}
+	if i.witnessUtxo == nil && i.finalScriptWitness != nil {
+		return false
+	}
+
+	return true
+}

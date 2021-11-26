@@ -11,8 +11,42 @@ package psetv2
 
 import (
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcutil/psbt"
 )
+
+const (
+	// SignSuccesful indicates that the partial signature was successfully
+	// attached.
+	SignSuccesful = 0
+
+	// SignFinalized  indicates that this input is already finalized, so the provided
+	// signature was *not* attached
+	SignFinalized = 1
+
+	// SignInvalid indicates that the provided signature data was not valid. In this case
+	// an error will also be returned.
+	SignInvalid = -1
+)
+
+type Signer struct {
+	pset    *Pset
+	updater *Updater
+}
+
+func NewSigner(pset *Pset) (*Signer, error) {
+	updater, err := NewUpdater(pset)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Signer{
+		pset:    pset,
+		updater: updater,
+	}, nil
+}
+
+// SignOutcome is a enum-like value that expresses the outcome of a call to the
+// Sign method.
+type SignOutcome int
 
 // Sign allows the caller to sign a PSBT at a particular input; they
 // must provide a signature and a pubkey, both as byte slices; they can also
@@ -26,28 +60,28 @@ import (
 // before signing), and ensures that the right form of utxo field
 // (NonWitnessUtxo or WitnessUtxo) is included in the input so that signature
 // insertion (and then finalization) can take place.
-func (p *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
-	redeemScript []byte, witnessScript []byte) (psbt.SignOutcome, error) {
+func (s *Signer) Sign(inIndex int, sig []byte, pubKey []byte,
+	redeemScript []byte, witnessScript []byte) (SignOutcome, error) {
 
-	//if isFinalized(p.Data, inIndex) {
+	//if isFinalized(s.Data, inIndex) {
 	//	return psbt.SignFinalized, nil
 	//}
 
 	// Add the witnessScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if witnessScript != nil {
-		err := p.AddInWitnessScript(witnessScript, inIndex)
+		err := s.updater.AddInWitnessScript(witnessScript, inIndex)
 		if err != nil {
-			return psbt.SignInvalid, err
+			return SignInvalid, err
 		}
 	}
 
 	// Add the redeemScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if redeemScript != nil {
-		err := p.AddInRedeemScript(redeemScript, inIndex)
+		err := s.updater.AddInRedeemScript(redeemScript, inIndex)
 		if err != nil {
-			return psbt.SignInvalid, err
+			return SignInvalid, err
 		}
 	}
 
@@ -57,64 +91,64 @@ func (p *Updater) Sign(inIndex int, sig []byte, pubKey []byte,
 	// Case 1: if witnessScript is present, it must be of type witness;
 	// if not, signature insertion will of course fail.
 	switch {
-	case p.pset.Inputs[inIndex].witnessScript != nil:
-		if p.pset.Inputs[inIndex].witnessUtxo == nil {
-			err := nonWitnessToWitness(p.pset, inIndex)
+	case s.pset.Inputs[inIndex].witnessScript != nil:
+		if s.pset.Inputs[inIndex].witnessUtxo == nil {
+			err := nonWitnessToWitness(s.pset, inIndex)
 			if err != nil {
-				return psbt.SignInvalid, err
+				return SignInvalid, err
 			}
 		}
 
-		err := p.addPartialSignature(inIndex, sig, pubKey)
+		err := s.updater.addPartialSignature(inIndex, sig, pubKey)
 		if err != nil {
-			return psbt.SignInvalid, err
+			return SignInvalid, err
 		}
 
 	// Case 2: no witness script, only redeem script; can be legacy p2sh or
 	// p2sh-wrapped p2wkh.
-	case p.pset.Inputs[inIndex].redeemScript != nil:
+	case s.pset.Inputs[inIndex].redeemScript != nil:
 		// We only need to decide if the input is witness, and we don't
 		// rely on the witnessutxo/nonwitnessutxo in the PSBT, instead
 		// we check the redeemScript content.
 		if txscript.IsWitnessProgram(redeemScript) {
-			if p.pset.Inputs[inIndex].witnessUtxo == nil {
-				err := nonWitnessToWitness(p.pset, inIndex)
+			if s.pset.Inputs[inIndex].witnessUtxo == nil {
+				err := nonWitnessToWitness(s.pset, inIndex)
 				if err != nil {
-					return psbt.SignInvalid, err
+					return SignInvalid, err
 				}
 			}
 		}
 
 		// If it is not a valid witness program, we here assume that
 		// the provided WitnessUtxo/NonWitnessUtxo field was correct.
-		err := p.addPartialSignature(inIndex, sig, pubKey)
+		err := s.updater.addPartialSignature(inIndex, sig, pubKey)
 		if err != nil {
-			return psbt.SignInvalid, err
+			return SignInvalid, err
 		}
 
 	// Case 3: Neither provided only works for native p2wkh, or non-segwit
 	// non-p2sh. To check if it's segwit, check the scriptPubKey of the
 	// output.
 	default:
-		if p.pset.Inputs[inIndex].witnessUtxo == nil {
-			outIndex := p.pset.Inputs[inIndex].previousOutputIndex
-			script := p.pset.Inputs[inIndex].nonWitnessUtxo.Outputs[*outIndex].Script
+		if s.pset.Inputs[inIndex].witnessUtxo == nil {
+			outIndex := s.pset.Inputs[inIndex].previousOutputIndex
+			script := s.pset.Inputs[inIndex].nonWitnessUtxo.Outputs[*outIndex].Script
 
 			if txscript.IsWitnessProgram(script) {
-				err := nonWitnessToWitness(p.pset, inIndex)
+				err := nonWitnessToWitness(s.pset, inIndex)
 				if err != nil {
-					return psbt.SignInvalid, err
+					return SignInvalid, err
 				}
 			}
 		}
 
-		err := p.addPartialSignature(inIndex, sig, pubKey)
+		err := s.updater.addPartialSignature(inIndex, sig, pubKey)
 		if err != nil {
-			return psbt.SignInvalid, err
+			return SignInvalid, err
 		}
 	}
 
-	return psbt.SignSuccesful, nil
+	return SignSuccesful, nil
 }
 
 // nonWitnessToWitness extracts the TxOut from the existing NonWitnessUtxo

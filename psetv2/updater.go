@@ -39,7 +39,9 @@ type Updater struct {
 // in a valid form, else an error.a
 func NewUpdater(p *Pset) (*Updater, error) {
 
-	return &Updater{pset: p}, nil
+	return &Updater{
+		pset: p,
+	}, nil
 }
 
 // AddInNonWitnessUtxo adds the utxo information for an input which is

@@ -276,3 +276,18 @@ func (i *Input) IsSane() bool {
 
 	return true
 }
+
+// checkSigHashFlags compares the sighash flag byte on a signature with the
+// value expected according to any PsbtInSighashType field in this section of
+// the PSBT, and returns true if they match, false otherwise.
+// If no SighashType field exists, it is assumed to be SIGHASH_ALL.
+//
+// TODO(waxwing): sighash type not restricted to one byte in future?
+func checkSigHashFlags(sig []byte, input Input) bool {
+	expectedSighashType := txscript.SigHashAll
+	if input.sigHashType != nil {
+		expectedSighashType = *input.sigHashType
+	}
+
+	return expectedSighashType == txscript.SigHashType(sig[len(sig)-1])
+}

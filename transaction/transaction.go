@@ -577,7 +577,7 @@ func (tx *Transaction) HashForSignature(
 		}
 	}
 
-	shouldCalculateRangeProofsHash := (hashType & SighashRangeproof) == 0
+	shouldCalculateRangeProofsHash := (hashType & SighashRangeproof) != 0
 	buf, err := txCopy.serialize(nil, false, true, true, shouldCalculateRangeProofsHash)
 	if err != nil {
 		return [32]byte{}, err
@@ -590,7 +590,7 @@ func (tx *Transaction) HashForSignature(
 // of the transaction following the BIP-0143 specification. This hash should
 // then be used to produce a witness signatures for the given inIndex input.
 func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value []byte, hashType txscript.SigHashType) [32]byte {
-	shouldCalculateRangeProofsHash := (hashType & SighashRangeproof) == 0
+	shouldCalculateRangeProofsHash := (hashType & SighashRangeproof) != 0
 
 	hashInputs := Zero
 	hashSequences := Zero

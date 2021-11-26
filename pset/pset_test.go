@@ -1544,7 +1544,7 @@ func signTransaction(
 	}
 
 	for i, in := range p.Inputs {
-		if err := updater.AddInSighashType(txscript.SigHashAll, i); err != nil {
+		if err := updater.AddInSighashType(txscript.SigHashAll|transaction.SighashRangeproof, i); err != nil {
 			return err
 		}
 
@@ -1564,10 +1564,10 @@ func signTransaction(
 				i,
 				script,
 				prevout.Value,
-				txscript.SigHashAll,
+				txscript.SigHashAll|transaction.SighashRangeproof,
 			)
 		} else {
-			sigHash, err = p.UnsignedTx.HashForSignature(i, script, txscript.SigHashAll)
+			sigHash, err = p.UnsignedTx.HashForSignature(i, script, txscript.SigHashAll|transaction.SighashRangeproof)
 			if err != nil {
 				return err
 			}
@@ -1577,7 +1577,7 @@ func signTransaction(
 		if err != nil {
 			return err
 		}
-		sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
+		sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll|transaction.SighashRangeproof))
 
 		var witPubkeyScript []byte
 		var witScript []byte

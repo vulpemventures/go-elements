@@ -19,7 +19,7 @@ func NewExtractor(pset *Pset) *Extractor {
 func (e *Extractor) Extract() (*transaction.Transaction, error) {
 	tx := transaction.NewTx(int32(*e.pset.Global.version))
 
-	tx.Locktime = *e.pset.ComputeTimeLock()
+	tx.Locktime = *e.pset.CalculateTimeLock()
 
 	for _, v := range e.pset.Inputs {
 		txInput := &transaction.TxInput{}

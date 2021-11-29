@@ -208,7 +208,7 @@ func (p *Pset) IsOutputModifiable() bool {
 	return *p.Global.txInfo.txModifiable&2 == 1 // 0000 0010
 }
 
-func (p *Pset) ComputeTimeLock() *uint32 {
+func (p *Pset) CalculateTimeLock() *uint32 {
 	var heightLockTime uint32
 	var timeLockTime uint32
 	for _, v := range p.Inputs {
@@ -255,53 +255,62 @@ func (p *Pset) OwnerProvidedOutputBlindingInfo(blinderIndex int) bool {
 }
 
 func (p *Pset) validateInputTimeLock(input Input) error {
+	shouldIterate := input.requiredTimeLocktime != nil || input.requiredHeightLocktime != nil
 	var timeLocktime uint32
 	var heightLocktime uint32
 	hasSigs := false
-	if input.requiredTimeLocktime != nil || input.requiredHeightLocktime != nil {
-		oldTimeLock := p.ComputeTimeLock()
-		for _, v := range p.Inputs {
-			if v.requiredTimeLocktime != nil && v.requiredHeightLocktime == nil {
-				if input.requiredTimeLocktime == nil {
-					return ErrInvalidLockTimeType
+	if shouldIterate {
+		if input.requiredTimeLocktime != nil || input.requiredHeightLocktime != nil {
+			oldTimeLock := p.CalculateTimeLock()
+			for _, v := range p.Inputs {
+				if v.requiredTimeLocktime != nil && v.requiredHeightLocktime == nil {
+					if input.requiredTimeLocktime == nil {
+						return ErrInvalidLockTimeType
+					}
+				}
+
+				if v.requiredTimeLocktime == nil && v.requiredHeightLocktime != nil {
+					if input.requiredHeightLocktime == nil {
+						return ErrInvalidLockTimeType
+					}
+				}
+
+				if v.requiredTimeLocktime != nil && input.requiredTimeLocktime != nil {
+					timeLocktime = *v.requiredTimeLocktime
+					if *input.requiredTimeLocktime > timeLocktime {
+						timeLocktime = *input.requiredTimeLocktime
+					}
+				}
+
+				if v.requiredHeightLocktime != nil && input.requiredHeightLocktime != nil {
+					heightLocktime = *v.requiredHeightLocktime
+					if *input.requiredHeightLocktime > heightLocktime {
+						heightLocktime = *input.requiredHeightLocktime
+					}
+				}
+
+				if v.partialSigs != nil {
+					hasSigs = true
 				}
 			}
 
-			if v.requiredTimeLocktime == nil && v.requiredHeightLocktime != nil {
-				if input.requiredHeightLocktime == nil {
-					return ErrInvalidLockTimeType
+			var newTimeLock uint32
+			if p.Global.txInfo.fallBackLockTime != nil {
+				newTimeLock = *p.Global.txInfo.fallBackLockTime
+			}
+
+			if heightLocktime > 0 {
+				newTimeLock = heightLocktime
+			}
+
+			if timeLocktime > 0 {
+				newTimeLock = timeLocktime
+			}
+
+			if oldTimeLock != nil {
+				if hasSigs && *oldTimeLock != newTimeLock {
+					return ErrInvalidLockTime
 				}
-			}
-
-			if v.requiredTimeLocktime != nil && input.requiredTimeLocktime != nil {
-				timeLocktime = *v.requiredTimeLocktime
-			}
-
-			if v.requiredHeightLocktime != nil && input.requiredHeightLocktime != nil {
-				heightLocktime = *v.requiredHeightLocktime
-			}
-
-			if v.partialSigs != nil {
-				hasSigs = true
-			}
-		}
-
-		var newTimeLock uint32
-		if p.Global.txInfo.fallBackLockTime != nil {
-			newTimeLock = *p.Global.txInfo.fallBackLockTime
-		}
-
-		if heightLocktime > 0 {
-			newTimeLock = heightLocktime
-		}
-
-		if timeLocktime > 0 {
-			newTimeLock = timeLocktime
-		}
-
-		if oldTimeLock != nil {
-			if hasSigs && *oldTimeLock != newTimeLock {
-				return ErrInvalidLockTime
 			}
 		}
 	}

@@ -83,3 +83,32 @@ func TestIssuanceGeneration(t *testing.T) {
 		)
 	}
 }
+
+func TestIsContractHashValid(t *testing.T) {
+	contract := IssuanceContract{
+		Name:      "Tiero Token",
+		Ticker:    "TIERO",
+		Version:   0,
+		Precision: 8,
+		PubKey:    "02a9a7399de89ec2e7de876bbe0b512f78f13d5d0a3315047e5b14109c8bac38f2",
+		Entity: IssuanceEntity{
+			Domain: "tiero.github.io",
+		},
+	}
+
+	issuance, err := NewTxIssuance(10, 2, 8, &contract)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(
+		t,
+		"d5c4363ee9cf2a4319c2f0ccc04cdb83d6213e4d26d94d70003c58eaf2473866",
+		hex.EncodeToString(elementsutil.ReverseBytes(issuance.ContractHash)), //validate online with reverse contract hash
+	)
+	assert.Equal(
+		t,
+		"663847f2ea583c00704dd9264d3e21d683db4cc0ccf0c219432acfe93e36c4d5",
+		hex.EncodeToString(issuance.ContractHash),
+	)
+}

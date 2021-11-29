@@ -171,8 +171,8 @@ func TestUpdaterAddIssuance(t *testing.T) {
 					TokenAddress: "el1qqw3e3mk4ng3ks43mh54udznuekaadh9lgwef3mwgzrfzakmdwcvqpe4ppdaa3t44v3zv2u6w56pv6tc666fvgzaclqjnkz0sd",
 				},
 				expectedNumOuts: 2,
-				expectedAsset:   "707953a405b1a79180ec7830e51d53997b3d1ff9aa614513266059dbfbbdbeb7",
-				expectedToken:   "c99343e56d9783a816b866c48d182a9537d4979f1ed66d90ac6a49ec773daee9",
+				expectedAsset:   "a5795a31c20057a117af937c9b28c119ada3c402c7c326a1c5e4fd1e95e1c588",
+				expectedToken:   "2b06c9d643481c54b1440b615928b3811cf4f499787360c42a368ecc7fd92b2e",
 			},
 			{
 				args: AddIssuanceArgs{

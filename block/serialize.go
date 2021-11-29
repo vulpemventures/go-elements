@@ -2,7 +2,6 @@ package block
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
@@ -84,18 +83,18 @@ func (h *Header) SerializeHeader(
 	return nil
 }
 
-func (h *Header) GetHash() ([]byte, error) {
+func (h *Header) GetHash() (chainhash.Hash, error) {
 	buf, err := bufferutil.NewSerializer(nil)
 	if err != nil {
-		return nil, err
+		return chainhash.Hash{}, err
 	}
 
 	err = h.SerializeHeader(buf, true)
 	if err != nil {
-		return nil, err
+		return chainhash.Hash{}, err
 	}
 
-	return elementsutil.ReverseBytes(chainhash.DoubleHashB(buf.Bytes())), nil
+	return chainhash.DoubleHashH(buf.Bytes()), nil
 }
 
 func (e *ExtData) serialize(

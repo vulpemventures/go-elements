@@ -43,7 +43,7 @@ func TestBlockHash(t *testing.T) {
 				tt.Fatal(err)
 			}
 
-			hashHex := hex.EncodeToString(hash)
+			hashHex := hash.String()
 
 			if hashHex != v.Hash {
 				tt.Errorf("hash: expected %s, got %s", v.Hash, hashHex)

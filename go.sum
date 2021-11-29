@@ -56,6 +56,8 @@ github.com/vulpemventures/go-secp256k1-zkp v1.1.3 h1:Jy/OxkPYJYIFrwJkXr5vk86h9Ob
 github.com/vulpemventures/go-secp256k1-zkp v1.1.3/go.mod h1:zo7CpgkuPgoe7fAV+inyxsI9IhGmcoFgyD8nqZaPSOM=
 github.com/vulpemventures/go-secp256k1-zkp v1.1.4 h1:qXK7dTXQ4xTyN8xHjx5wXsjNbo5h6gTWCrZf1YoDPx4=
 github.com/vulpemventures/go-secp256k1-zkp v1.1.4/go.mod h1:zo7CpgkuPgoe7fAV+inyxsI9IhGmcoFgyD8nqZaPSOM=
+github.com/vulpemventures/go-secp256k1-zkp v1.1.5 h1:oG1kO8ibVQ1wOvYcnFyuI+2YqnEZluXdRwkOPJlHBQM=
+github.com/vulpemventures/go-secp256k1-zkp v1.1.5/go.mod h1:zo7CpgkuPgoe7fAV+inyxsI9IhGmcoFgyD8nqZaPSOM=
 golang.org/x/crypto v0.0.0-20170930174604-9419663f5a44/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=

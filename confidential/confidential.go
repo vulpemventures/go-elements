@@ -740,3 +740,61 @@ func CreateBlindValueProof(
 		gen,
 	)
 }
+
+func VerifyBlindValueProof(
+	value int64,
+	valueCommitment []byte,
+	blindValueProof []byte,
+	assetCommitment []byte,
+) (bool, error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	commitment, err := secp256k1.CommitmentParse(ctx, valueCommitment)
+	if err != nil {
+		return false, err
+	}
+
+	assetGenerator, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	if err != nil {
+		return false, err
+	}
+
+	valid, minValue, _ := secp256k1.RangeProofVerify(
+		ctx,
+		blindValueProof,
+		commitment,
+		nil,
+		assetGenerator,
+	)
+
+	return valid && int64(minValue) == value, nil
+}
+
+func VerifyBlindAssetProof(
+	asset []byte,
+	blindAssetProof []byte,
+	assetCommitment []byte,
+) (bool, error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	surjectionProof, err := secp256k1.SurjectionProofParse(ctx, blindAssetProof)
+	if err != nil {
+		return false, err
+	}
+
+	blindAssetGen, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	if err != nil {
+		return false, err
+	}
+
+	assetGen, err := secp256k1.GeneratorGenerate(ctx, asset)
+	if err != nil {
+		return false, err
+	}
+	generators := []*secp256k1.Generator{assetGen}
+
+	secp256k1.SurjectionProofVerify(ctx, surjectionProof, generators, blindAssetGen)
+	return false, nil
+}

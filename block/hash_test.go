@@ -15,9 +15,9 @@ func TestBlockHash(t *testing.T) {
 	}
 
 	var tests []struct {
-		Name string `json:"name"`
+		Name           string `json:"name"`
 		BlockHeaderHex string `json:"blockHeaderHex"`
-		Hash string `json:"hash"`
+		Hash           string `json:"hash"`
 	}
 
 	err = json.Unmarshal(file, &tests)

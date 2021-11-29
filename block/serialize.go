@@ -166,7 +166,7 @@ func (d *DynamicFederation) serialize(
 		}
 	}
 
- 	if !forHash {
+	if !forHash {
 		if err := s.WriteVarInt(uint64(len(d.SignBlockWitness))); err != nil {
 			return err
 		}

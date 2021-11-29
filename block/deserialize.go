@@ -38,7 +38,7 @@ func DeserializeHeader(
 		return nil, err
 	}
 
-	isDyna := DYNAFED_HF_MASK & version != 0
+	isDyna := DYNAFED_HF_MASK&version != 0
 	if isDyna {
 		version &= ^DYNAFED_HF_MASK
 	}

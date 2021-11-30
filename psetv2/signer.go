@@ -25,6 +25,12 @@ const (
 	// SignInvalid indicates that the provided signature data was not valid. In this case
 	// an error will also be returned.
 	SignInvalid = -1
+
+	// SignBlindingNotDone indicates that blinding is not done
+	SignBlindingNotDone = 2
+
+	// SignBlindingProofsInvalid indicates that blinding proofs are invalid
+	SignBlindingProofsInvalid = 3
 )
 
 type Signer struct {
@@ -48,7 +54,7 @@ func NewSigner(pset *Pset) (*Signer, error) {
 // Sign method.
 type SignOutcome int
 
-// Sign allows the caller to sign a PSBT at a particular input; they
+// SignInput allows the caller to sign a PSBT at a particular input; they
 // must provide a signature and a pubkey, both as byte slices; they can also
 // optionally provide both witnessScript and/or redeemScript, otherwise these
 // arguments must be set as nil (and in that case, they must already be present
@@ -60,12 +66,28 @@ type SignOutcome int
 // before signing), and ensures that the right form of utxo field
 // (NonWitnessUtxo or WitnessUtxo) is included in the input so that signature
 // insertion (and then finalization) can take place.
-func (s *Signer) Sign(inIndex int, sig []byte, pubKey []byte,
-	redeemScript []byte, witnessScript []byte) (SignOutcome, error) {
+func (s *Signer) SignInput(
+	inIndex int,
+	sig []byte,
+	pubKey []byte,
+	redeemScript []byte,
+	witnessScript []byte,
+) (SignOutcome, error) {
+	if isFinalized(s.pset, inIndex) {
+		return SignFinalized, nil
+	}
 
-	//if isFinalized(s.Data, inIndex) {
-	//	return psbt.SignFinalized, nil
-	//}
+	if !s.pset.blinded() {
+		return SignBlindingNotDone, nil
+	}
+
+	proofsValid, err := s.pset.blindProofsValid()
+	if err != nil {
+		return 0, err
+	}
+	if !proofsValid {
+		return SignBlindingProofsInvalid, nil
+	}
 
 	// Add the witnessScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.

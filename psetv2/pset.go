@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/vulpemventures/go-elements/confidential"
+
 	"github.com/btcsuite/btcutil/psbt"
 
 	"github.com/vulpemventures/go-elements/transaction"
@@ -326,4 +328,57 @@ func (p *Pset) SanityCheck() error {
 	}
 
 	return nil
+}
+
+func (p *Pset) blinded() bool {
+	for _, v := range p.Outputs {
+		if v.ToBlind() {
+			if !v.IsBlinded() {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (p *Pset) blindProofsValid() (bool, error) {
+	for _, v := range p.Outputs {
+		if v.ToBlind() {
+			if !v.IsBlinded() {
+				return false, nil
+			}
+
+			if v.outputAmount != nil {
+				valid, err := confidential.VerifyBlindValueProof(
+					*v.outputAmount,
+					v.outputValueCommitment,
+					v.outputBlindValueProof,
+					v.outputAssetCommitment,
+				)
+				if err != nil {
+					return false, err
+				}
+
+				if !valid {
+					return false, nil
+				}
+			}
+
+			if v.outputAsset != nil {
+				valid, err := confidential.VerifyBlindAssetProof(
+					v.outputAsset,
+					v.outputBlindAssetProof,
+					v.outputAssetCommitment,
+				)
+				if err != nil {
+					return false, err
+				}
+
+				if !valid {
+					return false, nil
+				}
+			}
+		}
+	}
+	return true, nil
 }

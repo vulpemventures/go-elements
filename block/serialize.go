@@ -115,8 +115,8 @@ func (h *Header) Serialize() ([]byte, error) {
 	return s.Bytes(), nil
 }
 
-// GetHash gets the bytes with SerializeForHash and DoubleHash the bytes
-func (h *Header) GetHash() (chainhash.Hash, error) {
+// Hash gets the bytes with SerializeForHash and DoubleHash the bytes
+func (h *Header) Hash() (chainhash.Hash, error) {
 	bytes, err := h.SerializeForHash()
 	if err != nil {
 		return chainhash.Hash{}, err

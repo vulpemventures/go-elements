@@ -38,7 +38,7 @@ func TestBlockHash(t *testing.T) {
 				tt.Fatal(err)
 			}
 
-			hash, err := header.GetHash()
+			hash, err := header.Hash()
 			if err != nil {
 				tt.Fatal(err)
 			}

@@ -11,7 +11,7 @@ func (b *Block) SerializeBlock() ([]byte, error) {
 		return nil, err
 	}
 
-	err = b.Header.SerializeHeader(s, false)
+	err = b.Header.serializeHeader(s, false)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (t *Transactions) SerializeTransactions(
 	return nil
 }
 
-func (h *Header) SerializeHeader(
+func (h *Header) serializeHeader(
 	s *bufferutil.Serializer,
 	forHash bool,
 ) error {
@@ -83,18 +83,46 @@ func (h *Header) SerializeHeader(
 	return nil
 }
 
+// SerializeForHash returns the block bytes for block hash
+// it does not include some data of the block (like witness or solution in case of signed blocks)
+func (h *Header) SerializeForHash() ([]byte, error) {
+	s, err := bufferutil.NewSerializer(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = h.serializeHeader(s, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Bytes(), nil
+}
+
+// Serialize returns the block bytes
+// includes all the data of the block
+func (h *Header) Serialize() ([]byte, error) {
+	s, err := bufferutil.NewSerializer(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = h.serializeHeader(s, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Bytes(), nil
+}
+
+// GetHash gets the bytes with SerializeForHash and DoubleHash the bytes
 func (h *Header) GetHash() (chainhash.Hash, error) {
-	buf, err := bufferutil.NewSerializer(nil)
+	bytes, err := h.SerializeForHash()
 	if err != nil {
 		return chainhash.Hash{}, err
 	}
 
-	err = h.SerializeHeader(buf, true)
-	if err != nil {
-		return chainhash.Hash{}, err
-	}
-
-	return chainhash.DoubleHashH(buf.Bytes()), nil
+	return chainhash.DoubleHashH(bytes), nil
 }
 
 func (e *ExtData) serialize(

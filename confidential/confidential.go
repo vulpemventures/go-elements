@@ -20,6 +20,14 @@ const (
 	maxSurjectionTargets = 3
 )
 
+var (
+	Zero = []byte{
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+)
+
 // NonceHash method generates hashed secret based on ecdh.
 func NonceHash(pubKey, privKey []byte) (
 	result [32]byte,
@@ -665,7 +673,12 @@ func SubtractScalars(a []byte, b []byte) ([]byte, error) {
 }
 
 // ComputeAndAddToScalarOffset computes a scalar offset and adds it to another existing one
-func ComputeAndAddToScalarOffset(scalar []byte, value uint64, assetBlinder []byte, valueBlinder []byte) ([]byte, error) {
+func ComputeAndAddToScalarOffset(
+	scalar []byte,
+	value uint64,
+	assetBlinder []byte,
+	valueBlinder []byte,
+) ([]byte, error) {
 	// If both asset and value blinders are null, 0 is added to the offset, so nothing actually happens
 	if assetBlinder == nil && valueBlinder == nil {
 		return scalar, nil
@@ -739,6 +752,69 @@ func CreateBlindValueProof(
 		nil,
 		gen,
 	)
+}
+
+func CreateBlindAssetProof(
+	asset []byte,
+	assetCommitment []byte,
+	assetBlinder []byte,
+) ([]byte, error) {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	fixedAssetTag, err := secp256k1.FixedAssetTagParse(asset)
+	if err != nil {
+		return nil, err
+	}
+	fixedInputTags := []*secp256k1.FixedAssetTag{fixedAssetTag}
+
+	maxIterations := 100
+	proof, inputIndex, err := secp256k1.SurjectionProofInitialize(
+		ctx,
+		fixedInputTags,
+		1,
+		fixedAssetTag,
+		maxIterations,
+		Zero,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	gen, err := secp256k1.GeneratorGenerate(ctx, asset)
+	if err != nil {
+		return nil, err
+	}
+	assetGen := []*secp256k1.Generator{gen}
+
+	blindedAssetGen, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	if err != nil {
+		return nil, err
+	}
+
+	err = secp256k1.SurjectionProofGenerate(
+		ctx,
+		proof,
+		assetGen,
+		blindedAssetGen,
+		inputIndex,
+		Zero,
+		assetBlinder,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if !secp256k1.SurjectionProofVerify(
+		ctx,
+		proof,
+		assetGen,
+		blindedAssetGen,
+	) {
+		return nil, err
+	}
+
+	return proof.Bytes(), nil
 }
 
 func VerifyBlindValueProof(

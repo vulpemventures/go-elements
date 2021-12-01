@@ -359,10 +359,13 @@ func (b *Blinder) blindOutputs(
 			return nil, false, ErrGenerateSurjectionProof
 		}
 
-		surjectionProofArgs.NumberOfTargets = 1
-		blindAssetProof, ok := confidential.SurjectionProof(surjectionProofArgs)
-		if !ok {
-			return nil, false, ErrGenerateSurjectionProof
+		blindAssetProof, err := confidential.CreateBlindAssetProof(
+			output.outputAsset,
+			assetCommitment,
+			assetBlindingFactor,
+		)
+		if err != nil {
+			return nil, false, err
 		}
 
 		output.outputAssetCommitment = assetCommitment

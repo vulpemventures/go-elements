@@ -34,19 +34,21 @@ const (
 )
 
 type SignerRole struct {
-	pset    *Pset
-	updater *UpdaterRole
+	pset       *Pset
+	blinderSvc Blinder
+	updater    *UpdaterRole
 }
 
-func NewSignerRole(pset *Pset) (*SignerRole, error) {
+func NewSignerRole(pset *Pset, blinderSvc Blinder) (*SignerRole, error) {
 	updater, err := NewUpdaterRole(pset)
 	if err != nil {
 		return nil, err
 	}
 
 	return &SignerRole{
-		pset:    pset,
-		updater: updater,
+		pset:       pset,
+		blinderSvc: blinderSvc,
+		updater:    updater,
 	}, nil
 }
 
@@ -81,7 +83,7 @@ func (s *SignerRole) SignInput(
 		return SignBlindingNotDone, nil
 	}
 
-	proofsValid, err := s.pset.blindProofsValid()
+	proofsValid, err := s.blindProofsValid()
 	if err != nil {
 		return 0, err
 	}
@@ -188,4 +190,46 @@ func nonWitnessToWitness(p *Pset, inIndex int) error {
 	}
 
 	return u.AddInWitnessUtxo(txout, inIndex)
+}
+
+func (s *SignerRole) blindProofsValid() (bool, error) {
+	for _, v := range s.pset.Outputs {
+		if v.ToBlind() {
+			if !v.IsBlinded() {
+				return false, nil
+			}
+
+			if v.outputAmount != nil {
+				valid, err := s.blinderSvc.VerifyBlindValueProof(
+					*v.outputAmount,
+					v.outputValueCommitment,
+					v.outputBlindValueProof,
+					v.outputAssetCommitment,
+				)
+				if err != nil {
+					return false, err
+				}
+
+				if !valid {
+					return false, nil
+				}
+			}
+
+			if v.outputAsset != nil {
+				valid, err := s.blinderSvc.VerifyBlindAssetProof(
+					v.outputAsset,
+					v.outputBlindAssetProof,
+					v.outputAssetCommitment,
+				)
+				if err != nil {
+					return false, err
+				}
+
+				if !valid {
+					return false, nil
+				}
+			}
+		}
+	}
+	return true, nil
 }

@@ -1,19 +1,16 @@
 package psetv2
 
-type Creator struct {
-	pset                   *Pset
-	globalFallbackLockTime uint32
+type CreatorRole struct {
+	globalFallbackLockTime *uint32
 }
 
-func NewCreator(p *Pset, globalFallbackLockTime uint32) (*Creator, error) {
-
-	return &Creator{
-		pset:                   p,
+func NewCreatorRole(globalFallbackLockTime *uint32) (*CreatorRole, error) {
+	return &CreatorRole{
 		globalFallbackLockTime: globalFallbackLockTime,
 	}, nil
 }
 
-func (c *Creator) Create() (*Pset, error) {
+func (c *CreatorRole) Create() (*Pset, error) {
 	var psetVersion uint32 = 2
 	var txVersion uint32 = 2
 	var inputCount uint64 = 0
@@ -24,7 +21,7 @@ func (c *Creator) Create() (*Pset, error) {
 		Global: &Global{
 			txInfo: TxInfo{
 				version:          &txVersion,
-				fallBackLockTime: &c.globalFallbackLockTime,
+				fallBackLockTime: c.globalFallbackLockTime,
 				inputCount:       &inputCount,
 				outputCount:      &outputCount,
 				txModifiable:     &txModifiableFlag,

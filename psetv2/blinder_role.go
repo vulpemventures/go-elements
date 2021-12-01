@@ -7,8 +7,6 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 
 	"github.com/vulpemventures/go-elements/transaction"
-
-	"github.com/vulpemventures/go-elements/confidential"
 )
 
 var (
@@ -19,39 +17,81 @@ var (
 	ErrGenerateSurjectionProof              = errors.New("failed to generate surjection proof, please retry")
 )
 
-type randomNumberGenerator func() ([]byte, error)
+type Blinder interface {
+	AssetCommitment(asset, factor []byte) ([]byte, error)
+	ValueCommitment(value uint64, generator, factor []byte) ([]byte, error)
+	NonceHash(pubKey, privKey []byte) ([32]byte, error)
+	RangeProof(value uint64,
+		nonce [32]byte,
+		asset []byte,
+		assetBlindingFactor []byte,
+		valueBlindFactor [32]byte,
+		valueCommit []byte,
+		scriptPubkey []byte,
+		minValue uint64,
+		exp int,
+		minBits int,
+	) ([]byte, error)
+	SurjectionProof(
+		outputAsset []byte,
+		outputAssetBlindingFactor []byte,
+		inputAssets [][]byte,
+		inputAssetBlindingFactors [][]byte,
+		seed []byte,
+		numberOfTargets int,
+	) ([]byte, bool)
+	SubtractScalars(a []byte, b []byte) ([]byte, error)
+	ComputeAndAddToScalarOffset(
+		scalar []byte,
+		value uint64,
+		assetBlinder []byte,
+		valueBlinder []byte,
+	) ([]byte, error)
+	CreateBlindValueProof(
+		rng func() ([]byte, error),
+		valueBlindingFactor []byte,
+		amount uint64,
+		valueCommitment []byte,
+		assetCommitment []byte,
+	) ([]byte, error)
+	CreateBlindAssetProof(
+		asset []byte,
+		assetCommitment []byte,
+		assetBlinder []byte,
+	) ([]byte, error)
+	VerifyBlindValueProof(
+		value int64,
+		valueCommitment []byte,
+		blindValueProof []byte,
+		assetCommitment []byte,
+	) (bool, error)
+	VerifyBlindAssetProof(
+		asset []byte,
+		blindAssetProof []byte,
+		assetCommitment []byte,
+	) (bool, error)
+	UnblindOutputWithKey(
+		out *transaction.TxOutput,
+		blindKey []byte,
+	) (uint64, []byte, []byte, []byte, error)
+}
 
-type psetInputIndex int
-
-type Blinder struct {
+type BlinderRole struct {
 	pset                        *Pset
+	blinderSvc                  Blinder
 	issuanceBlindingPrivateKeys IssuanceBlindingPrivateKeys
 	rng                         randomNumberGenerator
 
-	inputTxOutSecrets map[psetInputIndex]confidential.UnblindOutputResult
+	inputTxOutSecrets map[psetInputIndex]InputSecrets
 }
 
-// BlindingInfo is used to find secrets data that are going to be used for
-//blinding corresponding output
-type BlindingInfo struct {
-	// PsetInputIndex defines which previous output of pset input in going to be unblinded
-	PsetInputIndex int
-	// PrevOutPrivateBlindingKey is private blinding key of inputs previous output
-	PrevOutPrivateBlindingKey []byte
-}
-
-// IssuanceBlindingPrivateKeys stores the AssetKey and TokenKey that will be used in the Blinder.
-type IssuanceBlindingPrivateKeys struct {
-	AssetKey []byte
-	TokenKey []byte
-}
-
-func NewBlinder(
+func NewBlinderRole(
 	pset *Pset,
+	blinderSvc Blinder,
 	prevOutBlindingInfos []BlindingInfo,
 	issuanceBlindingPrivateKeys IssuanceBlindingPrivateKeys,
 	rng randomNumberGenerator,
-) (*Blinder, error) {
+) (*BlinderRole, error) {
 	var gen randomNumberGenerator
 	if rng == nil {
 		gen = generateRandomNumber
@@ -59,20 +99,21 @@ func NewBlinder(
 		gen = rng
 	}
 	//unblind previous outputs
-	inputTxOutSecrets, err := getInputSecrets(pset, prevOutBlindingInfos)
+	inputTxOutSecrets, err := getInputSecrets(pset, prevOutBlindingInfos, blinderSvc)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Blinder{
+	return &BlinderRole{
 		pset:                        pset,
+		blinderSvc:                  blinderSvc,
 		inputTxOutSecrets:           inputTxOutSecrets,
 		issuanceBlindingPrivateKeys: issuanceBlindingPrivateKeys,
 		rng:                         gen,
 	}, nil
 }
 
-func (b *Blinder) Blind() error {
+func (b *BlinderRole) Blind() error {
 	toBeOrAlreadyBlinded, numOfBlindedOutputs, ownedOutputsToBeBlindedIndexes := b.blindCheck()
 
 	//if all blinded return
@@ -104,7 +145,7 @@ func (b *Blinder) Blind() error {
 	}
 
 	if !lastBlinded && outputScalar != nil {
-		offset, err := confidential.SubtractScalars(outputScalar, inputScalar)
+		offset, err := b.blinderSvc.SubtractScalars(outputScalar, inputScalar)
 		if err != nil {
 			return err
 		}
@@ -115,12 +156,42 @@ func (b *Blinder) Blind() error {
 	return nil
 }
 
+type randomNumberGenerator func() ([]byte, error)
+
+type psetInputIndex int
+
+// BlindingInfo is used to find secrets data that are going to be used for
+//blinding corresponding output
+type BlindingInfo struct {
+	// PsetInputIndex defines which previous output of pset input in going to be unblinded
+	PsetInputIndex int
+	// PrevOutPrivateBlindingKey is private blinding key of inputs previous output
+	PrevOutPrivateBlindingKey []byte
+}
+
+// IssuanceBlindingPrivateKeys stores the AssetKey and TokenKey that will be used in the BlinderRole.
+type IssuanceBlindingPrivateKeys struct {
+	AssetKey []byte
+	TokenKey []byte
+}
+
+// InputSecrets is the type returned by the functions that unblind tx
+// outs. It contains the unblinded asset and value and also the respective
+// blinding factors.
+type InputSecrets struct {
+	Value               uint64
+	Asset               []byte
+	ValueBlindingFactor []byte
+	AssetBlindingFactor []byte
+}
+
 //getInputSecrets un-blinds previous outputs
 func getInputSecrets(
 	pset *Pset,
 	prevOutBlindingInfos []BlindingInfo,
-) (map[psetInputIndex]confidential.UnblindOutputResult, error) {
-	inputTxOutSecrets := make(map[psetInputIndex]confidential.UnblindOutputResult)
+	blinderSvc Blinder,
+) (map[psetInputIndex]InputSecrets, error) {
+	inputTxOutSecrets := make(map[psetInputIndex]InputSecrets)
 	for _, v := range prevOutBlindingInfos {
 		if !pset.OwnerProvidedOutputBlindingInfo(v.PsetInputIndex) {
 			return nil, ErrOwnerDidntProvidedOutputBlindingData
@@ -136,18 +207,26 @@ func getInputSecrets(
 			prevout = pset.Inputs[v.PsetInputIndex].witnessUtxo
 		}
 
-		unblindOutRes, err := confidential.UnblindOutputWithKey(prevout, v.PrevOutPrivateBlindingKey)
+		value, asset, vbf, abf, err := blinderSvc.UnblindOutputWithKey(
+			prevout,
+			v.PrevOutPrivateBlindingKey,
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		inputTxOutSecrets[psetInputIndex(v.PsetInputIndex)] = *unblindOutRes
+		inputTxOutSecrets[psetInputIndex(v.PsetInputIndex)] = InputSecrets{
+			Value:               value,
+			Asset:               asset,
+			ValueBlindingFactor: vbf,
+			AssetBlindingFactor: abf,
+		}
 	}
 
 	return inputTxOutSecrets, nil
 }
 
-func (b *Blinder) blindCheck() (int, int, []int) {
+func (b *BlinderRole) blindCheck() (int, int, []int) {
 	toBeOrAlreadyBlinded := 0 //number of outputs that are to be blinded or that are already blinded
 	numOfBlindedOutputs := 0
 	ownedOutputsToBeBlindedIndexes := make([]int, 0)
@@ -168,7 +247,7 @@ func (b *Blinder) blindCheck() (int, int, []int) {
 
 //processInputs loops through pset inputs in order to gather input assets, blinders
 //and scalar that are to be used for blinding outputs, it also blinds owned issuance is any
-func (b *Blinder) processInputs() ([]byte, [][]byte, [][]byte, error) {
+func (b *BlinderRole) processInputs() ([]byte, [][]byte, [][]byte, error) {
 	inputScalar := make([]byte, 0)
 	inputAssets := make([][]byte, 0)
 	inputAssetBlinders := make([][]byte, 0)
@@ -182,7 +261,7 @@ func (b *Blinder) processInputs() ([]byte, [][]byte, [][]byte, error) {
 		inputAssets = append(inputAssets, asset)
 
 		if i <= len(b.inputTxOutSecrets)-1 {
-			offset, err := confidential.ComputeAndAddToScalarOffset(
+			offset, err := b.blinderSvc.ComputeAndAddToScalarOffset(
 				inputScalar,
 				b.inputTxOutSecrets[psetInputIndex(i)].Value,
 				b.inputTxOutSecrets[psetInputIndex(i)].AssetBlindingFactor,
@@ -216,7 +295,7 @@ func (b *Blinder) processInputs() ([]byte, [][]byte, [][]byte, error) {
 }
 
 //blindOutputs blinds owned outputs and return output scalar
-func (b *Blinder) blindOutputs(
+func (b *BlinderRole) blindOutputs(
 	ownedOutputsToBeBlindedIndexes []int,
 	toBeOrAlreadyBlinded int,
 	numOfBlindedOutputs int,
@@ -244,7 +323,7 @@ func (b *Blinder) blindOutputs(
 			return nil, false, err
 		}
 
-		offset, err := confidential.ComputeAndAddToScalarOffset(
+		offset, err := b.blinderSvc.ComputeAndAddToScalarOffset(
 			outputScalar,
 			uint64(*output.outputAmount),
 			assetBlindingFactor,
@@ -253,20 +332,20 @@ func (b *Blinder) blindOutputs(
 		outputScalar = offset
 
 		if lastOutputToBeBlinded {
-			subs, err := confidential.SubtractScalars(outputScalar, inputScalar)
+			subs, err := b.blinderSvc.SubtractScalars(outputScalar, inputScalar)
 			if err != nil {
 				return nil, false, err
 			}
 			outputScalar = subs
 
-			subs, err = confidential.SubtractScalars(valueBlindingFactor, outputScalar)
+			subs, err = b.blinderSvc.SubtractScalars(valueBlindingFactor, outputScalar)
 			if err != nil {
 				return nil, false, err
 			}
 			valueBlindingFactor = subs
 
 			for _, v := range b.pset.Global.scalars {
-				subs, err = confidential.SubtractScalars(valueBlindingFactor, v)
+				subs, err = b.blinderSvc.SubtractScalars(valueBlindingFactor, v)
 				if err != nil {
 					return nil, false, err
 				}
@@ -282,7 +361,7 @@ func (b *Blinder) blindOutputs(
 			lastBlinded = true
 		}
 
-		assetCommitment, err := confidential.AssetCommitment(
+		assetCommitment, err := b.blinderSvc.AssetCommitment(
 			output.outputAsset,
 			assetBlindingFactor,
 		)
@@ -290,7 +369,7 @@ func (b *Blinder) blindOutputs(
 			return nil, false, err
 		}
 
-		valueCommitment, err := confidential.ValueCommitment(
+		valueCommitment, err := b.blinderSvc.ValueCommitment(
 			uint64(*output.outputAmount),
 			assetCommitment[:],
 			valueBlindingFactor,
@@ -305,7 +384,7 @@ func (b *Blinder) blindOutputs(
 		}
 		outputNonce := ephemeralPrivKey.PubKey().SerializeCompressed()
 
-		nonce, err := confidential.NonceHash(
+		nonce, err := b.blinderSvc.NonceHash(
 			output.outputBlindingPubkey,
 			ephemeralPrivKey.Serialize(),
 		)
@@ -313,24 +392,23 @@ func (b *Blinder) blindOutputs(
 			return nil, false, err
 		}
 
-		rangeProofArgs := confidential.RangeProofArgs{
-			Value:               uint64(*output.outputAmount),
-			Nonce:               nonce,
-			Asset:               output.outputAsset,
-			AssetBlindingFactor: assetBlindingFactor,
-			ValueBlindFactor:    vbf32,
-			ValueCommit:         valueCommitment[:],
-			ScriptPubkey:        []byte{},
-			MinValue:            1,
-			Exp:                 0,
-			MinBits:             52,
-		}
-		rangeProof, err := confidential.RangeProof(rangeProofArgs)
+		rangeProof, err := b.blinderSvc.RangeProof(
+			uint64(*output.outputAmount),
+			nonce,
+			output.outputAsset,
+			assetBlindingFactor,
+			vbf32,
+			valueCommitment[:],
+			[]byte{},
+			1,
+			0,
+			52,
+		)
 		if err != nil {
 			return nil, false, err
 		}
 
-		blindValueProof, err := confidential.CreateBlindValueProof(
+		blindValueProof, err := b.blinderSvc.CreateBlindValueProof(
 			b.rng,
 			valueBlindingFactor,
 			uint64(*output.outputAmount),
@@ -346,20 +424,19 @@ func (b *Blinder) blindOutputs(
 			return nil, false, err
 		}
 
-		surjectionProofArgs := confidential.SurjectionProofArgs{
-			OutputAsset:               output.outputAsset,
-			OutputAssetBlindingFactor: assetBlindingFactor,
-			InputAssets:               inputAssets,
-			InputAssetBlindingFactors: inputAssetBlinders,
-			Seed:                      randomSeed,
-		}
-
-		surjectionProof, ok := confidential.SurjectionProof(surjectionProofArgs)
+		surjectionProof, ok := b.blinderSvc.SurjectionProof(
+			output.outputAsset,
+			assetBlindingFactor,
+			inputAssets,
+			inputAssetBlinders,
+			randomSeed,
+			0,
+		)
 		if !ok {
 			return nil, false, ErrGenerateSurjectionProof
 		}
 
-		blindAssetProof, err := confidential.CreateBlindAssetProof(
+		blindAssetProof, err := b.blinderSvc.CreateBlindAssetProof(
 			output.outputAsset,
 			assetCommitment,
 			assetBlindingFactor,
@@ -382,7 +459,7 @@ func (b *Blinder) blindOutputs(
 	return outputScalar, lastBlinded, nil
 }
 
-func (b *Blinder) handleIssuance(
+func (b *BlinderRole) handleIssuance(
 	inputScalar []byte,
 	input Input,
 ) ([]byte, []byte, []byte, []byte, []byte, error) {
@@ -490,12 +567,12 @@ func isReIssuance(input Input) bool {
 	return false
 }
 
-func (b *Blinder) shouldBlindIssuance() bool {
+func (b *BlinderRole) shouldBlindIssuance() bool {
 	return b.issuanceBlindingPrivateKeys.AssetKey != nil &&
 		b.issuanceBlindingPrivateKeys.TokenKey != nil
 }
 
-func (b *Blinder) blindIssuanceAsset(
+func (b *BlinderRole) blindIssuanceAsset(
 	inputScalar []byte,
 	asset []byte,
 	value uint64,
@@ -506,18 +583,18 @@ func (b *Blinder) blindIssuanceAsset(
 	}
 
 	abf := make([]byte, 32)
-	assetCommitment, err := confidential.AssetCommitment(asset, abf)
+	assetCommitment, err := b.blinderSvc.AssetCommitment(asset, abf)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
 
-	offset, err := confidential.ComputeAndAddToScalarOffset(inputScalar, value, abf, vbf)
+	offset, err := b.blinderSvc.ComputeAndAddToScalarOffset(inputScalar, value, abf, vbf)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
 	inputScalar = offset
 
-	valueCommitment, err := confidential.ValueCommitment(
+	valueCommitment, err := b.blinderSvc.ValueCommitment(
 		value,
 		assetCommitment[:],
 		vbf,
@@ -532,24 +609,23 @@ func (b *Blinder) blindIssuanceAsset(
 	var nonce [32]byte
 	copy(nonce[:], b.issuanceBlindingPrivateKeys.AssetKey[:])
 
-	rangeProofArgs := confidential.RangeProofArgs{
-		Value:               value,
-		Nonce:               nonce,
-		Asset:               asset,
-		AssetBlindingFactor: abf,
-		ValueBlindFactor:    vbf32,
-		ValueCommit:         valueCommitment[:],
-		ScriptPubkey:        []byte{},
-		MinValue:            1,
-		Exp:                 0,
-		MinBits:             52,
-	}
-	rangeProof, err := confidential.RangeProof(rangeProofArgs)
+	rangeProof, err := b.blinderSvc.RangeProof(
+		value,
+		nonce,
+		asset,
+		abf,
+		vbf32,
+		valueCommitment[:],
+		[]byte{},
+		1,
+		0,
+		52,
+	)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
 
-	blindValueProof, err := confidential.CreateBlindValueProof(
+	blindValueProof, err := b.blinderSvc.CreateBlindValueProof(
 		b.rng,
 		vbf,
 		value,

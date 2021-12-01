@@ -29,17 +29,17 @@ var (
 	ErrDuplicateKey = errors.New("invalid psbt due to duplicate key")
 )
 
-// Updater encapsulates the role 'Updater' as specified in BIP174; it accepts
+// UpdaterRole encapsulates the role 'UpdaterRole' as specified in BIP174; it accepts
 // Psbt structs and has methods to add fields to the inputs and outputs.
-type Updater struct {
+type UpdaterRole struct {
 	pset *Pset
 }
 
-// NewUpdater returns a new instance of Updater, if the passed Psbt struct is
+// NewUpdaterRole returns a new instance of UpdaterRole, if the passed Psbt struct is
 // in a valid form, else an error.a
-func NewUpdater(p *Pset) (*Updater, error) {
+func NewUpdaterRole(p *Pset) (*UpdaterRole, error) {
 
-	return &Updater{
+	return &UpdaterRole{
 		pset: p,
 	}, nil
 }
@@ -48,11 +48,11 @@ func NewUpdater(p *Pset) (*Updater, error) {
 // non-witness. This requires provision of a full transaction (which is the
 // source of the corresponding prevOut), and the input index. If addition of
 // this key-value pair to the Psbt fails, an error is returned.
-func (p *Updater) AddInNonWitnessUtxo(inIndex int, tx *transaction.Transaction) error {
-	if inIndex > len(p.pset.Inputs)-1 {
+func (u *UpdaterRole) AddInNonWitnessUtxo(inIndex int, tx *transaction.Transaction) error {
+	if inIndex > len(u.pset.Inputs)-1 {
 		return ErrInvalidPrevOutNonWitnessTransaction
 	}
-	p.pset.Inputs[inIndex].nonWitnessUtxo = tx
+	u.pset.Inputs[inIndex].nonWitnessUtxo = tx
 
 	return nil
 }
@@ -62,11 +62,11 @@ func (p *Updater) AddInNonWitnessUtxo(inIndex int, tx *transaction.Transaction) 
 // of the corresponding prevOut); not the full transaction because BIP143 means
 // the output information is sufficient, and the input index. If addition of
 // this key-value pair to the Psbt fails, an error is returned.
-func (p *Updater) AddInWitnessUtxo(txout *transaction.TxOutput, inIndex int) error {
-	if inIndex > len(p.pset.Inputs)-1 {
+func (u *UpdaterRole) AddInWitnessUtxo(txout *transaction.TxOutput, inIndex int) error {
+	if inIndex > len(u.pset.Inputs)-1 {
 		return ErrInvalidPsbtFormat
 	}
-	p.pset.Inputs[inIndex].witnessUtxo = txout
+	u.pset.Inputs[inIndex].witnessUtxo = txout
 
 	return nil
 }
@@ -75,8 +75,8 @@ func (p *Updater) AddInWitnessUtxo(txout *transaction.TxOutput, inIndex int) err
 // redeem script is passed serialized, as a byte slice, along with the index of
 // the input. An error is returned if addition of this key-value pair to the
 // Psbt fails.
-func (p *Updater) AddInRedeemScript(redeemScript []byte, inIndex int) error {
-	p.pset.Inputs[inIndex].redeemScript = redeemScript
+func (u *UpdaterRole) AddInRedeemScript(redeemScript []byte, inIndex int) error {
+	u.pset.Inputs[inIndex].redeemScript = redeemScript
 
 	return nil
 }
@@ -85,8 +85,8 @@ func (p *Updater) AddInRedeemScript(redeemScript []byte, inIndex int) error {
 // witness script is passed serialized, as a byte slice, along with the index
 // of the input. An error is returned if addition of this key-value pair to the
 // Psbt fails.
-func (p *Updater) AddInWitnessScript(witnessScript []byte, inIndex int) error {
-	p.pset.Inputs[inIndex].witnessScript = witnessScript
+func (u *UpdaterRole) AddInWitnessScript(witnessScript []byte, inIndex int) error {
+	u.pset.Inputs[inIndex].witnessScript = witnessScript
 
 	return nil
 }
@@ -98,7 +98,7 @@ func (p *Updater) AddInWitnessScript(witnessScript []byte, inIndex int) error {
 //
 // NOTE: This can be called multiple times for the same input.  An error is
 // returned if addition of this key-value pair to the Psbt fails.
-func (p *Updater) AddInBip32Derivation(masterKeyFingerprint uint32,
+func (u *UpdaterRole) AddInBip32Derivation(masterKeyFingerprint uint32,
 	bip32Path []uint32, pubKeyData []byte, inIndex int) error {
 
 	bip32Derivation := DerivationPathWithPubKey{
@@ -112,14 +112,14 @@ func (p *Updater) AddInBip32Derivation(masterKeyFingerprint uint32,
 	}
 
 	// Don't allow duplicate keys
-	for _, x := range p.pset.Inputs[inIndex].bip32Derivation {
+	for _, x := range u.pset.Inputs[inIndex].bip32Derivation {
 		if bytes.Equal(x.PubKey, bip32Derivation.PubKey) {
 			return ErrDuplicateKey
 		}
 	}
 
-	p.pset.Inputs[inIndex].bip32Derivation = append(
-		p.pset.Inputs[inIndex].bip32Derivation, bip32Derivation,
+	u.pset.Inputs[inIndex].bip32Derivation = append(
+		u.pset.Inputs[inIndex].bip32Derivation, bip32Derivation,
 	)
 
 	return nil
@@ -132,7 +132,7 @@ func (p *Updater) AddInBip32Derivation(masterKeyFingerprint uint32,
 //
 // NOTE: That this can be called multiple times for the same output.  An error
 // is returned if addition of this key-value pair to the Psbt fails.
-func (p *Updater) AddOutBip32Derivation(masterKeyFingerprint uint32,
+func (u *UpdaterRole) AddOutBip32Derivation(masterKeyFingerprint uint32,
 	bip32Path []uint32, pubKeyData []byte, outIndex int) error {
 
 	bip32Derivation := DerivationPathWithPubKey{
@@ -146,14 +146,14 @@ func (p *Updater) AddOutBip32Derivation(masterKeyFingerprint uint32,
 	}
 
 	// Don't allow duplicate keys
-	for _, x := range p.pset.Outputs[outIndex].bip32Derivation {
+	for _, x := range u.pset.Outputs[outIndex].bip32Derivation {
 		if bytes.Equal(x.PubKey, bip32Derivation.PubKey) {
 			return ErrDuplicateKey
 		}
 	}
 
-	p.pset.Outputs[outIndex].bip32Derivation = append(
-		p.pset.Outputs[outIndex].bip32Derivation, bip32Derivation,
+	u.pset.Outputs[outIndex].bip32Derivation = append(
+		u.pset.Outputs[outIndex].bip32Derivation, bip32Derivation,
 	)
 
 	return nil
@@ -161,28 +161,28 @@ func (p *Updater) AddOutBip32Derivation(masterKeyFingerprint uint32,
 
 // AddOutRedeemScript takes a redeem script as a byte slice and appends it to
 // the output at index outIndex.
-func (p *Updater) AddOutRedeemScript(redeemScript []byte, outIndex int) error {
-	p.pset.Outputs[outIndex].redeemScript = redeemScript
+func (u *UpdaterRole) AddOutRedeemScript(redeemScript []byte, outIndex int) error {
+	u.pset.Outputs[outIndex].redeemScript = redeemScript
 
 	return nil
 }
 
 // AddOutWitnessScript takes a witness script as a byte slice and appends it to
 // the output at index outIndex.
-func (p *Updater) AddOutWitnessScript(witnessScript []byte, outIndex int) error {
-	p.pset.Outputs[outIndex].witnessScript = witnessScript
+func (u *UpdaterRole) AddOutWitnessScript(witnessScript []byte, outIndex int) error {
+	u.pset.Outputs[outIndex].witnessScript = witnessScript
 
 	return nil
 }
 
 // AddInput adds input to the pset
-func (p *Updater) AddInput(inputArg InputArg) error {
-	return p.pset.addInput(inputArg)
+func (u *UpdaterRole) AddInput(inputArg InputArg) error {
+	return u.pset.addInput(inputArg)
 }
 
 // AddOutput adds output to the pset
-func (p *Updater) AddOutput(outputArg OutputArg) error {
-	return p.pset.addOutput(outputArg)
+func (u *UpdaterRole) AddOutput(outputArg OutputArg) error {
+	return u.pset.addOutput(outputArg)
 }
 
 // AddIssuanceArgs is a struct encapsulating all the issuance data that
@@ -253,12 +253,12 @@ func (arg AddIssuanceArgs) tokenFlag() uint {
 }
 
 // AddIssuance adds an unblinded issuance to the transaction
-func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
+func (u *UpdaterRole) AddIssuance(arg AddIssuanceArgs) error {
 	if err := arg.validate(); err != nil {
 		return err
 	}
 
-	if len(p.pset.Inputs) == 0 {
+	if len(u.pset.Inputs) == 0 {
 		return errors.New("transaction must contain at least one input")
 	}
 
@@ -269,7 +269,7 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 		arg.Contract,
 	)
 
-	prevoutIndex, prevoutHash, inputIndex := findInputWithEmptyIssuance(p.pset)
+	prevoutIndex, prevoutHash, inputIndex := findInputWithEmptyIssuance(u.pset)
 	if inputIndex < 0 {
 		return errors.New(
 			"transaction does not contain any input with empty issuance",
@@ -295,10 +295,10 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 	}
 	tokenValue := int64(amount)
 
-	p.pset.Inputs[inputIndex].issuanceAssetEntropy = issuance.ContractHash
-	p.pset.Inputs[inputIndex].issuanceValue = &issuanceValue
-	p.pset.Inputs[inputIndex].issuanceInflationKeys = &tokenValue
-	p.pset.Inputs[inputIndex].issuanceBlindingNonce = issuance.TxIssuance.AssetBlindingNonce
+	u.pset.Inputs[inputIndex].issuanceAssetEntropy = issuance.ContractHash
+	u.pset.Inputs[inputIndex].issuanceValue = &issuanceValue
+	u.pset.Inputs[inputIndex].issuanceInflationKeys = &tokenValue
+	u.pset.Inputs[inputIndex].issuanceBlindingNonce = issuance.TxIssuance.AssetBlindingNonce
 
 	assetHash, err := issuance.GenerateAsset()
 	if err != nil {
@@ -317,7 +317,7 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 		issuance.TxIssuance.AssetAmount,
 		script,
 	)
-	if err := p.AddOutput(OutputArg{TxOutput: *output}); err != nil {
+	if err := u.AddOutput(OutputArg{TxOutput: *output}); err != nil {
 		return err
 	}
 
@@ -337,7 +337,7 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 			issuance.TxIssuance.TokenAmount,
 			script,
 		)
-		if err := p.AddOutput(OutputArg{TxOutput: *output}); err != nil {
+		if err := u.AddOutput(OutputArg{TxOutput: *output}); err != nil {
 			return err
 		}
 	}
@@ -346,7 +346,7 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 }
 
 // AddReissuanceArgs defines the mandatory fields that one needs to pass to
-// the AddReissuance method of the *Updater type
+// the AddReissuance method of the *UpdaterRole type
 // 		PrevOutHash: the prevout hash of the token that will be added as input to the tx
 //		PrevOutIndex: the prevout index of the token that will be added as input to the tx
 //		PrevOutBlinder: the asset blinder used to blind the prevout token
@@ -450,12 +450,12 @@ func (arg AddReissuanceArgs) areAddressesConfidential() bool {
 // the provided entropy, blinder and amounts and attaches it to the new input.
 // NOTE: This transaction must be blinded later so that a new token blinding
 // nonce is generated for the new token output
-func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
+func (u *UpdaterRole) AddReissuance(arg AddReissuanceArgs) error {
 	if err := arg.validate(); err != nil {
 		return err
 	}
 
-	if len(p.pset.Inputs) == 0 {
+	if len(u.pset.Inputs) == 0 {
 		return errors.New(
 			"transaction must contain at least one input before adding a reissuance",
 		)
@@ -467,16 +467,16 @@ func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
 
 	// add input
 	tokenInput := transaction.NewTxInput(prevoutHash, prevoutIndex)
-	if err := p.AddInput(InputArg{TxInput: *tokenInput}); err != nil {
+	if err := u.AddInput(InputArg{TxInput: *tokenInput}); err != nil {
 		return err
 	}
-	inputIndex := len(p.pset.Inputs) - 1
+	inputIndex := len(u.pset.Inputs) - 1
 	if arg.WitnessUtxo != nil {
-		if err := p.AddInWitnessUtxo(arg.WitnessUtxo, inputIndex); err != nil {
+		if err := u.AddInWitnessUtxo(arg.WitnessUtxo, inputIndex); err != nil {
 			return err
 		}
 	} else {
-		if err := p.AddInNonWitnessUtxo(inputIndex, arg.NonWitnessUtxo); err != nil {
+		if err := u.AddInNonWitnessUtxo(inputIndex, arg.NonWitnessUtxo); err != nil {
 			return err
 		}
 	}
@@ -503,7 +503,7 @@ func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
 		assetAmount,
 		assetScript,
 	)
-	if err := p.AddOutput(OutputArg{TxOutput: *reissuanceOutput}); err != nil {
+	if err := u.AddOutput(OutputArg{TxOutput: *reissuanceOutput}); err != nil {
 		return err
 	}
 
@@ -513,7 +513,7 @@ func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
 		tokenAmount,
 		tokenScript,
 	)
-	if err := p.AddOutput(OutputArg{TxOutput: *tokenOutput}); err != nil {
+	if err := u.AddOutput(OutputArg{TxOutput: *tokenOutput}); err != nil {
 		return err
 	}
 
@@ -522,10 +522,10 @@ func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
 	issuanceValue := int64(arg.AssetAmount)
 	var issuanceInflationKeys int64 = 0
 
-	p.pset.Inputs[inputIndex].issuanceAssetEntropy = issuance.ContractHash
-	p.pset.Inputs[inputIndex].issuanceValue = &issuanceValue
-	p.pset.Inputs[inputIndex].issuanceInflationKeys = &issuanceInflationKeys
-	p.pset.Inputs[inputIndex].issuanceBlindingNonce = arg.PrevOutBlinder
+	u.pset.Inputs[inputIndex].issuanceAssetEntropy = issuance.ContractHash
+	u.pset.Inputs[inputIndex].issuanceValue = &issuanceValue
+	u.pset.Inputs[inputIndex].issuanceInflationKeys = &issuanceInflationKeys
+	u.pset.Inputs[inputIndex].issuanceBlindingNonce = arg.PrevOutBlinder
 
 	return nil
 }
@@ -539,15 +539,15 @@ func findInputWithEmptyIssuance(p *Pset) (uint32, []byte, int) {
 	return 0, nil, -1
 }
 
-// addPartialSignature allows the Updater role to insert fields of type partial
+// addPartialSignature allows the UpdaterRole role to insert fields of type partial
 // signature into a Pset, consisting of both the pubkey (as keydata) and the
-// ECDSA signature (as value).  Note that the Signer role is encapsulated in
+// ECDSA signature (as value).  Note that the SignerRole role is encapsulated in
 // this function; signatures are only allowed to be added that follow the
-// sanity-check on signing rules explained in the BIP under `Signer`; if the
+// sanity-check on signing rules explained in the BIP under `SignerRole`; if the
 // rules are not satisfied, an ErrInvalidSignatureForInput is returned.
 //
 // NOTE: This function does *not* validate the ECDSA signature itself.
-func (p *Updater) addPartialSignature(inIndex int, sig []byte,
+func (u *UpdaterRole) addPartialSignature(inIndex int, sig []byte,
 	pubkey []byte) error {
 
 	partialSig := PartialSig{
@@ -559,7 +559,7 @@ func (p *Updater) addPartialSignature(inIndex int, sig []byte,
 		return ErrInvalidPsbtFormat
 	}
 
-	input := p.pset.Inputs[inIndex]
+	input := u.pset.Inputs[inIndex]
 
 	// First check; don't add duplicates.
 	for _, x := range input.partialSigs {
@@ -570,7 +570,7 @@ func (p *Updater) addPartialSignature(inIndex int, sig []byte,
 
 	// Next, we perform a series of additional sanity checks.
 	if input.nonWitnessUtxo != nil {
-		if txHash := input.nonWitnessUtxo.TxHash(); !bytes.Equal(txHash[:], p.pset.Inputs[inIndex].previousTxid) {
+		if txHash := input.nonWitnessUtxo.TxHash(); !bytes.Equal(txHash[:], u.pset.Inputs[inIndex].previousTxid) {
 			return ErrInvalidSignatureForInput
 		}
 
@@ -579,7 +579,7 @@ func (p *Updater) addPartialSignature(inIndex int, sig []byte,
 		// that with the P2SH scriptPubKey that is generated by
 		// redeemScript.
 		if input.redeemScript != nil {
-			outIndex := p.pset.Inputs[inIndex].previousOutputIndex
+			outIndex := u.pset.Inputs[inIndex].previousOutputIndex
 			scriptPubKey := input.nonWitnessUtxo.Outputs[*outIndex].Script
 			scriptHash := btcutil.Hash160(input.redeemScript)
 
@@ -663,15 +663,25 @@ func (p *Updater) addPartialSignature(inIndex int, sig []byte,
 		return ErrInvalidPsbtFormat
 	}
 
-	p.pset.Inputs[inIndex].partialSigs = append(
-		p.pset.Inputs[inIndex].partialSigs, partialSig,
+	u.pset.Inputs[inIndex].partialSigs = append(
+		u.pset.Inputs[inIndex].partialSigs, partialSig,
 	)
 
-	if err := p.pset.SanityCheck(); err != nil {
+	if err := u.pset.SanityCheck(); err != nil {
 		return err
 	}
 
 	// Addition of a non-duplicate-key partial signature cannot violate
 	// sanity-check rules.
 	return nil
+}
+
+// AddInSighashType adds the sighash type information for an input.  The
+// sighash type is passed as a 32 bit unsigned integer, along with the index
+// for the input. .
+func (u *UpdaterRole) AddInSighashType(
+	sighashType txscript.SigHashType,
+	inIndex int,
+) {
+	u.pset.Inputs[inIndex].sigHashType = &sighashType
 }

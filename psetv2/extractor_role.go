@@ -1,22 +1,22 @@
 package psetv2
 
 import (
-	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
-type Extractor struct {
-	pset *Pset
+type ExtractorRole struct {
+	pset       *Pset
+	blinderSvc Blinder
 }
 
-func NewExtractor(pset *Pset) *Extractor {
-	return &Extractor{
+func NewExtractorRole(pset *Pset) *ExtractorRole {
+	return &ExtractorRole{
 		pset: pset,
 	}
 }
 
-func (e *Extractor) Extract() (*transaction.Transaction, error) {
+func (e *ExtractorRole) Extract() (*transaction.Transaction, error) {
 	tx := transaction.NewTx(int32(*e.pset.Global.version))
 
 	tx.Locktime = *e.pset.CalculateTimeLock()
@@ -69,7 +69,7 @@ func (e *Extractor) Extract() (*transaction.Transaction, error) {
 		if v.outputValueCommitment != nil && v.outputAmount != nil {
 			expValue = expValue && v.outputBlindValueProof != nil
 			expValue = expValue && v.outputAssetCommitment != nil
-			valid, err := confidential.VerifyBlindValueProof(
+			valid, err := e.blinderSvc.VerifyBlindValueProof(
 				*v.outputAmount,
 				v.outputValueCommitment,
 				v.outputBlindValueProof,
@@ -96,7 +96,7 @@ func (e *Extractor) Extract() (*transaction.Transaction, error) {
 		if v.outputAssetCommitment != nil && v.outputAsset != nil {
 			expAsset = expAsset && v.outputBlindAssetProof != nil
 			expAsset = expAsset && v.outputAsset != nil
-			valid, err := confidential.VerifyBlindAssetProof(
+			valid, err := e.blinderSvc.VerifyBlindAssetProof(
 				v.outputAsset,
 				v.outputBlindAssetProof,
 				v.outputAssetCommitment,

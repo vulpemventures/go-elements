@@ -4,9 +4,9 @@
 
 package psetv2
 
-// signer encapsulates the role 'Signer' as specified in BIP174; it controls
+// signer encapsulates the role 'SignerRole' as specified in BIP174; it controls
 // the insertion of signatures; the Sign() function will attempt to insert
-// signatures using Updater.addPartialSignature, after first ensuring the Psbt
+// signatures using UpdaterRole.addPartialSignature, after first ensuring the Psbt
 // is in the correct state.
 
 import (
@@ -33,18 +33,18 @@ const (
 	SignBlindingProofsInvalid = 3
 )
 
-type Signer struct {
+type SignerRole struct {
 	pset    *Pset
-	updater *Updater
+	updater *UpdaterRole
 }
 
-func NewSigner(pset *Pset) (*Signer, error) {
-	updater, err := NewUpdater(pset)
+func NewSignerRole(pset *Pset) (*SignerRole, error) {
+	updater, err := NewUpdaterRole(pset)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Signer{
+	return &SignerRole{
 		pset:    pset,
 		updater: updater,
 	}, nil
@@ -60,13 +60,13 @@ type SignOutcome int
 // arguments must be set as nil (and in that case, they must already be present
 // in the PSBT if required for signing to succeed).
 //
-// This serves as a wrapper around Updater.addPartialSignature; it ensures that
+// This serves as a wrapper around UpdaterRole.addPartialSignature; it ensures that
 // the redeemScript and witnessScript are updated as needed (note that the
-// Updater is allowed to add redeemScripts and witnessScripts independently,
+// UpdaterRole is allowed to add redeemScripts and witnessScripts independently,
 // before signing), and ensures that the right form of utxo field
 // (NonWitnessUtxo or WitnessUtxo) is included in the input so that signature
 // insertion (and then finalization) can take place.
-func (s *Signer) SignInput(
+func (s *SignerRole) SignInput(
 	inIndex int,
 	sig []byte,
 	pubKey []byte,
@@ -183,7 +183,7 @@ func nonWitnessToWitness(p *Pset, inIndex int) error {
 
 	// Remove the non-witness first, else sanity check will not pass:
 	p.Inputs[inIndex].nonWitnessUtxo = nil
-	u := Updater{
+	u := UpdaterRole{
 		pset: p,
 	}
 

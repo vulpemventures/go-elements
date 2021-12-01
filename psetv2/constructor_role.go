@@ -8,25 +8,25 @@ var (
 	ErrPsetAlreadyConstructed = errors.New("pset already constructed")
 )
 
-type Constructor struct {
+type ConstructorRole struct {
 	pset                *Pset
 	inputArgs           []InputArg
 	outputArgs          []OutputArg
 	lockForModification bool
 }
 
-func NewConstructor(
+func NewConstructorRole(
 	pset *Pset,
 	inputArgs []InputArg,
 	outputArgs []OutputArg,
 	lockForModification bool,
-) *Constructor {
-	return &Constructor{
+) (*ConstructorRole, error) {
+	return &ConstructorRole{
 		inputArgs:           inputArgs,
 		outputArgs:          outputArgs,
 		lockForModification: lockForModification,
 		pset:                pset,
-	}
+	}, nil
 }
 
 type TimeLock struct {
@@ -34,16 +34,16 @@ type TimeLock struct {
 	RequiredHeightTimeLock *uint32
 }
 
-func (c *Constructor) Construct() (*Pset, error) {
+func (c *ConstructorRole) Construct() error {
 	for _, v := range c.inputArgs {
 		if err := c.pset.addInput(v); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	for _, v := range c.outputArgs {
 		if err := c.pset.addOutput(v); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -51,5 +51,5 @@ func (c *Constructor) Construct() (*Pset, error) {
 		c.pset.LockForModification()
 	}
 
-	return c.pset, nil
+	return nil
 }

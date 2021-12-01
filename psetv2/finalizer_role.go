@@ -4,7 +4,7 @@
 
 package psetv2
 
-// The Finalizer requires provision of a single PSET input
+// The FinalizerRole requires provision of a single PSET input
 // in which all necessary signatures are encoded, and
 // uses it to construct valid final sigScript and scriptWitness
 // fields.
@@ -26,26 +26,26 @@ var (
 	// ErrNotFinalizable indicates that the PSBT struct does not have
 	// sufficient data (e.g. signatures) for finalization
 	ErrNotFinalizable = errors.New("PSBT is not finalizable")
-	// ErrInputAlreadyFinalized indicates that the PSBT passed to a Finalizer
+	// ErrInputAlreadyFinalized indicates that the PSBT passed to a FinalizerRole
 	// already contains the finalized scriptSig or witness.
 	ErrInputAlreadyFinalized = errors.New("cannot finalize PSBT, finalized " +
 		"scriptSig or scriptWitnes already exists")
 )
 
-type Finalizer struct {
+type FinalizerRole struct {
 	pset *Pset
 }
 
-func NewFinalizer(pset *Pset) *Finalizer {
+func NewFinalizerRole(pset *Pset) *FinalizerRole {
 
-	return &Finalizer{
+	return &FinalizerRole{
 		pset: pset,
 	}
 }
 
 // FinalizeAll finalizes all inputs of a partial elements transaction by
 // calling the Finalize function for every partial input
-func (f *Finalizer) FinalizeAll(p *Pset) error {
+func (f *FinalizerRole) FinalizeAll(p *Pset) error {
 	for inIndex := range p.Inputs {
 		err := f.Finalize(p, inIndex)
 		if err != nil {
@@ -62,7 +62,7 @@ func (f *Finalizer) FinalizeAll(p *Pset) error {
 // 08. The witness/non-witness utxo fields in the inputs (key-types 00 and 01)
 // are left intact as they may be needed for validation (?).  If there is any
 // invalid or incomplete data, an error is returned.
-func (f *Finalizer) Finalize(p *Pset, inIndex int) error {
+func (f *FinalizerRole) Finalize(p *Pset, inIndex int) error {
 	input := p.Inputs[inIndex]
 
 	// Depending on the UTXO type, we either attempt to finalize it as a
@@ -93,7 +93,7 @@ func (f *Finalizer) Finalize(p *Pset, inIndex int) error {
 
 // MaybeFinalizeAll attempts to finalize all inputs of the pset.Pset that are
 // not already finalized, and returns an error if it fails to do so.
-func (f *Finalizer) MaybeFinalizeAll(p *Pset) error {
+func (f *FinalizerRole) MaybeFinalizeAll(p *Pset) error {
 
 	for i := range p.Inputs {
 		success, err := f.MaybeFinalize(p, i)
@@ -108,7 +108,7 @@ func (f *Finalizer) MaybeFinalizeAll(p *Pset) error {
 // MaybeFinalize attempts to finalize the input at index inIndex in the PSET p,
 // returning true with no error if it succeeds, OR if the input has already
 // been finalized.
-func (f *Finalizer) MaybeFinalize(p *Pset, inIndex int) (bool, error) {
+func (f *FinalizerRole) MaybeFinalize(p *Pset, inIndex int) (bool, error) {
 	if isFinalized(p, inIndex) {
 		return true, nil
 	}

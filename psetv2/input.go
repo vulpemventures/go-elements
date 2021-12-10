@@ -291,3 +291,21 @@ func checkSigHashFlags(sig []byte, input Input) bool {
 
 	return expectedSighashType == txscript.SigHashType(sig[len(sig)-1])
 }
+
+func (i *Input) isIssuance() bool {
+	return i.issuanceValue != nil
+}
+
+func (i *Input) isIssuanceBlinded() bool {
+	return i.issuanceValueCommitment == nil &&
+		len(i.issuanceValueRangeproof) == 0 &&
+		len(i.issuanceBlindInflationKeysProof) == 0
+}
+
+func (i *Input) isReIssuance() bool {
+	if i.issuanceBlindingNonce != nil {
+		return !bytes.Equal(i.issuanceBlindingNonce, transaction.Zero[:])
+	}
+
+	return false
+}

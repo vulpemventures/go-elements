@@ -1,6 +1,9 @@
 package confidential
 
-import "github.com/vulpemventures/go-elements/transaction"
+import (
+	"github.com/vulpemventures/go-elements/elementsutil"
+	"github.com/vulpemventures/go-elements/transaction"
+)
 
 type Blinder interface {
 	AssetCommitment(asset, factor []byte) ([]byte, error)
@@ -25,6 +28,13 @@ type Blinder interface {
 		seed []byte,
 		numberOfTargets int,
 	) ([]byte, bool)
+	VerifySurjectionProof(
+		inputAssets [][]byte,
+		inputAssetBlindingFactors [][]byte,
+		outputAsset []byte,
+		outputAssetBlindingFactor []byte,
+		proof []byte,
+	) bool
 	SubtractScalars(a []byte, b []byte) ([]byte, error)
 	ComputeAndAddToScalarOffset(
 		scalar []byte,
@@ -136,6 +146,23 @@ func (b blinder) SurjectionProof(
 	return SurjectionProof(surjectionProofArgs)
 }
 
+func (b blinder) VerifySurjectionProof(
+	inputAssets [][]byte,
+	inputAssetBlindingFactors [][]byte,
+	outputAsset []byte,
+	outputAssetBlindingFactor []byte,
+	proof []byte,
+) bool {
+	arg := VerifySurjectionProofArgs{
+		InputAssets:               inputAssets,
+		InputAssetBlindingFactors: inputAssetBlindingFactors,
+		OutputAsset:               outputAsset,
+		OutputAssetBlindingFactor: outputAssetBlindingFactor,
+		Proof:                     proof,
+	}
+	return VerifySurjectionProof(arg)
+}
+
 func (b blinder) SubtractScalars(
 	aScalar []byte,
 	bScalar []byte,
@@ -202,10 +229,19 @@ func (b blinder) UnblindOutputWithKey(
 	out *transaction.TxOutput,
 	blindKey []byte,
 ) (uint64, []byte, []byte, []byte, error) {
-	result, err := UnblindOutputWithKey(out, blindKey)
+	if out.IsConfidential() {
+		result, err := UnblindOutputWithKey(out, blindKey)
+		if err != nil {
+			return 0, nil, nil, nil, err
+		}
+
+		return result.Value, result.Asset, result.ValueBlindingFactor, result.AssetBlindingFactor, err
+	}
+
+	satoshiValue, err := elementsutil.ElementsToSatoshiValue(out.Value)
 	if err != nil {
 		return 0, nil, nil, nil, err
 	}
 
-	return result.Value, result.Asset, result.ValueBlindingFactor, result.AssetBlindingFactor, err
+	return satoshiValue, out.Asset[1:], make([]byte, 32), make([]byte, 32), nil
 }

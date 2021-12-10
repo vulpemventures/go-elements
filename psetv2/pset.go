@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/vulpemventures/go-elements/elementsutil"
+
 	"github.com/btcsuite/btcutil/psbt"
 
 	"github.com/vulpemventures/go-elements/transaction"
@@ -106,7 +108,7 @@ type InputArg struct {
 }
 
 func (p *Pset) addInput(inputArg InputArg) error {
-	if p.IsInputModifiable() {
+	if !p.IsInputModifiable() {
 		return ErrNotModifiable
 	}
 
@@ -119,11 +121,13 @@ func (p *Pset) addInput(inputArg InputArg) error {
 		return err
 	}
 
-	if inputArg.TimeLock.RequiredTimeLock != nil {
-		input.requiredTimeLocktime = inputArg.TimeLock.RequiredTimeLock
-	}
-	if inputArg.TimeLock.RequiredHeightTimeLock != nil {
-		input.requiredHeightLocktime = inputArg.TimeLock.RequiredHeightTimeLock
+	if inputArg.TimeLock != nil {
+		if inputArg.TimeLock.RequiredTimeLock != nil {
+			input.requiredTimeLocktime = inputArg.TimeLock.RequiredTimeLock
+		}
+		if inputArg.TimeLock.RequiredHeightTimeLock != nil {
+			input.requiredHeightLocktime = inputArg.TimeLock.RequiredHeightTimeLock
+		}
 	}
 
 	if input != nil {
@@ -145,7 +149,7 @@ type OutputArg struct {
 }
 
 func (p *Pset) addOutput(outputArg OutputArg) error {
-	if p.IsOutputModifiable() {
+	if !p.IsOutputModifiable() {
 		return ErrNotModifiable
 	}
 
@@ -205,7 +209,7 @@ func (p *Pset) IsOutputModifiable() bool {
 		return true
 	}
 
-	return *p.Global.txInfo.txModifiable&2 == 1 // 0000 0010
+	return *p.Global.txInfo.txModifiable&2 == 2 // 0000 0010
 }
 
 func (p *Pset) CalculateTimeLock() *uint32 {
@@ -337,4 +341,100 @@ func (p *Pset) blinded() bool {
 		}
 	}
 	return true
+}
+
+func (p *Pset) UnsignedTx(blinderSvc Blinder) (*transaction.Transaction, error) {
+	tx := transaction.NewTx(int32(*p.Global.version))
+
+	for _, v := range p.Inputs {
+		txInput := &transaction.TxInput{}
+		txInput.Hash = v.previousTxid
+		txInput.Index = *v.previousOutputIndex
+		txInput.Sequence = *v.sequence
+		txInput.Issuance.AssetBlindingNonce = v.issuanceBlindingNonce
+		txInput.Issuance.AssetEntropy = v.issuanceAssetEntropy
+		if v.issuanceValue != nil {
+			issuanceValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceValue))
+			if err != nil {
+				return nil, err
+			}
+			txInput.Issuance.AssetAmount = issuanceValue
+		}
+		if v.issuanceValueCommitment != nil {
+			txInput.Issuance.AssetAmount = v.issuanceValueCommitment
+		}
+
+		if v.issuanceInflationKeys != nil {
+			tokenValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceInflationKeys))
+			if err != nil {
+				return nil, err
+			}
+			txInput.Issuance.TokenAmount = tokenValue
+		}
+		if v.issuanceInflationKeysCommitment != nil {
+			txInput.Issuance.TokenAmount = v.issuanceInflationKeysCommitment
+		}
+
+		tx.AddInput(txInput)
+	}
+
+	for _, v := range p.Outputs {
+		txOutput := &transaction.TxOutput{}
+		txOutput.Script = v.outputScript
+
+		expValue := v.outputValueCommitment == nil
+		expValue = expValue && v.outputAmount != nil
+		if v.outputValueCommitment != nil && v.outputAmount != nil {
+			expValue = expValue && v.outputBlindValueProof != nil
+			expValue = expValue && v.outputAssetCommitment != nil
+			valid, err := blinderSvc.VerifyBlindValueProof(
+				*v.outputAmount,
+				v.outputValueCommitment,
+				v.outputBlindValueProof,
+				v.outputAssetCommitment,
+			)
+			if err != nil {
+				return nil, err
+			}
+			expValue = expValue && valid
+		}
+		if expValue {
+			value, err := elementsutil.SatoshiToElementsValue(uint64(*v.outputAmount))
+			if err != nil {
+				return nil, err
+			}
+			txOutput.Value = value
+		} else {
+			txOutput.Value = v.outputValueCommitment
+			txOutput.RangeProof = v.outputValueRangeproof
+		}
+
+		expAsset := v.outputAssetCommitment == nil
+		expAsset = expAsset && v.outputAsset != nil
+		if v.outputAssetCommitment != nil && v.outputAsset != nil {
+			expAsset = expAsset && v.outputBlindAssetProof != nil
+			expAsset = expAsset && v.outputAsset != nil
+			valid, err := blinderSvc.VerifyBlindAssetProof(
+				v.outputAsset,
+				v.outputBlindAssetProof,
+				v.outputAssetCommitment,
+			)
+			if err != nil {
+				return nil, err
+			}
+			expAsset = expAsset && valid
+		}
+		if expAsset {
+			txOutput.Asset = v.outputAsset
+		} else {
+			txOutput.Asset = v.outputAssetCommitment
+			txOutput.SurjectionProof = v.outputAssetSurjectionProof
+		}
+
+		txOutput.Nonce = v.outputEcdhPubkey
+
+		tx.AddOutput(txOutput)
+	}
+
+	return tx, nil
 }

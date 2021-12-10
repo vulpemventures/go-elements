@@ -95,7 +95,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		pset,
 		inputArgs,
 		outputArgs,
-		true,
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -116,16 +116,16 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	}
 
 	blinderSvc := confidential.NewBlinder()
-	blindingInfos := []psetv2.BlindingInfo{
+	prevOutUnBlindingInfos := []psetv2.UnBlindingInfo{
 		{
-			PsetInputIndex:            0,
-			PrevOutPrivateBlindingKey: blindingPrivateKey.Serialize(),
+			OutIndex:              0,
+			OutPrivateBlindingKey: blindingPrivateKey.Serialize(),
 		},
 	}
 	blinderRole, err := psetv2.NewBlinderRole(
 		pset,
 		blinderSvc,
-		blindingInfos,
+		prevOutUnBlindingInfos,
 		psetv2.IssuanceBlindingPrivateKeys{},
 		nil,
 	)
@@ -136,7 +136,20 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	if err := blinderRole.Blind(); err != nil {
 		t.Fatal(err)
 	}
-	//TODO verify blinding
+
+	outUnblindingInfo := []psetv2.UnBlindingInfo{
+		{
+			OutIndex:              0,
+			OutPrivateBlindingKey: outputBlindingPrivKey1.Serialize(),
+		},
+		{
+			OutIndex:              1,
+			OutPrivateBlindingKey: outputBlindingPrivKey2.Serialize(),
+		},
+	}
+	if !blinderRole.Verify(outUnblindingInfo) {
+		t.Fatal("blinding invalid")
+	}
 
 	//TODO add fee
 

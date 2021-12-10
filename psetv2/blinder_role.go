@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 
+	"github.com/vulpemventures/go-elements/elementsutil"
+
 	"github.com/btcsuite/btcd/btcec"
 
 	"github.com/vulpemventures/go-elements/transaction"
@@ -40,6 +42,13 @@ type Blinder interface {
 		seed []byte,
 		numberOfTargets int,
 	) ([]byte, bool)
+	VerifySurjectionProof(
+		inputAssets [][]byte,
+		inputAssetBlindingFactors [][]byte,
+		outputAsset []byte,
+		outputAssetBlindingFactor []byte,
+		proof []byte,
+	) bool
 	SubtractScalars(a []byte, b []byte) ([]byte, error)
 	ComputeAndAddToScalarOffset(
 		scalar []byte,
@@ -81,14 +90,18 @@ type BlinderRole struct {
 	blinderSvc                  Blinder
 	issuanceBlindingPrivateKeys IssuanceBlindingPrivateKeys
 	rng                         randomNumberGenerator
-
-	inputTxOutSecrets map[psetInputIndex]InputSecrets
+	inputTxOutSecrets           map[psetInputIndex]InputSecrets
 }
 
+// NewBlinderRole provides methods to Blind pset and to verify it blinding was correct
+//blinderSvc is used in order to decouple from confidential pkg
+//prevOutBlindingInfos is used to find secrets data that are going to be used for blinding corresponding output
+//issuanceBlindingPrivateKeys is used to blind asset and token if it is issuance transaction
+//rng allows used to pass custom random number generator function
 func NewBlinderRole(
 	pset *Pset,
 	blinderSvc Blinder,
-	prevOutBlindingInfos []BlindingInfo,
+	prevOutBlindingInfos []UnBlindingInfo,
 	issuanceBlindingPrivateKeys IssuanceBlindingPrivateKeys,
 	rng randomNumberGenerator,
 ) (*BlinderRole, error) {
@@ -98,6 +111,7 @@ func NewBlinderRole(
 	} else {
 		gen = rng
 	}
+
 	//unblind previous outputs
 	inputTxOutSecrets, err := getInputSecrets(pset, prevOutBlindingInfos, blinderSvc)
 	if err != nil {
@@ -107,9 +121,9 @@ func NewBlinderRole(
 	return &BlinderRole{
 		pset:                        pset,
 		blinderSvc:                  blinderSvc,
-		inputTxOutSecrets:           inputTxOutSecrets,
 		issuanceBlindingPrivateKeys: issuanceBlindingPrivateKeys,
 		rng:                         gen,
+		inputTxOutSecrets:           inputTxOutSecrets,
 	}, nil
 }
 
@@ -156,17 +170,136 @@ func (b *BlinderRole) Blind() error {
 	return nil
 }
 
+func (b *BlinderRole) Verify(outUnBlindingInfos []UnBlindingInfo) bool {
+	if len(b.pset.Inputs) != len(b.inputTxOutSecrets) {
+		return false
+	}
+
+	outCount := 0
+	for _, out := range b.pset.Outputs {
+		if out.IsBlinded() {
+			outCount++
+		}
+	}
+	if len(outUnBlindingInfos) != outCount {
+		return false
+	}
+
+	inAssets := make([][]byte, 0, len(b.pset.Inputs))
+	inIssuanceAssets := make([][]byte, 0)
+	inAssetBlinders := make([][]byte, 0, len(b.pset.Inputs))
+	inIssuanceAssetBlinders := make([][]byte, 0)
+	for i, inputBlindData := range b.inputTxOutSecrets {
+		inAssets = append(inAssets, inputBlindData.Asset)
+		inAssetBlinders = append(inAssetBlinders, inputBlindData.AssetBlindingFactor)
+
+		if input := b.pset.Inputs[i]; input.isIssuance() {
+			if input.isIssuanceBlinded() {
+				issuanceUnBlindingKeys := [][]byte{
+					b.issuanceBlindingPrivateKeys.AssetKey,
+					b.issuanceBlindingPrivateKeys.TokenKey,
+				}
+				unblinded, err := b.unblindIssuance(input, issuanceUnBlindingKeys)
+				if err != nil {
+					return false
+				}
+				inIssuanceAssets = append(inIssuanceAssets, unblinded.Asset.Asset)
+				inIssuanceAssetBlinders = append(
+					inIssuanceAssetBlinders,
+					unblinded.Asset.AssetBlindingFactor,
+				)
+
+				if input.issuanceInflationKeys != nil {
+					inIssuanceAssets = append(inIssuanceAssets, unblinded.Token.Asset)
+					inIssuanceAssetBlinders = append(
+						inIssuanceAssetBlinders,
+						unblinded.Token.AssetBlindingFactor,
+					)
+				}
+			} else {
+				iss, err := transaction.NewTxIssuanceFromInput(&transaction.TxInput{
+					Hash:  input.previousTxid,
+					Index: *input.previousOutputIndex,
+					Issuance: &transaction.TxIssuance{
+						AssetEntropy: input.issuanceAssetEntropy,
+					},
+				})
+				if err != nil {
+					return false
+				}
+				asset, err := iss.GenerateAsset()
+				if err != nil {
+					return false
+				}
+				inIssuanceAssets = append(inIssuanceAssets, asset)
+				inIssuanceAssetBlinders = append(
+					inIssuanceAssetBlinders,
+					transaction.Zero[:],
+				)
+
+				if input.issuanceInflationKeys != nil {
+					token, err := iss.GenerateReissuanceToken(0)
+					if err != nil {
+						return false
+					}
+					inIssuanceAssets = append(inIssuanceAssets, token)
+					inIssuanceAssetBlinders = append(
+						inIssuanceAssetBlinders,
+						transaction.Zero[:],
+					)
+				}
+			}
+		}
+	}
+
+	inAssets = append(inAssets, inIssuanceAssets...)
+	inAssetBlinders = append(inAssetBlinders, inIssuanceAssetBlinders...)
+	for _, v := range outUnBlindingInfos {
+		out := b.pset.Outputs[v.OutIndex]
+		amount, err := elementsutil.SatoshiToElementsValue(uint64(*out.outputAmount))
+		if err != nil {
+			return false
+		}
+		if out.IsBlinded() {
+			_, asset, _, abf, err := b.blinderSvc.UnblindOutputWithKey(
+				&transaction.TxOutput{
+					Asset:           out.outputAsset,
+					Value:           amount,
+					Script:          out.outputScript,
+					Nonce:           out.outputEcdhPubkey,
+					RangeProof:      out.outputValueRangeproof,
+					SurjectionProof: out.outputAssetSurjectionProof,
+				},
+				v.OutPrivateBlindingKey,
+			)
+			if err != nil {
+				return false
+			}
+			if !b.blinderSvc.VerifySurjectionProof(
+				inAssets,
+				inAssetBlinders,
+				asset,
+				abf,
+				out.outputAssetSurjectionProof,
+			) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 type randomNumberGenerator func() ([]byte, error)
 
 type psetInputIndex int
 
-// BlindingInfo is used to find secrets data that are going to be used for
-//blinding corresponding output
-type BlindingInfo struct {
-	// PsetInputIndex defines which previous output of pset input in going to be unblinded
-	PsetInputIndex int
-	// PrevOutPrivateBlindingKey is private blinding key of inputs previous output
-	PrevOutPrivateBlindingKey []byte
+// UnBlindingInfo holds data necessary for unblinding outputs
+type UnBlindingInfo struct {
+	// OutIndex defines which previous output of pset input in going to be unblinded
+	OutIndex int
+	// OutPrivateBlindingKey is private blinding key of inputs previous output
+	OutPrivateBlindingKey []byte
 }
 
 // IssuanceBlindingPrivateKeys stores the AssetKey and TokenKey that will be used in the BlinderRole.
@@ -188,34 +321,34 @@ type InputSecrets struct {
 //getInputSecrets un-blinds previous outputs
 func getInputSecrets(
 	pset *Pset,
-	prevOutBlindingInfos []BlindingInfo,
+	prevOutBlindingInfos []UnBlindingInfo,
 	blinderSvc Blinder,
 ) (map[psetInputIndex]InputSecrets, error) {
 	inputTxOutSecrets := make(map[psetInputIndex]InputSecrets)
 	for _, v := range prevOutBlindingInfos {
-		if !pset.OwnerProvidedOutputBlindingInfo(v.PsetInputIndex) {
+		if !pset.OwnerProvidedOutputBlindingInfo(v.OutIndex) {
 			return nil, ErrOwnerDidntProvidedOutputBlindingData
 		}
 
-		input := pset.Inputs[v.PsetInputIndex]
+		input := pset.Inputs[v.OutIndex]
 		var prevout *transaction.TxOutput
 
 		if input.nonWitnessUtxo != nil {
 			vout := input.previousOutputIndex
 			prevout = input.nonWitnessUtxo.Outputs[int(*vout)]
 		} else {
-			prevout = pset.Inputs[v.PsetInputIndex].witnessUtxo
+			prevout = pset.Inputs[v.OutIndex].witnessUtxo
 		}
 
 		value, asset, vbf, abf, err := blinderSvc.UnblindOutputWithKey(
 			prevout,
-			v.PrevOutPrivateBlindingKey,
+			v.OutPrivateBlindingKey,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		inputTxOutSecrets[psetInputIndex(v.PsetInputIndex)] = InputSecrets{
+		inputTxOutSecrets[psetInputIndex(v.OutIndex)] = InputSecrets{
 			Value:               value,
 			Asset:               asset,
 			ValueBlindingFactor: vbf,
@@ -469,10 +602,10 @@ func (b *BlinderRole) handleIssuance(
 	var issuanceAssetBlindingFactor []byte
 	var issuanceTokenBlindingFactor []byte
 
-	if isIssuance(input) && !isIssuanceBlinded(input) {
+	if input.isIssuance() && !input.isIssuanceBlinded() {
 		var entropy []byte
 
-		if isReIssuance(input) {
+		if input.isReIssuance() {
 			entropy = input.issuanceAssetEntropy
 		} else {
 			issuanceInput := &transaction.TxInput{
@@ -549,24 +682,6 @@ func (b *BlinderRole) handleIssuance(
 	return inputScalar, issuanceAsset, issuanceToken, issuanceAssetBlindingFactor, issuanceTokenBlindingFactor, nil
 }
 
-func isIssuance(input Input) bool {
-	return input.issuanceValue != nil
-}
-
-func isIssuanceBlinded(input Input) bool {
-	return input.issuanceValueCommitment == nil &&
-		len(input.issuanceValueRangeproof) == 0 &&
-		len(input.issuanceBlindInflationKeysProof) == 0
-}
-
-func isReIssuance(input Input) bool {
-	if input.issuanceBlindingNonce != nil {
-		return !bytes.Equal(input.issuanceBlindingNonce, transaction.Zero[:])
-	}
-
-	return false
-}
-
 func (b *BlinderRole) shouldBlindIssuance() bool {
 	return b.issuanceBlindingPrivateKeys.AssetKey != nil &&
 		b.issuanceBlindingPrivateKeys.TokenKey != nil
@@ -637,4 +752,118 @@ func (b *BlinderRole) blindIssuanceAsset(
 	}
 
 	return valueCommitment, rangeProof, blindValueProof, abf, offset, nil
+}
+
+type UnblindIssuanceResult struct {
+	Asset *InputSecrets
+	Token *InputSecrets
+}
+
+func (b *BlinderRole) unblindIssuance(
+	in Input,
+	blindKeys [][]byte,
+) (*UnblindIssuanceResult, error) {
+	if len(blindKeys) <= 1 {
+		return nil, errors.New("missing asset blind private key")
+	}
+	if !in.isIssuance() {
+		return nil, errors.New("missing input issuance")
+	}
+	if !in.isIssuanceBlinded() {
+		return nil, errors.New("missing asset range proof")
+	}
+
+	if in.issuanceInflationKeys != nil {
+		if len(in.issuanceBlindInflationKeysProof) <= 0 {
+			return nil, errors.New("missing token range proof")
+		}
+		if len(blindKeys) < 1 {
+			return nil, errors.New("missing token blind private key")
+		}
+	}
+
+	asset, err := calcAssetHash(in)
+	if err != nil {
+		return nil, err
+	}
+
+	amount, err := elementsutil.SatoshiToElementsValue(uint64(*in.issuanceValue))
+	if err != nil {
+		return nil, err
+	}
+	outs := []*transaction.TxOutput{
+		{
+			Asset:      asset,
+			Value:      amount,
+			RangeProof: in.issuanceValueRangeproof,
+			Script:     make([]byte, 0),
+		},
+	}
+	if in.issuanceInflationKeys != nil {
+		token, err := calcTokenHash(in)
+		if err != nil {
+			return nil, err
+		}
+
+		amount, err := elementsutil.SatoshiToElementsValue(uint64(*in.issuanceInflationKeys))
+		if err != nil {
+			return nil, err
+		}
+
+		outs = append(outs, &transaction.TxOutput{
+			Asset:      token,
+			Value:      amount,
+			RangeProof: in.issuanceKeysRangeproof,
+			Script:     make([]byte, 0),
+		})
+	}
+
+	res := &UnblindIssuanceResult{}
+	for i, out := range outs {
+		v, a, _, _, err := b.blinderSvc.UnblindOutputWithKey(out, blindKeys[i])
+		if err != nil {
+			return nil, err
+		}
+		//TODO check bellow
+		if i == 0 {
+			res.Asset.Asset = a
+			res.Asset.Value = v
+			res.Asset.AssetBlindingFactor = make([]byte, 32)
+		} else {
+			res.Token.Asset = a
+			res.Token.Value = v
+			res.Token.AssetBlindingFactor = make([]byte, 32)
+		}
+	}
+	return res, nil
+}
+
+func calcAssetHash(in Input) ([]byte, error) {
+	iss, err := transaction.NewTxIssuanceFromInput(&transaction.TxInput{
+		Hash:  in.previousTxid,
+		Index: *in.previousOutputIndex,
+		Issuance: &transaction.TxIssuance{
+			AssetEntropy: in.issuanceAssetEntropy,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return iss.GenerateAsset()
+}
+
+func calcTokenHash(in Input) ([]byte, error) {
+	iss, err := transaction.NewTxIssuanceFromInput(&transaction.TxInput{
+		Hash:  in.previousTxid,
+		Index: *in.previousOutputIndex,
+		Issuance: &transaction.TxIssuance{
+			AssetEntropy: in.issuanceAssetEntropy,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return iss.GenerateReissuanceToken(1)
 }

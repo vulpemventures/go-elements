@@ -111,6 +111,7 @@ func (b blinder) RangeProof(
 	exp int,
 	minBits int,
 ) ([]byte, error) {
+
 	rangeProofArgs := RangeProofArgs{
 		Value:               value,
 		Nonce:               nonce,

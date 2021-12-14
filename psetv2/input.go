@@ -309,3 +309,11 @@ func (i *Input) isReIssuance() bool {
 
 	return false
 }
+
+func (i *Input) WitnessUtxo() *transaction.TxOutput {
+	return i.witnessUtxo
+}
+
+func (i *Input) NonWitnessUtxo() *transaction.Transaction {
+	return i.nonWitnessUtxo
+}

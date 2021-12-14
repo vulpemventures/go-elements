@@ -2,6 +2,7 @@ package psetv2test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/vulpemventures/go-elements/confidential"
 
@@ -27,12 +28,13 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	}
 	pubkey := privkey.PubKey()
 	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
-	address, _ := p2wpkh.WitnessPubKeyHash()
+	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
 
 	// Fund sender address.
 	if _, err := faucet(address); err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(time.Second * 3)
 
 	// Retrieve sender utxos.
 	utxos, err := unspents(address)
@@ -73,12 +75,14 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	outputBlindingPubKey1 := outputBlindingPrivKey1.Serialize()
+	outputBlindingPubKey1 := outputBlindingPrivKey1.PubKey().SerializeCompressed()
+
 	outputBlindingPrivKey2, err := btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		t.Fatal(err)
 	}
-	outputBlindingPubKey2 := outputBlindingPrivKey2.Serialize()
+	outputBlindingPubKey2 := outputBlindingPrivKey2.PubKey().SerializeCompressed()
+
 	outputArgs := []psetv2.OutputArg{
 		{
 			BlinderIndex:   0,
@@ -109,8 +113,21 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
-	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.WitnessScript)
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:           assetCommitment,
+		Value:           valueCommitment,
+		Script:          p2wpkh.WitnessScript,
+		Nonce:           prevTx.Outputs[txInputIndex].Nonce,
+		RangeProof:      prevTx.Outputs[txInputIndex].RangeProof,
+		SurjectionProof: prevTx.Outputs[txInputIndex].SurjectionProof,
+	}
 	if err := updaterRole.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -151,9 +168,17 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		t.Fatal("blinding invalid")
 	}
 
-	//TODO add fee
+	if err := addFeesToTransaction(pset, 500); err != nil {
+		t.Fatal(err)
+	}
 
-	//TODO sign
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(pset, prvKeys, scripts, true, nil, blinderSvc); err != nil {
+		t.Fatal(err)
+	}
 
-	//TODO broadcast
+	if _, err := broadcastTransaction(pset, blinderSvc); err != nil {
+		t.Fatal(err)
+	}
 }

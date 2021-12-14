@@ -606,14 +606,26 @@ func CalculateScalarOffset(
 ) ([]byte, error) {
 	var result []byte
 
+	var ab []byte
+	if assetBlinder != nil {
+		ab = make([]byte, len(assetBlinder))
+		copy(ab, assetBlinder)
+	}
+
+	var vb []byte
+	if valueBlinder != nil {
+		vb = make([]byte, len(valueBlinder))
+		copy(vb, valueBlinder)
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	if assetBlinder == nil {
-		return valueBlinder, nil
+	if ab == nil {
+		return vb, nil
 	}
 
-	result = assetBlinder
+	result = ab
 
 	val := make([]byte, 32)
 	binary.BigEndian.PutUint64(val[24:], amount)
@@ -625,11 +637,11 @@ func CalculateScalarOffset(
 		return nil, ErrPrivKeyMult
 	}
 
-	if valueBlinder == nil {
+	if vb == nil {
 		return nil, ErrInvalidValueBlinder
 	}
 
-	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, result, valueBlinder)
+	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, result, vb)
 	if err != nil {
 		return nil, err
 	}
@@ -642,6 +654,18 @@ func CalculateScalarOffset(
 
 // SubtractScalars subtract b from a in place
 func SubtractScalars(a []byte, b []byte) ([]byte, error) {
+	var aa []byte
+	if a != nil {
+		aa = make([]byte, len(a))
+		copy(aa, a)
+	}
+
+	var bb []byte
+	if b != nil {
+		bb = make([]byte, len(b))
+		copy(bb, b)
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -649,7 +673,7 @@ func SubtractScalars(a []byte, b []byte) ([]byte, error) {
 		return a, nil
 	}
 
-	r, err := secp256k1.EcPrivKeyNegate(ctx, b)
+	r, err := secp256k1.EcPrivKeyNegate(ctx, bb)
 	if err != nil {
 		return nil, err
 	}
@@ -661,7 +685,7 @@ func SubtractScalars(a []byte, b []byte) ([]byte, error) {
 		return b, nil
 	}
 
-	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, a, b)
+	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, aa, bb)
 	if err != nil {
 		return nil, err
 	}
@@ -679,24 +703,42 @@ func ComputeAndAddToScalarOffset(
 	assetBlinder []byte,
 	valueBlinder []byte,
 ) ([]byte, error) {
-	// If both asset and value blinders are null, 0 is added to the offset, so nothing actually happens
-	if assetBlinder == nil && valueBlinder == nil {
-		return scalar, nil
+	var s []byte
+	if scalar != nil {
+		s = make([]byte, len(scalar))
+		copy(s, scalar)
 	}
 
-	scalarOffset, err := CalculateScalarOffset(value, assetBlinder, valueBlinder)
+	var ab []byte
+	if assetBlinder != nil {
+		ab = make([]byte, len(assetBlinder))
+		copy(ab, assetBlinder)
+	}
+
+	var vb []byte
+	if valueBlinder != nil {
+		vb = make([]byte, len(valueBlinder))
+		copy(vb, valueBlinder)
+	}
+
+	// If both asset and value blinders are null, 0 is added to the offset, so nothing actually happens
+	if ab == nil && vb == nil {
+		return s, nil
+	}
+
+	scalarOffset, err := CalculateScalarOffset(value, ab, vb)
 	if err != nil {
 		return nil, err
 	}
 
 	// When we start out, the result (a) is 0, so just set it to the scalar we just computed.
-	if scalar == nil {
+	if s == nil {
 		return scalarOffset, nil
 	} else {
 		// If we have a, then add the scalar to it.
 		ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 		defer secp256k1.ContextDestroy(ctx)
-		r, err := secp256k1.EcPrivKeyTweakAdd(ctx, scalar, scalarOffset)
+		r, err := secp256k1.EcPrivKeyTweakAdd(ctx, s, scalarOffset)
 		if err != nil {
 			return nil, err
 		}
@@ -715,6 +757,24 @@ func CreateBlindValueProof(
 	valueCommitment []byte,
 	assetCommitment []byte,
 ) ([]byte, error) {
+	var vbf []byte
+	if valueBlindingFactor != nil {
+		vbf = make([]byte, len(valueBlindingFactor))
+		copy(vbf, valueBlindingFactor)
+	}
+
+	var vc []byte
+	if valueCommitment != nil {
+		vc = make([]byte, len(valueCommitment))
+		copy(vc, valueCommitment)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -726,18 +786,18 @@ func CreateBlindValueProof(
 	var nonce [32]byte
 	copy(nonce[:], r)
 
-	commit, err := secp256k1.CommitmentParse(ctx, valueCommitment)
+	commit, err := secp256k1.CommitmentParse(ctx, vc)
 	if err != nil {
 		return nil, err
 	}
 
-	gen, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	gen, err := secp256k1.GeneratorParse(ctx, ac)
 	if err != nil {
 		return nil, err
 	}
 
 	var vbf32 [32]byte
-	copy(vbf32[:], valueBlindingFactor)
+	copy(vbf32[:], vbf)
 
 	return secp256k1.RangeProofSign(
 		ctx,
@@ -759,10 +819,28 @@ func CreateBlindAssetProof(
 	assetCommitment []byte,
 	assetBlinder []byte,
 ) ([]byte, error) {
+	var a []byte
+	if asset != nil {
+		a = make([]byte, len(asset))
+		copy(a, asset)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
+	var ab []byte
+	if assetBlinder != nil {
+		ab = make([]byte, len(assetBlinder))
+		copy(ab, assetBlinder)
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	fixedAssetTag, err := secp256k1.FixedAssetTagParse(asset)
+	fixedAssetTag, err := secp256k1.FixedAssetTagParse(a)
 	if err != nil {
 		return nil, err
 	}
@@ -781,13 +859,13 @@ func CreateBlindAssetProof(
 		return nil, err
 	}
 
-	gen, err := secp256k1.GeneratorGenerate(ctx, asset)
+	gen, err := secp256k1.GeneratorGenerate(ctx, a)
 	if err != nil {
 		return nil, err
 	}
 	assetGen := []*secp256k1.Generator{gen}
 
-	blindedAssetGen, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	blindedAssetGen, err := secp256k1.GeneratorParse(ctx, ac)
 	if err != nil {
 		return nil, err
 	}
@@ -799,7 +877,7 @@ func CreateBlindAssetProof(
 		blindedAssetGen,
 		inputIndex,
 		Zero,
-		assetBlinder,
+		ab,
 	)
 	if err != nil {
 		return nil, err
@@ -811,7 +889,7 @@ func CreateBlindAssetProof(
 		assetGen,
 		blindedAssetGen,
 	) {
-		return nil, err
+		return nil, errors.New("invalid surjection proof")
 	}
 
 	return proof.Bytes(), nil
@@ -823,22 +901,40 @@ func VerifyBlindValueProof(
 	blindValueProof []byte,
 	assetCommitment []byte,
 ) (bool, error) {
+	var vc []byte
+	if valueCommitment != nil {
+		vc = make([]byte, len(valueCommitment))
+		copy(vc, valueCommitment)
+	}
+
+	var bvp []byte
+	if blindValueProof != nil {
+		bvp = make([]byte, len(blindValueProof))
+		copy(bvp, blindValueProof)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	commitment, err := secp256k1.CommitmentParse(ctx, valueCommitment)
+	commitment, err := secp256k1.CommitmentParse(ctx, vc)
 	if err != nil {
 		return false, err
 	}
 
-	assetGenerator, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	assetGenerator, err := secp256k1.GeneratorParse(ctx, ac)
 	if err != nil {
 		return false, err
 	}
 
 	valid, minValue, _ := secp256k1.RangeProofVerify(
 		ctx,
-		blindValueProof,
+		bvp,
 		commitment,
 		nil,
 		assetGenerator,
@@ -852,15 +948,27 @@ func VerifyBlindAssetProof(
 	blindAssetProof []byte,
 	assetCommitment []byte,
 ) (bool, error) {
+	var bap []byte
+	if blindAssetProof != nil {
+		bap = make([]byte, len(blindAssetProof))
+		copy(bap, blindAssetProof)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	surjectionProof, err := secp256k1.SurjectionProofParse(ctx, blindAssetProof)
+	surjectionProof, err := secp256k1.SurjectionProofParse(ctx, bap)
 	if err != nil {
 		return false, err
 	}
 
-	blindAssetGen, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	blindAssetGen, err := secp256k1.GeneratorParse(ctx, ac)
 	if err != nil {
 		return false, err
 	}
@@ -871,6 +979,9 @@ func VerifyBlindAssetProof(
 	}
 	generators := []*secp256k1.Generator{assetGen}
 
-	secp256k1.SurjectionProofVerify(ctx, surjectionProof, generators, blindAssetGen)
-	return false, nil
+	if !secp256k1.SurjectionProofVerify(ctx, surjectionProof, generators, blindAssetGen) {
+		return false, nil
+	}
+
+	return true, nil
 }

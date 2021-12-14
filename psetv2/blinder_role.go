@@ -256,15 +256,11 @@ func (b *BlinderRole) Verify(outUnBlindingInfos []UnBlindingInfo) bool {
 	inAssetBlinders = append(inAssetBlinders, inIssuanceAssetBlinders...)
 	for _, v := range outUnBlindingInfos {
 		out := b.pset.Outputs[v.OutIndex]
-		amount, err := elementsutil.SatoshiToElementsValue(uint64(*out.outputAmount))
-		if err != nil {
-			return false
-		}
 		if out.IsBlinded() {
 			_, asset, _, abf, err := b.blinderSvc.UnblindOutputWithKey(
 				&transaction.TxOutput{
-					Asset:           out.outputAsset,
-					Value:           amount,
+					Asset:           out.outputAssetCommitment,
+					Value:           out.outputValueCommitment,
 					Script:          out.outputScript,
 					Nonce:           out.outputEcdhPubkey,
 					RangeProof:      out.outputValueRangeproof,
@@ -275,6 +271,7 @@ func (b *BlinderRole) Verify(outUnBlindingInfos []UnBlindingInfo) bool {
 			if err != nil {
 				return false
 			}
+
 			if !b.blinderSvc.VerifySurjectionProof(
 				inAssets,
 				inAssetBlinders,
@@ -381,17 +378,16 @@ func (b *BlinderRole) blindCheck() (int, int, []int) {
 //processInputs loops through pset inputs in order to gather input assets, blinders
 //and scalar that are to be used for blinding outputs, it also blinds owned issuance is any
 func (b *BlinderRole) processInputs() ([]byte, [][]byte, [][]byte, error) {
-	inputScalar := make([]byte, 0)
+	var inputScalar []byte
 	inputAssets := make([][]byte, 0)
 	inputAssetBlinders := make([][]byte, 0)
 
 	for i, v := range b.pset.Inputs {
-		utxo := v.GetUtxo()
+		utxo := v.GetUtxo() //TODO check if utxo's are blinded or not
 		if utxo == nil {
 			return nil, nil, nil, ErrNeedUtxo
 		}
 		asset := utxo.Asset
-		inputAssets = append(inputAssets, asset)
 
 		if i <= len(b.inputTxOutSecrets)-1 {
 			offset, err := b.blinderSvc.ComputeAndAddToScalarOffset(
@@ -405,7 +401,7 @@ func (b *BlinderRole) processInputs() ([]byte, [][]byte, [][]byte, error) {
 			}
 			inputScalar = offset
 
-			inputAssets = append(inputAssets, asset)
+			inputAssets = append(inputAssets, b.inputTxOutSecrets[psetInputIndex(i)].Asset)
 			inputAssetBlinders = append(inputAssetBlinders, b.inputTxOutSecrets[psetInputIndex(i)].AssetBlindingFactor)
 		} else {
 			inputAssets = append(inputAssets, asset)
@@ -418,10 +414,18 @@ func (b *BlinderRole) processInputs() ([]byte, [][]byte, [][]byte, error) {
 		}
 		inputScalar = offset
 
-		inputAssets = append(inputAssets, issuanceAsset)
-		inputAssets = append(inputAssets, issuanceToken)
-		inputAssetBlinders = append(inputAssetBlinders, issuanceAssetBlindingFactor)
-		inputAssetBlinders = append(inputAssetBlinders, issuanceTokenBlindingFactor)
+		if issuanceAsset != nil {
+			inputAssets = append(inputAssets, issuanceAsset)
+		}
+		if issuanceToken != nil {
+			inputAssets = append(inputAssets, issuanceToken)
+		}
+		if issuanceAssetBlindingFactor != nil {
+			inputAssetBlinders = append(inputAssetBlinders, issuanceAssetBlindingFactor)
+		}
+		if issuanceTokenBlindingFactor != nil {
+			inputAssetBlinders = append(inputAssetBlinders, issuanceTokenBlindingFactor)
+		}
 	}
 
 	return inputScalar, inputAssets, inputAssetBlinders, nil
@@ -436,7 +440,7 @@ func (b *BlinderRole) blindOutputs(
 	inputAssets [][]byte,
 	inputAssetBlinders [][]byte,
 ) ([]byte, bool, error) {
-	outputScalar := make([]byte, 0)
+	var outputScalar []byte
 	lastOutputToBeBlinded := false
 	lastBlinded := false
 	for _, v := range ownedOutputsToBeBlindedIndexes {
@@ -463,6 +467,9 @@ func (b *BlinderRole) blindOutputs(
 			valueBlindingFactor,
 		)
 		outputScalar = offset
+		if err != nil {
+			return nil, false, err
+		}
 
 		if lastOutputToBeBlinded {
 			subs, err := b.blinderSvc.SubtractScalars(outputScalar, inputScalar)
@@ -495,7 +502,7 @@ func (b *BlinderRole) blindOutputs(
 		}
 
 		assetCommitment, err := b.blinderSvc.AssetCommitment(
-			output.outputAsset,
+			output.outputAsset[1:],
 			assetBlindingFactor,
 		)
 		if err != nil {
@@ -507,6 +514,9 @@ func (b *BlinderRole) blindOutputs(
 			assetCommitment[:],
 			valueBlindingFactor,
 		)
+		if err != nil {
+			return nil, false, err
+		}
 
 		var vbf32 [32]byte
 		copy(vbf32[:], valueBlindingFactor)
@@ -528,11 +538,11 @@ func (b *BlinderRole) blindOutputs(
 		rangeProof, err := b.blinderSvc.RangeProof(
 			uint64(*output.outputAmount),
 			nonce,
-			output.outputAsset,
+			output.outputAsset[1:],
 			assetBlindingFactor,
 			vbf32,
 			valueCommitment[:],
-			[]byte{},
+			output.outputScript,
 			1,
 			0,
 			52,
@@ -558,7 +568,7 @@ func (b *BlinderRole) blindOutputs(
 		}
 
 		surjectionProof, ok := b.blinderSvc.SurjectionProof(
-			output.outputAsset,
+			output.outputAsset[1:],
 			assetBlindingFactor,
 			inputAssets,
 			inputAssetBlinders,
@@ -570,7 +580,7 @@ func (b *BlinderRole) blindOutputs(
 		}
 
 		blindAssetProof, err := b.blinderSvc.CreateBlindAssetProof(
-			output.outputAsset,
+			output.outputAsset[1:],
 			assetCommitment,
 			assetBlindingFactor,
 		)
@@ -586,6 +596,7 @@ func (b *BlinderRole) blindOutputs(
 		output.outputBlindValueProof = blindValueProof
 		output.outputBlindAssetProof = blindAssetProof
 
+		b.pset.Outputs[v] = output
 		numOfBlindedOutputs++
 	}
 

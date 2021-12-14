@@ -12,6 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vulpemventures/go-elements/confidential"
+
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/txscript"
+
 	"github.com/vulpemventures/go-elements/psetv2"
 	"github.com/vulpemventures/go-elements/transaction"
 
@@ -117,4 +122,159 @@ func addFeesToTransaction(p *psetv2.Pset, feeAmount uint64) error {
 	updaterRole, _ := psetv2.NewUpdaterRole(p)
 
 	return updaterRole.AddOutput(outputArg)
+}
+
+func fetchTx(txId string) (string, error) {
+	baseUrl, err := apiBaseUrl()
+	if err != nil {
+		return "", err
+	}
+	url := fmt.Sprintf("%s/tx/%s/hex", baseUrl, txId)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
+
+type signOpts struct {
+	pubkeyScript []byte
+	script       []byte
+}
+
+func signTransaction(
+	p *psetv2.Pset,
+	privKeys []*btcec.PrivateKey,
+	scripts [][]byte,
+	forWitness bool,
+	opts *signOpts,
+	blinderSvc confidential.Blinder,
+) error {
+	updaterRole, err := psetv2.NewUpdaterRole(p)
+	if err != nil {
+		return err
+	}
+
+	signerRole, err := psetv2.NewSignerRole(p, blinderSvc)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range p.Inputs {
+		updaterRole.AddInSighashType(txscript.SigHashAll|transaction.SighashRangeproof, k)
+
+		var prevout *transaction.TxOutput
+		if v.WitnessUtxo() != nil {
+			prevout = v.WitnessUtxo()
+		} else {
+			prevout = v.NonWitnessUtxo().Outputs[k]
+		}
+		prvkey := privKeys[k]
+		pubkey := prvkey.PubKey()
+		script := scripts[k]
+
+		var sigHash [32]byte
+		tx, err := p.UnsignedTx(blinderSvc)
+		if err != nil {
+			return err
+		}
+		if forWitness {
+			sigHash = tx.HashForWitnessV0(
+				k,
+				script,
+				prevout.Value,
+				txscript.SigHashAll|transaction.SighashRangeproof,
+			)
+		} else {
+			sigHash, err = tx.HashForSignature(k, script, txscript.SigHashAll|transaction.SighashRangeproof)
+			if err != nil {
+				return err
+			}
+		}
+
+		sig, err := prvkey.Sign(sigHash[:])
+		if err != nil {
+			return err
+		}
+		sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll|transaction.SighashRangeproof))
+
+		var witPubkeyScript []byte
+		var witScript []byte
+		if opts != nil {
+			witPubkeyScript = opts.pubkeyScript
+			witScript = opts.script
+		}
+
+		if _, err := signerRole.SignInput(
+			k,
+			sigWithHashType,
+			pubkey.SerializeCompressed(),
+			witPubkeyScript,
+			witScript,
+		); err != nil {
+			return err
+		}
+	}
+
+	valid, err := signerRole.ValidateAllSignatures()
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("invalid signatures")
+	}
+
+	return nil
+}
+
+func broadcastTransaction(p *psetv2.Pset, blinderSvc psetv2.Blinder) (string, error) {
+	finalizerRole := psetv2.NewFinalizerRole(p)
+	if err := finalizerRole.FinalizeAll(p); err != nil {
+		return "", err
+	}
+	// Extract the final signed transaction from the Pset wrapper.
+
+	extractorRole := psetv2.NewExtractorRole(p, blinderSvc)
+	finalTx, err := extractorRole.Extract()
+	if err != nil {
+		return "", err
+	}
+	// Serialize the transaction and try to broadcast.
+	txHex, err := finalTx.ToHex()
+	if err != nil {
+		return "", err
+	}
+
+	return broadcast(txHex)
+}
+
+func broadcast(txHex string) (string, error) {
+	baseUrl, err := apiBaseUrl()
+	if err != nil {
+		return "", err
+	}
+	url := fmt.Sprintf("%s/tx", baseUrl)
+
+	resp, err := http.Post(url, "text/plain", strings.NewReader(txHex))
+	if err != nil {
+		return "", err
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	res := string(data)
+	if len(res) <= 0 || strings.Contains(res, "sendrawtransaction") {
+		return "", fmt.Errorf("failed to broadcast tx: %s", res)
+	}
+	return res, nil
 }

@@ -351,28 +351,30 @@ func (p *Pset) UnsignedTx(blinderSvc Blinder) (*transaction.Transaction, error) 
 		txInput.Hash = v.previousTxid
 		txInput.Index = *v.previousOutputIndex
 		txInput.Sequence = *v.sequence
-		txInput.Issuance.AssetBlindingNonce = v.issuanceBlindingNonce
-		txInput.Issuance.AssetEntropy = v.issuanceAssetEntropy
-		if v.issuanceValue != nil {
-			issuanceValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceValue))
-			if err != nil {
-				return nil, err
+		if txInput.Issuance != nil {
+			txInput.Issuance.AssetBlindingNonce = v.issuanceBlindingNonce
+			txInput.Issuance.AssetEntropy = v.issuanceAssetEntropy
+			if v.issuanceValue != nil {
+				issuanceValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceValue))
+				if err != nil {
+					return nil, err
+				}
+				txInput.Issuance.AssetAmount = issuanceValue
 			}
-			txInput.Issuance.AssetAmount = issuanceValue
-		}
-		if v.issuanceValueCommitment != nil {
-			txInput.Issuance.AssetAmount = v.issuanceValueCommitment
-		}
+			if v.issuanceValueCommitment != nil {
+				txInput.Issuance.AssetAmount = v.issuanceValueCommitment
+			}
 
-		if v.issuanceInflationKeys != nil {
-			tokenValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceInflationKeys))
-			if err != nil {
-				return nil, err
+			if v.issuanceInflationKeys != nil {
+				tokenValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceInflationKeys))
+				if err != nil {
+					return nil, err
+				}
+				txInput.Issuance.TokenAmount = tokenValue
 			}
-			txInput.Issuance.TokenAmount = tokenValue
-		}
-		if v.issuanceInflationKeysCommitment != nil {
-			txInput.Issuance.TokenAmount = v.issuanceInflationKeysCommitment
+			if v.issuanceInflationKeysCommitment != nil {
+				txInput.Issuance.TokenAmount = v.issuanceInflationKeysCommitment
+			}
 		}
 
 		tx.AddInput(txInput)

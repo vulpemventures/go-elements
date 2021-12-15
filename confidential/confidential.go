@@ -1,9 +1,11 @@
 package confidential
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/vulpemventures/go-elements/transaction"
 	"github.com/vulpemventures/go-secp256k1-zkp"
@@ -155,6 +157,18 @@ func (a RangeProofArgs) minBits() int {
 
 // RangeProof method calculates range proof
 func RangeProof(args RangeProofArgs) ([]byte, error) {
+	fmt.Println("**")
+	fmt.Printf("value: %v\n", args.Value)
+	fmt.Printf("nonce: %v\n", args.Nonce)
+	fmt.Printf("asset: %v\n", args.Asset)
+	fmt.Printf("assetBlindingFactor: %v\n", args.AssetBlindingFactor)
+	fmt.Printf("valueBlindFactor: %v\n", args.ValueBlindFactor)
+	fmt.Printf("valueCommit: %v\n", args.ValueCommit)
+	fmt.Printf("scriptPubkey: %v\n", args.ScriptPubkey)
+	fmt.Printf("minValue: %v\n", args.MinValue)
+	fmt.Printf("exp: %v\n", args.Exp)
+	fmt.Printf("minBits: %v\n", args.MinBits)
+	fmt.Println("**")
 	return rangeProof(args)
 }
 
@@ -618,27 +632,49 @@ func CalculateScalarOffset(
 		copy(vb, valueBlinder)
 	}
 
-	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
-	defer secp256k1.ContextDestroy(ctx)
-
 	if ab == nil {
 		return vb, nil
 	}
+
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
 
 	result = ab
 
 	val := make([]byte, 32)
 	binary.BigEndian.PutUint64(val[24:], amount)
-	r, err := secp256k1.EcPrivKeyTweakMul(ctx, result, val)
-	if err != nil {
-		return nil, err
-	}
-	if r != 1 {
-		return nil, ErrPrivKeyMult
+
+	if amount > 0 {
+		r, err := secp256k1.EcPrivKeyTweakMul(ctx, result, val)
+		if err != nil {
+			return nil, err
+		}
+		if r != 1 {
+			return nil, ErrPrivKeyMult
+		}
+	} else {
+		return vb, nil
 	}
 
 	if vb == nil {
 		return nil, ErrInvalidValueBlinder
+	}
+
+	var vn []byte
+	if valueBlinder != nil {
+		vn = make([]byte, len(valueBlinder))
+		copy(vn, valueBlinder)
+	}
+	r, err := secp256k1.EcPrivKeyNegate(ctx, vn)
+	if err != nil {
+		return nil, err
+	}
+	if r != 1 {
+		return nil, ErrPrivKeyNegate
+	}
+
+	if bytes.Equal(vn, result) {
+		return Zero, nil
 	}
 
 	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, result, vb)
@@ -669,8 +705,8 @@ func SubtractScalars(a []byte, b []byte) ([]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
-	if b == nil {
-		return a, nil
+	if bb == nil {
+		return aa, nil
 	}
 
 	r, err := secp256k1.EcPrivKeyNegate(ctx, bb)
@@ -681,8 +717,8 @@ func SubtractScalars(a []byte, b []byte) ([]byte, error) {
 		return nil, ErrPrivKeyNegate
 	}
 
-	if a == nil {
-		return b, nil
+	if aa == nil {
+		return bb, nil
 	}
 
 	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, aa, bb)
@@ -735,10 +771,27 @@ func ComputeAndAddToScalarOffset(
 	if s == nil {
 		return scalarOffset, nil
 	} else {
-		// If we have a, then add the scalar to it.
 		ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 		defer secp256k1.ContextDestroy(ctx)
-		r, err := secp256k1.EcPrivKeyTweakAdd(ctx, s, scalarOffset)
+
+		var nv []byte
+		if scalarOffset != nil {
+			nv = make([]byte, len(scalarOffset))
+			copy(nv, scalarOffset)
+		}
+		r, err := secp256k1.EcPrivKeyNegate(ctx, nv)
+		if err != nil {
+			return nil, err
+		}
+		if r != 1 {
+			return nil, ErrPrivKeyNegate
+		}
+
+		if bytes.Equal(s, nv) {
+			return Zero, nil
+		}
+
+		r, err = secp256k1.EcPrivKeyTweakAdd(ctx, s, scalarOffset)
 		if err != nil {
 			return nil, err
 		}

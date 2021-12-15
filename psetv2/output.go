@@ -134,6 +134,7 @@ func psetOutputFromTxOutput(output transaction.TxOutput) (*Output, error) {
 		outputAmount:          outputAmount,
 		outputValueCommitment: outputCommitment,
 		outputAsset:           outputAsset,
+		outputEcdhPubkey:      output.Nonce,
 		outputAssetCommitment: outputAssetCommitment,
 	}, nil
 }

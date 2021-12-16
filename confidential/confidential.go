@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/vulpemventures/go-elements/transaction"
 	"github.com/vulpemventures/go-secp256k1-zkp"
@@ -157,18 +156,7 @@ func (a RangeProofArgs) minBits() int {
 
 // RangeProof method calculates range proof
 func RangeProof(args RangeProofArgs) ([]byte, error) {
-	fmt.Println("**")
-	fmt.Printf("value: %v\n", args.Value)
-	fmt.Printf("nonce: %v\n", args.Nonce)
-	fmt.Printf("asset: %v\n", args.Asset)
-	fmt.Printf("assetBlindingFactor: %v\n", args.AssetBlindingFactor)
-	fmt.Printf("valueBlindFactor: %v\n", args.ValueBlindFactor)
-	fmt.Printf("valueCommit: %v\n", args.ValueCommit)
-	fmt.Printf("scriptPubkey: %v\n", args.ScriptPubkey)
-	fmt.Printf("minValue: %v\n", args.MinValue)
-	fmt.Printf("exp: %v\n", args.Exp)
-	fmt.Printf("minBits: %v\n", args.MinBits)
-	fmt.Println("**")
+
 	return rangeProof(args)
 }
 
@@ -729,7 +717,7 @@ func SubtractScalars(a []byte, b []byte) ([]byte, error) {
 		return nil, ErrPrivKeyTweakAdd
 	}
 
-	return a, nil
+	return aa, nil
 }
 
 // ComputeAndAddToScalarOffset computes a scalar offset and adds it to another existing one

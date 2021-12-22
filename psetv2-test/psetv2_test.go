@@ -178,7 +178,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := broadcastTransaction(pset, blinderSvc); err != nil {
+	if _, err = broadcastTransaction(pset, blinderSvc); err != nil {
 		t.Fatal(err)
 	}
 }

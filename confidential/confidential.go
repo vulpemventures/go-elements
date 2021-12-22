@@ -788,7 +788,7 @@ func ComputeAndAddToScalarOffset(
 		}
 	}
 
-	return scalar, nil
+	return s, nil
 }
 
 func CreateBlindValueProof(

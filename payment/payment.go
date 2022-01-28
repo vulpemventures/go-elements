@@ -127,11 +127,11 @@ func FromPayment(payment *Payment) (*Payment, error) {
 
 // FromScript creates parses a script into a Payment struct
 func FromScript(
-	script []byte,
+	outputScript []byte,
 	net *network.Network,
 	blindingKey *btcec.PublicKey,
 ) (*Payment, error) {
-	if script == nil || len(script) == 0 {
+	if len(outputScript) == 0 {
 		return nil, errors.New("payment's script can't be empty or nil")
 	}
 
@@ -142,35 +142,32 @@ func FromScript(
 		tmpNet = net
 	}
 
-	scriptHash := make([]byte, 0)
-	witnessScriptHash := make([]byte, 0)
-	_script := make([]byte, 0)
-	witnessScript := make([]byte, 0)
-	switch address.GetScriptType(script) {
+	var script, scriptHash, witnessScript, witnessScriptHash []byte
+	switch address.GetScriptType(outputScript) {
 	case address.P2WpkhScript:
-		scriptHash = append(scriptHash, script[2:]...)
-		_script = buildScript(scriptHash, "p2pkh")
-		witnessScriptHash = append(scriptHash, script[2:]...)
-		witnessScript = script
+		scriptHash = outputScript[2:]
+		script = buildScript(scriptHash, "p2pkh")
+		witnessScriptHash = scriptHash
+		witnessScript = outputScript
 	case address.P2WshScript:
-		witnessScriptHash = append(scriptHash, script[2:]...)
-		witnessScript = script
+		witnessScriptHash = outputScript[2:]
+		witnessScript = outputScript
 	case address.P2ShScript:
-		scriptHash = append(scriptHash, script[2:len(script)-1]...)
-		_script = script
+		scriptHash = outputScript[2 : len(outputScript)-1]
+		script = outputScript
 	case address.P2PkhScript:
-		scriptHash = append(scriptHash, script[3:len(script)-2]...)
-		_script = script
+		scriptHash = outputScript[3 : len(outputScript)-2]
+		script = outputScript
 	// multisig, here we do not calculate the hashes because this payment
 	// must be wrapped into another one
 	default:
-		_script = script
+		script = outputScript
 	}
 
 	return &Payment{
 		Hash:          scriptHash,
 		WitnessHash:   witnessScriptHash,
-		Script:        _script,
+		Script:        script,
 		WitnessScript: witnessScript,
 		Network:       tmpNet,
 		BlindingKey:   blindingKey,

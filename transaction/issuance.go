@@ -152,12 +152,9 @@ func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex u
 		return errors.New("invalid tx hash length")
 	}
 
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return err
-	}
+	s := bufferutil.NewSerializer(nil)
 
-	err = s.WriteSlice(inTxHash)
+	err := s.WriteSlice(inTxHash)
 	if err != nil {
 		return err
 	}
@@ -205,7 +202,7 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 }
 
 func toConfidentialAssetAmount(assetAmount uint64) ([]byte, error) {
-	confAmount, err := elementsutil.SatoshiToElementsValue(assetAmount)
+	confAmount, err := elementsutil.ValueToBytes(assetAmount)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +214,7 @@ func toConfidentialTokenAmount(tokenAmount uint64) ([]byte, error) {
 		return []byte{0x00}, nil
 	}
 
-	confAmount, err := elementsutil.SatoshiToElementsValue(tokenAmount)
+	confAmount, err := elementsutil.ValueToBytes(tokenAmount)
 	if err != nil {
 		return nil, err
 	}

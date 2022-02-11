@@ -124,13 +124,13 @@ func Claim(
 		return nil, err
 	}
 
-	startValue, err := elementsutil.SatoshiToElementsValue(uint64(amount))
+	startValue, err := elementsutil.ValueToBytes(uint64(amount))
 	if err != nil {
 		return nil, err
 	}
 	receiverOutput := transaction.NewTxOutput(peggedAsset, startValue, claimScript)
 
-	dummyFeeValue, _ := elementsutil.SatoshiToElementsValue(uint64(0))
+	dummyFeeValue, _ := elementsutil.ValueToBytes(uint64(0))
 	feeOutput := transaction.NewTxOutput(peggedAsset, dummyFeeValue, []byte{})
 
 	claimTx.AddInput(input)
@@ -141,12 +141,12 @@ func Claim(
 	feeValue := uint64(float64(txSize) * milisatsPerByte)
 
 	finalValue := uint64(amount) - feeValue
-	finalValueElements, err := elementsutil.SatoshiToElementsValue(finalValue)
+	finalValueElements, err := elementsutil.ValueToBytes(finalValue)
 	if err != nil {
 		return nil, err
 	}
 
-	feeValueElements, err := elementsutil.SatoshiToElementsValue(feeValue)
+	feeValueElements, err := elementsutil.ValueToBytes(feeValue)
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +334,7 @@ func createPeginWitness(
 }
 
 func SerializeValue(value int64) ([]byte, error) {
-	valueBytes, err := elementsutil.SatoshiToElementsValue(uint64(value))
+	valueBytes, err := elementsutil.ValueToBytes(uint64(value))
 	if err != nil {
 		return nil, err
 	}

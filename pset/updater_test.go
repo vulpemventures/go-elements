@@ -40,7 +40,7 @@ func TestUpdater(t *testing.T) {
 				asset, _ := hex.DecodeString(wu["asset"].(string))
 				asset = append([]byte{0x01}, elementsutil.ReverseBytes(asset)...)
 				script, _ := hex.DecodeString(wu["script"].(string))
-				value, _ := elementsutil.SatoshiToElementsValue(uint64(wu["value"].(float64)))
+				value, _ := elementsutil.ValueToBytes(uint64(wu["value"].(float64)))
 				utxo := transaction.NewTxOutput(asset, value[:], script)
 				updater.AddInWitnessUtxo(utxo, inIndex)
 				redeemScript, _ := hex.DecodeString(in["redeemScript"].(string))

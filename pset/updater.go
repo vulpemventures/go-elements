@@ -670,14 +670,14 @@ func (p *Updater) AddReissuance(arg AddReissuanceArgs) error {
 	assetHash, _ := issuance.GenerateAsset()
 	assetHash = append([]byte{0x01}, assetHash...)
 	assetScript, _ := address.ToOutputScript(arg.AssetAddress)
-	assetAmount, _ := elementsutil.SatoshiToElementsValue(arg.AssetAmount)
+	assetAmount, _ := elementsutil.ValueToBytes(arg.AssetAmount)
 
 	tokenHash, _ := issuance.GenerateReissuanceToken(
 		ConfidentialReissuanceTokenFlag,
 	)
 	tokenHash = append([]byte{0x01}, tokenHash...)
 	tokenScript, _ := address.ToOutputScript(arg.TokenAddress)
-	tokenAmount, _ := elementsutil.SatoshiToElementsValue(arg.TokenAmount)
+	tokenAmount, _ := elementsutil.ValueToBytes(arg.TokenAmount)
 
 	// add outputs
 	reissuanceOutput := transaction.NewTxOutput(

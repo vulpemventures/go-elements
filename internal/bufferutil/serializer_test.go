@@ -20,10 +20,7 @@ func TestSerializerAndDeserializer(t *testing.T) {
 
 func testWriteReadUint8(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewSerializer(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bw := NewSerializer(buf)
 
 	tests := struct {
 		in       []uint8
@@ -54,10 +51,7 @@ func testWriteReadUint8(t *testing.T) {
 
 func testWriteReadUint32(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewSerializer(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bw := NewSerializer(buf)
 
 	tests := struct {
 		in       []uint32
@@ -98,10 +92,7 @@ func testWriteReadUint32(t *testing.T) {
 
 func testWriteReadUint64(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewSerializer(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bw := NewSerializer(buf)
 
 	tests := struct {
 		in       []uint64
@@ -142,10 +133,7 @@ func testWriteReadUint64(t *testing.T) {
 
 func testWriteReadVarInt(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewSerializer(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bw := NewSerializer(buf)
 
 	tests := struct {
 		in       []uint64
@@ -206,10 +194,7 @@ func testWriteReadVarInt(t *testing.T) {
 
 func testWriteReadSlice(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewSerializer(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bw := NewSerializer(buf)
 
 	tests := struct {
 		in [][]byte
@@ -243,10 +228,7 @@ func testWriteReadSlice(t *testing.T) {
 
 func testWriteReadVarSlice(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewSerializer(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bw := NewSerializer(buf)
 
 	t1 := filledSlice(252, 2)
 	t2 := filledSlice(253, 3)
@@ -287,10 +269,7 @@ func testWriteReadVarSlice(t *testing.T) {
 
 func testWriteReadVector(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
-	bw, err := NewSerializer(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bw := NewSerializer(buf)
 
 	t1 := filledSlice(253, 5)
 	t2 := filledSliceArray(253, []byte{6})

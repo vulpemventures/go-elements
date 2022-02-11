@@ -138,7 +138,7 @@ func TestClaimPegin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	finalValue, err := elementsutil.SatoshiToElementsValue(uint64(amount))
+	finalValue, err := elementsutil.ValueToBytes(uint64(amount))
 	if err != nil {
 		t.Fatal(err)
 	}

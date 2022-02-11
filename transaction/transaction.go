@@ -628,7 +628,7 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 		}
 	}
 
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	input := tx.Inputs[inIndex]
 
 	s.WriteUint32(uint32(tx.Version))
@@ -708,10 +708,7 @@ func (tx *Transaction) serialize(
 	forSignature,
 	withRangeProofs bool,
 ) ([]byte, error) {
-	s, err := bufferutil.NewSerializer(buf)
-	if err != nil {
-		return nil, err
-	}
+	s := bufferutil.NewSerializer(buf)
 
 	// Version
 	s.WriteUint32(uint32(tx.Version))
@@ -792,7 +789,7 @@ func (tx *Transaction) serialize(
 }
 
 func calcTxInputsHash(ins []*TxInput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteSlice(in.Hash)
 		s.WriteUint32(in.Index)
@@ -801,7 +798,7 @@ func calcTxInputsHash(ins []*TxInput) [32]byte {
 }
 
 func calcTxSequencesHash(ins []*TxInput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteUint32(in.Sequence)
 	}
@@ -809,7 +806,7 @@ func calcTxSequencesHash(ins []*TxInput) [32]byte {
 }
 
 func calcTxIssuancesHash(ins []*TxInput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		if iss := in.Issuance; iss != nil {
 			s.WriteSlice(iss.AssetBlindingNonce)
@@ -824,7 +821,7 @@ func calcTxIssuancesHash(ins []*TxInput) [32]byte {
 }
 
 func calcTxOutputsHash(outs []*TxOutput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, out := range outs {
 		s.WriteSlice(out.Asset)
 		s.WriteSlice(out.Value)
@@ -835,7 +832,7 @@ func calcTxOutputsHash(outs []*TxOutput) [32]byte {
 }
 
 func calcRangeProofsHash(outs []*TxOutput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, out := range outs {
 		s.WriteVarSlice(out.RangeProof)
 		s.WriteVarSlice(out.SurjectionProof)

@@ -88,7 +88,7 @@ func TestBlockDeserializationIntegration(t *testing.T) {
 		if len(v.Outputs) == 3 {
 			for _, o := range v.Outputs {
 				if len(o.Asset) == 9 && len(o.Script) > 0 {
-					value, err := elementsutil.ElementsToSatoshiValue(
+					value, err := elementsutil.ValueFromBytes(
 						block.TransactionsData.Transactions[1].Outputs[1].Value,
 					)
 					if err != nil {

@@ -5,12 +5,9 @@ import (
 )
 
 func (b *Block) SerializeBlock() ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
+	s := bufferutil.NewSerializer(nil)
 
-	err = b.Header.Serialize(s)
+	err := b.Header.Serialize(s)
 	if err != nil {
 		return nil, err
 	}

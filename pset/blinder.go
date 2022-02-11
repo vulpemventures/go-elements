@@ -59,7 +59,7 @@ func (privKey PrivateBlindingKey) GetUnblindOutputResult(prevout *transaction.Tx
 	}
 
 	// unconf input
-	satoshiValue, err := elementsutil.ElementsToSatoshiValue(prevout.Value)
+	satoshiValue, err := elementsutil.ValueFromBytes(prevout.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 				return nil, err
 			}
 
-			value, _ := elementsutil.ElementsToSatoshiValue(input.Issuance.AssetAmount)
+			value, _ := elementsutil.ValueFromBytes(input.Issuance.AssetAmount)
 
 			// prepare the random asset and value blinding factors in case the
 			// issuance needs to be blinded, otherwise they're set to the 0 byte array
@@ -241,7 +241,7 @@ func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 			// elements format, contains more than one byte. We simply ignore the
 			// token amount for reissuances.
 			if i := input.Issuance; !i.IsReissuance() && i.HasTokenAmount() {
-				value, err := elementsutil.ElementsToSatoshiValue(i.TokenAmount)
+				value, err := elementsutil.ValueFromBytes(i.TokenAmount)
 				if err != nil {
 					return nil, err
 				}
@@ -288,7 +288,7 @@ func (b *Blinder) blindOutputs(
 	for _, index := range b.sortedOutputIndexesToBlind() {
 		output := b.pset.UnsignedTx.Outputs[index]
 		if len(output.Script) > 0 {
-			value, err := elementsutil.ElementsToSatoshiValue(output.Value)
+			value, err := elementsutil.ValueFromBytes(output.Value)
 			if err != nil {
 				return err
 			}
@@ -573,7 +573,7 @@ func (b *Blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 		return err
 	}
 
-	assetAmountSatoshi, err := elementsutil.ElementsToSatoshiValue(assetAmount)
+	assetAmountSatoshi, err := elementsutil.ValueFromBytes(assetAmount)
 	if err != nil {
 		return err
 	}
@@ -626,7 +626,7 @@ func (b *Blinder) blindToken(index int, token, vbf, abf []byte) error {
 		return err
 	}
 
-	tokenAmountSatoshi, err := elementsutil.ElementsToSatoshiValue(tokenAmount)
+	tokenAmountSatoshi, err := elementsutil.ValueFromBytes(tokenAmount)
 	if err != nil {
 		return err
 	}

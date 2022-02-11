@@ -35,10 +35,8 @@ import (
 // serialization (writeTxWitness encodes the bitcoin protocol encoding for a
 // transaction input's witness into w).
 func writeTxWitness(wit [][]byte) ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
+	s := bufferutil.NewSerializer(nil)
+
 	if err := s.WriteVarInt(uint64(len(wit))); err != nil {
 		return nil, err
 	}
@@ -335,10 +333,8 @@ func readTxOut(txout []byte) (*transaction.TxOutput, error) {
 }
 
 func writeTxOut(txout *transaction.TxOutput) ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
+	s := bufferutil.NewSerializer(nil)
+
 	if err := s.WriteSlice(txout.Asset); err != nil {
 		return nil, err
 	}

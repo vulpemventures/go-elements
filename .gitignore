@@ -17,3 +17,5 @@
 
 # WebStorm IDE project config files
 .idea
+
+.vscode

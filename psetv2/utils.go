@@ -2,8 +2,7 @@ package psetv2
 
 import (
 	"bytes"
-	"crypto/rand"
-	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/btcsuite/btcd/txscript"
@@ -14,10 +13,8 @@ import (
 )
 
 func writeTxOut(txout *transaction.TxOutput) ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
+	s := bufferutil.NewSerializer(nil)
+
 	if err := s.WriteSlice(txout.Asset); err != nil {
 		return nil, err
 	}
@@ -89,15 +86,6 @@ func isAssetExplicit(asset []byte) bool {
 	return len(asset) == 33 && asset[0] == 1
 }
 
-func generateRandomNumber() ([]byte, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
 // extractKeyOrderFromScript is a utility function to extract an ordered list
 // of signatures, given a serialized script (redeemscript or witness script), a
 // list of pubkeys and the signatures corresponding to those pubkeys. This
@@ -141,7 +129,7 @@ func extractKeyOrderFromScript(script []byte, expectedPubkeys [][]byte,
 	for _, p := range pubsSigs {
 		pos := bytes.Index(script, p.pubKey)
 		if pos < 0 {
-			return nil, errors.New("script does not contain pubkeys")
+			return nil, fmt.Errorf("script does not contain pubkeys")
 		}
 
 		positionMap = append(positionMap, positionEntry{
@@ -205,10 +193,8 @@ func writePKHWitness(sig []byte, pub []byte) ([]byte, error) {
 // serialization (writeTxWitness encodes the bitcoin protocol encoding for a
 // transaction input's witness into w).
 func writeTxWitness(wit [][]byte) ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
+	s := bufferutil.NewSerializer(nil)
+
 	if err := s.WriteVarInt(uint64(len(wit))); err != nil {
 		return nil, err
 	}
@@ -253,4 +239,33 @@ func getMultisigScriptWitness(witnessScript []byte, pubKeys [][]byte,
 	// Now that we have the full witness stack, we'll serialize it in the
 	// expected format, and return the final bytes.
 	return writeTxWitness(witnessElements)
+}
+
+// checkSigHashFlags compares the sighash flag byte on a signature with the
+// value expected according to any InputSighashType field in this section of
+// the PSBT, and returns true if they match, false otherwise.
+// If no SighashType field exists, it is assumed to be SIGHASH_ALL.
+//
+// TODO(waxwing): sighash type not restricted to one byte in future?
+func checkSigHashFlags(sig []byte, input Input) bool {
+	expectedSighashType := txscript.SigHashAll
+	if input.SigHashType != 0 {
+		expectedSighashType = input.SigHashType
+	}
+
+	return expectedSighashType == txscript.SigHashType(sig[len(sig)-1])
+}
+
+func min(x, y uint32) uint32 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func max(x, y uint32) uint32 {
+	if x > y {
+		return x
+	}
+	return y
 }

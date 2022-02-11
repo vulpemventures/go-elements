@@ -1,10 +1,9 @@
-package psetv2test
+package psetv2_test
 
 import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,22 +11,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vulpemventures/go-elements/confidential"
+	"github.com/vulpemventures/go-elements/network"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/txscript"
 
 	"github.com/vulpemventures/go-elements/psetv2"
 	"github.com/vulpemventures/go-elements/transaction"
-
-	"github.com/vulpemventures/go-elements/elementsutil"
-	"github.com/vulpemventures/go-elements/network"
 )
 
-var lbtc = append(
-	[]byte{0x01},
-	elementsutil.ReverseBytes(h2b(network.Regtest.AssetID))...,
-)
+var lbtc = network.Regtest.AssetID
 
 func faucet(address string) (string, error) {
 	baseURL, err := apiBaseUrl()
@@ -58,10 +51,46 @@ func faucet(address string) (string, error) {
 	return respBody["txId"], nil
 }
 
+func mint(address string, quantity int, name string, ticker string) (string, string, error) {
+	baseUrl, err := apiBaseUrl()
+	if err != nil {
+		return "", "", err
+	}
+
+	url := fmt.Sprintf("%s/mint", baseUrl)
+	payload := map[string]interface{}{
+		"address":  address,
+		"quantity": quantity,
+		"name":     name,
+		"ticker":   ticker,
+	}
+	body, _ := json.Marshal(payload)
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return "", "", err
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", err
+	}
+
+	if res := string(data); len(res) <= 0 || strings.Contains(res, "sendtoaddress") {
+		return "", "", fmt.Errorf("cannot fund address with minted asset: %s", res)
+	}
+
+	respBody := map[string]interface{}{}
+	if err := json.Unmarshal(data, &respBody); err != nil {
+		return "", "", err
+	}
+	return respBody["txId"].(string), respBody["asset"].(string), nil
+}
+
 func apiBaseUrl() (string, error) {
 	u, ok := os.LookupEnv("API_URL")
 	if !ok {
-		return "", errors.New("API_URL environment variable is not set")
+		return "", fmt.Errorf("API_URL environment variable is not set")
 	}
 	return u, nil
 }
@@ -113,17 +142,6 @@ func h2b(str string) []byte {
 	return buf
 }
 
-func addFeesToTransaction(p *psetv2.Pset, feeAmount uint64) error {
-	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(feeAmount)
-	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
-
-	outputArg := psetv2.OutputArg{TxOutput: *feeOutput}
-	updaterRole, _ := psetv2.NewUpdaterRole(p)
-
-	return updaterRole.AddOutput(outputArg)
-}
-
 func fetchTx(txId string) (string, error) {
 	baseUrl, err := apiBaseUrl()
 	if err != nil {
@@ -155,36 +173,30 @@ func signTransaction(
 	scripts [][]byte,
 	forWitness bool,
 	opts *signOpts,
-	blinderSvc confidential.Blinder,
 ) error {
-	updaterRole, err := psetv2.NewUpdaterRole(p)
-	if err != nil {
-		return err
-	}
-
-	signerRole, err := psetv2.NewSignerRole(p, blinderSvc)
+	signer, err := psetv2.NewSigner(p)
 	if err != nil {
 		return err
 	}
 
 	for k, v := range p.Inputs {
-		updaterRole.AddInSighashType(txscript.SigHashAll|transaction.SighashRangeproof, k)
-
-		var prevout *transaction.TxOutput
-		if v.WitnessUtxo() != nil {
-			prevout = v.WitnessUtxo()
-		} else {
-			prevout = v.NonWitnessUtxo().Outputs[k]
+		if err := signer.AddInSighashType(
+			txscript.SigHashAll|transaction.SighashRangeproof, 0,
+		); err != nil {
+			return err
 		}
+
+		prevout := v.GetUtxo()
 		prvkey := privKeys[k]
 		pubkey := prvkey.PubKey()
 		script := scripts[k]
 
 		var sigHash [32]byte
-		tx, err := p.UnsignedTx(blinderSvc)
+		tx, err := p.UnsignedTx()
 		if err != nil {
 			return err
 		}
+
 		if forWitness {
 			sigHash = tx.HashForWitnessV0(
 				k,
@@ -205,14 +217,13 @@ func signTransaction(
 		}
 		sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll|transaction.SighashRangeproof))
 
-		var witPubkeyScript []byte
-		var witScript []byte
+		var witPubkeyScript, witScript []byte
 		if opts != nil {
 			witPubkeyScript = opts.pubkeyScript
 			witScript = opts.script
 		}
 
-		if _, err := signerRole.SignInput(
+		if err := signer.SignInput(
 			k,
 			sigWithHashType,
 			pubkey.SerializeCompressed(),
@@ -223,26 +234,24 @@ func signTransaction(
 		}
 	}
 
-	valid, err := signerRole.ValidateAllSignatures()
+	valid, err := p.ValidateAllSignatures()
 	if err != nil {
 		return err
 	}
 	if !valid {
-		return errors.New("invalid signatures")
+		return fmt.Errorf("invalid signatures")
 	}
 
 	return nil
 }
 
-func broadcastTransaction(p *psetv2.Pset, blinderSvc psetv2.Blinder) (string, error) {
-	finalizerRole := psetv2.NewFinalizerRole(p)
-	if err := finalizerRole.FinalizeAll(p); err != nil {
+func broadcastTransaction(p *psetv2.Pset) (string, error) {
+	if err := psetv2.FinalizeAll(p); err != nil {
 		return "", err
 	}
 	// Extract the final signed transaction from the Pset wrapper.
 
-	extractorRole := psetv2.NewExtractorRole(p, blinderSvc)
-	finalTx, err := extractorRole.Extract()
+	finalTx, err := psetv2.Extract(p)
 	if err != nil {
 		return "", err
 	}

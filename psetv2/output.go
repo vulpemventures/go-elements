@@ -1,140 +1,443 @@
 package psetv2
 
 import (
-	"errors"
+	"bytes"
+	"encoding/binary"
+	"fmt"
 
-	"github.com/vulpemventures/go-elements/elementsutil"
-
-	"github.com/vulpemventures/go-elements/transaction"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
 const (
 	//Per output types: BIP 174, 370, 371
-	PsbtOutRedeemScript       = 0x00 //BIP 174
-	PsbtOutWitnessScript      = 0x01 //BIP 174
-	PsbtOutBip32Derivation    = 0x02 //BIP 174
-	PsbtOutAmount             = 0x03 //BIP 370
-	PsbtOutScript             = 0x04 //BIP 370
-	PsbtOutTapInternalKey     = 0x05 //BIP 371
-	PsbtOutTapTree            = 0x06 //BIP 371
-	PsbtOutTapLeafScript      = 0x06 //BIP 371 //TODO is duplicate key type allowed?
-	PsbtOutTapBip32Derivation = 0x07 //BIP 371
-	PsbtOutProprietary        = 0xFC //BIP 174
+	OutputRedeemScript       = 0x00 //BIP 174
+	OutputWitnessScript      = 0x01 //BIP 174
+	OutputBip32Derivation    = 0x02 //BIP 174
+	OutputAmount             = 0x03 //BIP 370
+	OutputScript             = 0x04 //BIP 370
+	OutputTapInternalKey     = 0x05 //BIP 371
+	OutputTapTree            = 0x06 //BIP 371
+	OutputTapLeafScript      = 0x06 //BIP 371 //TODO is duplicate key type allowed?
+	OutputTapBip32Derivation = 0x07 //BIP 371
+	OutputProprietary        = 0xFC //BIP 174
 
 	//Elements Proprietary types
-	PsetElementsOutValueCommitment      = 0x01
-	PsetElementsOutAsset                = 0x02
-	PsetElementsOutAssetCommitment      = 0x03
-	PsetElementsOutValueRangeproof      = 0x04
-	PsetElementsOutAssetSurjectionProof = 0x05
-	PsetElementsOutBlindingPubkey       = 0x06
-	PsetElementsOutEcdhPubkey           = 0x07
-	PsetElementsOutBlinderIndex         = 0x08
-	PsetElementsOutBlindValueProof      = 0x09
-	PsetElementsOutBlindAssetProof      = 0x0a
+	OutputValueCommitment      = 0x01
+	OutputAsset                = 0x02
+	OutputAssetCommitment      = 0x03
+	OutputValueRangeproof      = 0x04
+	OutputAssetSurjectionProof = 0x05
+	OutputBlindingPubkey       = 0x06
+	OutputEcdhPubkey           = 0x07
+	OutputBlinderIndex         = 0x08
+	OutputBlindValueProof      = 0x09
+	OutputBlindAssetProof      = 0x0a
 )
 
 var (
-	ErrMissingOutAsset                 = errors.New("missing output asset")
-	ErrMissingOutAmount                = errors.New("missing output amount")
-	ErrMissingScript                   = errors.New("missing output script")
-	ErrInvalidValueCommitmentLength    = errors.New("invalid value commitment length")
-	ErrInvalidOutAssetLength           = errors.New("invalid output asset length")
-	ErrInvalidOutAssetCommitmentLength = errors.New("invalid output asset commitment length")
-	ErrInvalidOutputScriptLength       = errors.New("invalid output script length")
+	ErrMissingOutAsset                 = fmt.Errorf("missing output asset")
+	ErrMissingOutAmount                = fmt.Errorf("missing output amount")
+	ErrMissingScript                   = fmt.Errorf("missing output script")
+	ErrInvalidValueCommitmentLength    = fmt.Errorf("invalid value commitment length")
+	ErrInvalidOutAssetLength           = fmt.Errorf("invalid output asset length")
+	ErrInvalidOutAssetCommitmentLength = fmt.Errorf("invalid output asset commitment length")
+	ErrInvalidOutputScriptLength       = fmt.Errorf("invalid output script length")
 )
 
 type Output struct {
-	// The redeem script for this output.
-	redeemScript []byte
-	// The witness script for this output.
-	witnessScript []byte
-	// A map from public keys needed to spend this output to their
-	// corresponding master key fingerprints and derivation paths.
-	bip32Derivation []DerivationPathWithPubKey
-	// (PSET2) The amount of the output
-	outputAmount *int64
-	// (PSET2) The output script
-	outputScript []byte
-	// The 33 byte Value Commitment for this output.
-	outputValueCommitment []byte
-	// The explicit 32 byte asset tag for this output.
-	outputAsset []byte
-	// The 33 byte Asset Commitment
-	outputAssetCommitment []byte
-	// The rangeproof for the value of this output.
-	outputValueRangeproof []byte
-	// The asset surjection proof for this output's asset.
-	outputAssetSurjectionProof []byte
-	// The 33 byte blinding pubkey to be used when blinding this output.
-	outputBlindingPubkey []byte
-	// The 33 byte ephemeral pubkey used for ECDH in the blinding of this output
-	outputEcdhPubkey []byte
-	// Index of the input whose owner should blind this output.
-	outputBlinderIndex *uint32
-	// An explicit value rangeproof that proves that the value commitment in
-	//PSBT_ELEMENTS_OUT_VALUE_COMMITMENT matches the explicit value in PSBT_OUT_VALUE
-	outputBlindValueProof []byte
-	// An asset surjection proof with this output's asset as the only asset in
-	//the input set in order to prove that the asset commitment in
-	//PSBT_ELEMENTS_OUT_ASSET_COMMITMENT matches the explicit asset in PSBT_ELEMENTS_OUT_ASSET
-	outputBlindAssetProof []byte
-	proprietaryData       []proprietaryData
-	// Unknown key-value pairs for this input.
-	unknowns []keyPair
+	RedeemScript         []byte
+	WitnessScript        []byte
+	Bip32Derivation      []DerivationPathWithPubKey
+	Value                uint64
+	Script               []byte
+	ValueCommitment      []byte
+	Asset                []byte
+	AssetCommitment      []byte
+	ValueRangeproof      []byte
+	AssetSurjectionProof []byte
+	BlindingPubkey       []byte
+	EcdhPubkey           []byte
+	BlinderIndex         uint32
+	BlindValueProof      []byte
+	BlindAssetProof      []byte
+	ProprietaryData      []ProprietaryData
+	Unknowns             []KeyPair
+}
+
+func (o *Output) SanityCheck() error {
+	if len(o.Asset) == 0 {
+		return fmt.Errorf("asset is mandatory")
+	}
+	if o.IsBlinded() && o.IsPartiallyBlinded() && !o.IsFullyBlinded() {
+		return fmt.Errorf(
+			"output is partially blinded while it must be either unblinded or " +
+				"fully blinded",
+		)
+	}
+	if o.IsFullyBlinded() && o.BlinderIndex != 0 {
+		return fmt.Errorf("blinder index must be unset for fully blinded output")
+	}
+
+	return nil
 }
 
 func (o *Output) IsBlinded() bool {
-	return o.outputValueCommitment != nil &&
-		o.outputAssetCommitment != nil &&
-		o.outputValueRangeproof != nil &&
-		o.outputAssetSurjectionProof != nil &&
-		o.outputEcdhPubkey != nil &&
-		o.outputBlindingPubkey != nil
+	return o.BlindingPubkey != nil
 }
 
-func (o *Output) ToBlind() bool {
-	return o.outputBlindingPubkey != nil && o.outputBlinderIndex != nil
+func (o *Output) IsPartiallyBlinded() bool {
+	return o.IsBlinded() && (o.ValueCommitment != nil ||
+		o.AssetCommitment != nil ||
+		o.ValueRangeproof != nil ||
+		o.AssetSurjectionProof != nil ||
+		o.EcdhPubkey != nil)
 }
 
-func psetOutputFromTxOutput(output transaction.TxOutput) (*Output, error) {
-	script := output.Script
+func (o *Output) IsFullyBlinded() bool {
+	return o.IsBlinded() && o.ValueCommitment != nil &&
+		o.AssetCommitment != nil &&
+		o.ValueRangeproof != nil &&
+		o.AssetSurjectionProof != nil &&
+		o.EcdhPubkey != nil
+}
 
-	var outputAmount *int64
-	var outputCommitment []byte
-	if len(output.Value) == 9 && output.Value[0] == 1 {
-		o, err := elementsutil.ElementsToSatoshiValue(output.Value)
-		if err != nil {
-			return nil, err
-		}
-		ov := int64(o)
-		outputAmount = &ov
-	} else {
-		if len(output.Value) != 33 {
-			return nil, ErrInvalidAssetCommitmentLength
-		}
+func (o *Output) getKeyPairs() ([]KeyPair, error) {
+	keyPairs := make([]KeyPair, 0)
 
-		outputCommitment = output.Value
+	if o.RedeemScript != nil {
+		redeemScriptKeyPair := KeyPair{
+			Key: Key{
+				KeyType: OutputRedeemScript,
+				KeyData: nil,
+			},
+			Value: o.RedeemScript,
+		}
+		keyPairs = append(keyPairs, redeemScriptKeyPair)
 	}
 
-	var outputAsset []byte
-	var outputAssetCommitment []byte
-	if isAssetExplicit(output.Asset) {
-		outputAsset = output.Asset
-	} else {
-		if len(output.Value) != 33 {
-			return nil, ErrInvalidAssetCommitmentLength
+	if o.WitnessScript != nil {
+		witnessScriptKeyPair := KeyPair{
+			Key: Key{
+				KeyType: OutputWitnessScript,
+				KeyData: nil,
+			},
+			Value: o.WitnessScript,
 		}
-
-		outputAssetCommitment = output.Asset
+		keyPairs = append(keyPairs, witnessScriptKeyPair)
 	}
 
-	return &Output{
-		outputScript:          script,
-		outputAmount:          outputAmount,
-		outputValueCommitment: outputCommitment,
-		outputAsset:           outputAsset,
-		outputEcdhPubkey:      output.Nonce,
-		outputAssetCommitment: outputAssetCommitment,
-	}, nil
+	if o.Bip32Derivation != nil {
+		for _, v := range o.Bip32Derivation {
+			bip32DerivationPathKeyPair := KeyPair{
+				Key: Key{
+					KeyType: OutputBip32Derivation,
+					KeyData: v.PubKey,
+				},
+				Value: SerializeBIP32Derivation(v.MasterKeyFingerprint, v.Bip32Path),
+			}
+			keyPairs = append(keyPairs, bip32DerivationPathKeyPair)
+		}
+	}
+
+	if o.Script != nil {
+		outputScriptKeyPair := KeyPair{
+			Key: Key{
+				KeyType: OutputScript,
+				KeyData: nil,
+			},
+			Value: o.Script,
+		}
+		keyPairs = append(keyPairs, outputScriptKeyPair)
+	}
+
+	if o.ValueCommitment != nil {
+		outputValueCommitmentKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputValueCommitment, nil),
+			},
+			Value: o.ValueCommitment,
+		}
+		keyPairs = append(keyPairs, outputValueCommitmentKeyPair)
+	}
+
+	outputAmountBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(outputAmountBytes, o.Value)
+	outputAmountKeyPair := KeyPair{
+		Key: Key{
+			KeyType: OutputAmount,
+			KeyData: nil,
+		},
+		Value: outputAmountBytes,
+	}
+	keyPairs = append(keyPairs, outputAmountKeyPair)
+
+	if o.AssetCommitment != nil {
+		outputAssetCommitmentKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputAssetCommitment, nil),
+			},
+			Value: o.AssetCommitment,
+		}
+		keyPairs = append(keyPairs, outputAssetCommitmentKeyPair)
+	}
+
+	if o.Asset != nil {
+		outputAssetKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputAsset, nil),
+			},
+			Value: o.Asset,
+		}
+		keyPairs = append(keyPairs, outputAssetKeyPair)
+	}
+
+	if o.ValueRangeproof != nil {
+		outputValueRangeproofKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputValueRangeproof, nil),
+			},
+			Value: o.ValueRangeproof,
+		}
+		keyPairs = append(keyPairs, outputValueRangeproofKeyPair)
+	}
+
+	if o.AssetSurjectionProof != nil {
+		outputAssetSurjectionProofKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputAssetSurjectionProof, nil),
+			},
+			Value: o.AssetSurjectionProof,
+		}
+		keyPairs = append(keyPairs, outputAssetSurjectionProofKeyPair)
+	}
+
+	if o.BlindingPubkey != nil {
+		outputBlindingPubkeyKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputBlindingPubkey, nil),
+			},
+			Value: o.BlindingPubkey,
+		}
+		keyPairs = append(keyPairs, outputBlindingPubkeyKeyPair)
+	}
+
+	if o.EcdhPubkey != nil {
+		outputEcdhPubkeyKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputEcdhPubkey, nil),
+			},
+			Value: o.EcdhPubkey,
+		}
+		keyPairs = append(keyPairs, outputEcdhPubkeyKeyPair)
+	}
+
+	outputBlinderIndexBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(outputBlinderIndexBytes, o.BlinderIndex)
+
+	outputBlinderIndexKeyPair := KeyPair{
+		Key: Key{
+			KeyType: GlobalProprietary,
+			KeyData: proprietaryKey(OutputBlinderIndex, nil),
+		},
+		Value: outputBlinderIndexBytes,
+	}
+	keyPairs = append(keyPairs, outputBlinderIndexKeyPair)
+
+	if o.BlindValueProof != nil {
+		outputBlindValueProofKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputBlindValueProof, nil),
+			},
+			Value: o.BlindValueProof,
+		}
+		keyPairs = append(keyPairs, outputBlindValueProofKeyPair)
+	}
+
+	if o.BlindAssetProof != nil {
+		outputBlindAssetProofKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(OutputBlindAssetProof, nil),
+			},
+			Value: o.BlindAssetProof,
+		}
+		keyPairs = append(keyPairs, outputBlindAssetProofKeyPair)
+	}
+
+	for _, v := range o.ProprietaryData {
+		kp := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(v.Subtype, v.KeyData),
+			},
+			Value: v.Value,
+		}
+		keyPairs = append(keyPairs, kp)
+	}
+
+	keyPairs = append(keyPairs, o.Unknowns...)
+
+	return keyPairs, nil
+}
+
+func (o *Output) serialize(s *bufferutil.Serializer) error {
+	outputKeyPairs, err := o.getKeyPairs()
+	if err != nil {
+		return err
+	}
+
+	for _, v := range outputKeyPairs {
+		if err := v.serialize(s); err != nil {
+			return err
+		}
+	}
+
+	if err := s.WriteUint8(separator); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (o *Output) deserialize(buf *bytes.Buffer) error {
+	kp := KeyPair{}
+
+	//read bytes and do the deserialization until separator is found at the
+	//end of global map
+	for {
+		if err := kp.deserialize(buf); err != nil {
+			if err == ErrNoMoreKeyPairs {
+				break
+			}
+			return err
+		}
+
+		switch kp.Key.KeyType {
+		case OutputRedeemScript:
+			if o.RedeemScript != nil {
+				return ErrDuplicateKey
+			}
+			o.RedeemScript = kp.Value
+		case OutputWitnessScript:
+			if o.WitnessScript != nil {
+				return ErrDuplicateKey
+			}
+			o.WitnessScript = kp.Value
+		case OutputBip32Derivation:
+			if !validatePubkey(kp.Key.KeyData) {
+				return ErrInvalidPsbtFormat
+			}
+			master, derivationPath, err := readBip32Derivation(kp.Value)
+			if err != nil {
+				return err
+			}
+
+			// Duplicate keys are not allowed
+			for _, x := range o.Bip32Derivation {
+				if bytes.Equal(x.PubKey, kp.Key.KeyData) {
+					return ErrDuplicateKey
+				}
+			}
+
+			o.Bip32Derivation = append(
+				o.Bip32Derivation,
+				DerivationPathWithPubKey{
+					PubKey:               kp.Key.KeyData,
+					MasterKeyFingerprint: master,
+					Bip32Path:            derivationPath,
+				},
+			)
+		case OutputAmount:
+			if o.Value != 0 {
+				return ErrDuplicateKey
+			}
+			o.Value = binary.LittleEndian.Uint64(kp.Value)
+		case OutputScript:
+			if o.Script != nil {
+				return ErrDuplicateKey
+			}
+			o.Script = kp.Value
+		case GlobalProprietary:
+			pd := ProprietaryData{}
+			if err := pd.fromKeyPair(kp); err != nil {
+				return err
+			}
+
+			if bytes.Equal(pd.Identifier, magicPrefix[:len(magicPrefix)-1]) {
+				switch pd.Subtype {
+				case OutputValueCommitment:
+					if o.ValueCommitment != nil {
+						return ErrDuplicateKey
+					}
+					o.ValueCommitment = kp.Value
+				case OutputAsset:
+					if o.Asset != nil {
+						return ErrDuplicateKey
+					}
+					o.Asset = kp.Value
+				case OutputAssetCommitment:
+					if o.AssetCommitment != nil {
+						return ErrDuplicateKey
+					}
+					o.AssetCommitment = kp.Value
+				case OutputValueRangeproof:
+					if o.ValueRangeproof != nil {
+						return ErrDuplicateKey
+					}
+					o.ValueRangeproof = kp.Value
+				case OutputAssetSurjectionProof:
+					if o.AssetSurjectionProof != nil {
+						return ErrDuplicateKey
+					}
+					o.AssetSurjectionProof = kp.Value
+				case OutputBlindingPubkey:
+					if o.BlindingPubkey != nil {
+						return ErrDuplicateKey
+					}
+					if !validatePubkey(kp.Value) {
+						return ErrInvalidPsbtFormat
+					}
+					o.BlindingPubkey = kp.Value
+				case OutputEcdhPubkey:
+					if o.EcdhPubkey != nil {
+						return ErrDuplicateKey
+					}
+					if !validatePubkey(kp.Value) {
+						return ErrInvalidPsbtFormat
+					}
+					o.EcdhPubkey = kp.Value
+				case OutputBlinderIndex:
+					if o.BlinderIndex != 0 {
+						return ErrDuplicateKey
+					}
+					o.BlinderIndex = binary.LittleEndian.Uint32(kp.Value)
+				case OutputBlindValueProof:
+					if o.BlindValueProof != nil {
+						return ErrDuplicateKey
+					}
+					o.BlindValueProof = kp.Value
+				case OutputBlindAssetProof:
+					if o.BlindAssetProof != nil {
+						return ErrDuplicateKey
+					}
+					o.BlindAssetProof = kp.Value
+				default:
+					o.ProprietaryData = append(o.ProprietaryData, pd)
+				}
+			}
+		default:
+			o.Unknowns = append(o.Unknowns, kp)
+		}
+	}
+
+	return nil
+	// return o.SanityCheck()
 }

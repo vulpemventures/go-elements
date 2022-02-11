@@ -3,7 +3,7 @@ package psetv2
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
+	"fmt"
 
 	"github.com/btcsuite/btcd/wire"
 
@@ -15,80 +15,206 @@ import (
 
 const (
 	//Per output types: BIP 174, 370, 371
-	PsbtGlobalUnsignedTx          = 0x00 //BIP 174
-	PsbtGlobalXpub                = 0x01 //BIP 174
-	PsbtGlobalTxVersion           = 0x02 //BIP 370
-	PsbtGlobalFallbackLocktime    = 0x03 //BIP 370
-	PsbtGlobalInputCount          = 0x04 //BIP 370
-	PsbtGlobalOutputCount         = 0x05 //BIP 370
-	PsbtGlobalTxModifiable        = 0x06 //BIP 370
-	PsbtGlobalSighashSingleInputs = 0x07 //BIP 370
-	PsbtGlobalVersion             = 0xFB //BIP 174
-	PsbtGlobalProprietary         = 0xFC //BIP 174
+	GlobalXpub             = 0x01 //BIP 174
+	GlobalTxVersion        = 0x02 //BIP 370
+	GlobalFallbackLocktime = 0x03 //BIP 370
+	GlobalInputCount       = 0x04 //BIP 370
+	GlobalOutputCount      = 0x05 //BIP 370
+	GlobalTxModifiable     = 0x06 //BIP 370
+	GlobalVersion          = 0xFB //BIP 174
+	GlobalProprietary      = 0xFC //BIP 174
 
 	//Elements Proprietary types
-	PsetElementsGlobalScalar       = 0x00
-	PsetElementsGlobalTxModifiable = 0x01
+	GlobalScalar     = 0x00
+	GlobalModifiable = 0x01
 
 	//78 byte serialized extended public key as defined by BIP 32.
 	pubKeyLength = 78
 )
 
 var (
-	ErrInvalidElementsTxModifiableValue = errors.New("invalid elements tx modifiable value")
-	ErrInvalidXPub                      = errors.New("invalid xpub")
-	ErrInvalidXPubDerivationPathLength  = errors.New("incorrect length of global xpub derivation data")
-	ErrInvalidPsetVersion               = errors.New("incorrect pset version")
-	ErrInvalidTxVersion                 = errors.New("incorrect tx version")
-	ErrInvalidScalarLength              = errors.New("invalid scalar length")
+	ErrInvalidElementsTxModifiableValue = fmt.Errorf("invalid elements tx modifiable value")
+	ErrInvalidXPub                      = fmt.Errorf("invalid xpub")
+	ErrInvalidXPubDerivationPathLength  = fmt.Errorf("incorrect length of global xpub derivation data")
+	ErrInvalidPsetVersion               = fmt.Errorf("incorrect pset version")
+	ErrInvalidTxVersion                 = fmt.Errorf("incorrect tx version")
+	ErrInvalidScalarLength              = fmt.Errorf("invalid scalar length")
 )
 
+type DerivationPath []uint32
+
+func (p DerivationPath) String() string {
+	if p == nil {
+		return ""
+	}
+	path := "m/"
+	for i, step := range p {
+		val := stepToString(step)
+		if i < len(p)-1 {
+			val += "/"
+		}
+		path += val
+	}
+	return path
+}
+
+type Xpub struct {
+	ExtendedKey       []byte
+	MasterFingerprint uint32
+	DerivationPath    DerivationPath
+}
+
 type Global struct {
-	// global transaction data
-	txInfo TxInfo
-	// the version number of this PSET. Must be present.
-	version *uint32
-	// a global map from extended public keys to the used key fingerprint and
-	// derivation path as defined by BIP 32
-	xPub []DerivationPathWithXPub
-	// scalars used for blinding
-	scalars [][]byte
-	// elements tx modifiable flag
-	elementsTxModifiableFlag *uint8
-	// other proprietaryData fields
-	proprietaryData []proprietaryData
-	// unknowns global key-value pairs.
-	unknowns []keyPair
+	Xpub             []Xpub
+	TxVersion        uint32
+	FallbackLocktime uint32
+	InputCount       uint64
+	OutputCount      uint64
+	TxModifiable     BitSet
+	Version          uint32
+	Scalars          [][]byte
+	Modifiable       BitSet
+	ProprietaryData  []ProprietaryData
+	Unknowns         []KeyPair
 }
 
-// TxInfo represents global information about the transaction
-type TxInfo struct {
-	// Transaction version. Must be 2.
-	version *uint32
-	// Locktime to use if no inputs specify a minimum locktime to use.
-	// May be omitted in which case it is interpreted as 0.
-	fallBackLockTime *uint32
-	// Number of inputs in the transaction
-	// Not public. Users should not be able to mutate this directly
-	// This will be automatically whenever pset inputs are added
-	inputCount *uint64
-	// Number of outputs in the transaction
-	// Not public. Users should not be able to mutate this directly
-	// This will be automatically whenever pset inputs are added
-	outputCount *uint64
-	// Flags indicating that the transaction may be modified.
-	// May be omitted in which case it is interpreted as 0.
-	txModifiable *uint8
-}
+func (g *Global) getKeyPairs() ([]KeyPair, error) {
+	keyPairs := make([]KeyPair, 0)
 
-// DerivationPathWithXPub global information about xpub keypair
-type DerivationPathWithXPub struct {
-	// extendedPubKey extended public key as defined by BIP 32
-	extendedPubKey *hdkeychain.ExtendedKey
-	//masterKeyFingerPrint master key fingerprint as defined by BIP 32
-	masterKeyFingerPrint *uint32
-	// derivationPath derivation path of the public key
-	derivationPath []uint32
+	for _, xpub := range g.Xpub {
+		xPubKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalXpub,
+				KeyData: SerializeBIP32Derivation(
+					xpub.MasterFingerprint,
+					xpub.DerivationPath,
+				),
+			},
+			Value: xpub.ExtendedKey,
+		}
+		keyPairs = append(keyPairs, xPubKeyPair)
+	}
+
+	txVersion := make([]byte, 4)
+	binary.LittleEndian.PutUint32(txVersion, g.TxVersion)
+	versionKeyPair := KeyPair{
+		Key: Key{
+			KeyType: GlobalTxVersion,
+			KeyData: nil,
+		},
+		Value: txVersion,
+	}
+	keyPairs = append(keyPairs, versionKeyPair)
+
+	fallbackLocktime := make([]byte, 4)
+	binary.LittleEndian.PutUint32(fallbackLocktime, g.FallbackLocktime)
+	fallbackLocktimeKeyPair := KeyPair{
+		Key: Key{
+			KeyType: GlobalFallbackLocktime,
+			KeyData: nil,
+		},
+		Value: fallbackLocktime,
+	}
+	keyPairs = append(keyPairs, fallbackLocktimeKeyPair)
+
+	inputCount := new(bytes.Buffer)
+	if err := wire.WriteVarInt(inputCount, 0, uint64(g.InputCount)); err != nil {
+		return nil, err
+	}
+	inputCountKeyPair := KeyPair{
+		Key: Key{
+			KeyType: GlobalInputCount,
+			KeyData: nil,
+		},
+		Value: inputCount.Bytes(),
+	}
+	keyPairs = append(keyPairs, inputCountKeyPair)
+
+	outputCount := new(bytes.Buffer)
+	if err := wire.WriteVarInt(
+		outputCount, 0, uint64(g.OutputCount),
+	); err != nil {
+		return nil, err
+	}
+	outputCountKeyPair := KeyPair{
+		Key: Key{
+			KeyType: GlobalOutputCount,
+			KeyData: nil,
+		},
+		Value: outputCount.Bytes(),
+	}
+	keyPairs = append(keyPairs, outputCountKeyPair)
+
+	if g.TxModifiable != nil {
+		txModifiable := new(bytes.Buffer)
+		if err := binary.Write(
+			txModifiable, binary.LittleEndian, uint64(g.TxModifiable.Uint8()),
+		); err != nil {
+			return nil, err
+		}
+		txModifiableKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalTxModifiable,
+				KeyData: nil,
+			},
+			Value: txModifiable.Bytes(),
+		}
+		keyPairs = append(keyPairs, txModifiableKeyPair)
+	}
+
+	globalVersion := make([]byte, 4)
+	binary.LittleEndian.PutUint32(globalVersion, g.Version)
+	globalVersionKeyPair := KeyPair{
+		Key: Key{
+			KeyType: GlobalVersion,
+			KeyData: nil,
+		},
+		Value: globalVersion,
+	}
+	keyPairs = append(keyPairs, globalVersionKeyPair)
+
+	for _, v := range g.Scalars {
+		scalarKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(GlobalScalar, v),
+			},
+			Value: nil,
+		}
+		keyPairs = append(keyPairs, scalarKeyPair)
+	}
+
+	if g.Modifiable != nil {
+		modifiable := new(bytes.Buffer)
+		if err := binary.Write(
+			modifiable, binary.LittleEndian, uint64(g.Modifiable.Uint8()),
+		); err != nil {
+			return nil, err
+		}
+		elementsTxModifiableKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(GlobalModifiable, nil),
+			},
+			Value: modifiable.Bytes(),
+		}
+		keyPairs = append(keyPairs, elementsTxModifiableKeyPair)
+	}
+
+	for _, v := range g.ProprietaryData {
+		kp := KeyPair{
+			Key: Key{
+				KeyType: GlobalProprietary,
+				KeyData: proprietaryKey(v.Subtype, v.KeyData),
+			},
+			Value: v.Value,
+		}
+		keyPairs = append(keyPairs, kp)
+	}
+
+	keyPairs = append(keyPairs, g.Unknowns...)
+
+	return keyPairs, nil
 }
 
 func (g *Global) serialize(s *bufferutil.Serializer) error {
@@ -98,7 +224,7 @@ func (g *Global) serialize(s *bufferutil.Serializer) error {
 	}
 
 	for _, v := range globalKeyPairs {
-		if err := serializeKeyPair(v, s); err != nil {
+		if err := v.serialize(s); err != nil {
 			return err
 		}
 	}
@@ -110,154 +236,8 @@ func (g *Global) serialize(s *bufferutil.Serializer) error {
 	return nil
 }
 
-func (g Global) getKeyPairs() ([]keyPair, error) {
-	keyPairs := make([]keyPair, 0)
-
-	for _, v := range g.xPub {
-		xPubKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalXpub,
-				keyData: SerializeBIP32Derivation(
-					*v.masterKeyFingerPrint,
-					v.derivationPath,
-				),
-			},
-			value: base58.Decode(v.extendedPubKey.String()),
-		}
-		keyPairs = append(keyPairs, xPubKeyPair)
-	}
-
-	if g.txInfo.version != nil {
-		globalTxVersion := make([]byte, 4)
-		binary.LittleEndian.PutUint32(globalTxVersion, *g.txInfo.version)
-		versionKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalTxVersion,
-				keyData: nil,
-			},
-			value: globalTxVersion,
-		}
-		keyPairs = append(keyPairs, versionKeyPair)
-	}
-
-	if g.txInfo.fallBackLockTime != nil {
-		fallBackLockTime := make([]byte, 4)
-		binary.LittleEndian.PutUint32(fallBackLockTime, *g.txInfo.fallBackLockTime)
-		fallBackLockTimeKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalFallbackLocktime,
-				keyData: nil,
-			},
-			value: fallBackLockTime,
-		}
-		keyPairs = append(keyPairs, fallBackLockTimeKeyPair)
-	}
-
-	if g.txInfo.inputCount != nil {
-		inputCount := new(bytes.Buffer)
-		if err := wire.WriteVarInt(inputCount, 0, *g.txInfo.inputCount); err != nil {
-			return nil, err
-		}
-		inputCountKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalInputCount,
-				keyData: nil,
-			},
-			value: inputCount.Bytes(),
-		}
-		keyPairs = append(keyPairs, inputCountKeyPair)
-	}
-
-	if g.txInfo.outputCount != nil {
-		outputCount := new(bytes.Buffer)
-		if err := wire.WriteVarInt(outputCount, 0, *g.txInfo.outputCount); err != nil {
-			return nil, err
-		}
-		outputCountKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalOutputCount,
-				keyData: nil,
-			},
-			value: outputCount.Bytes(),
-		}
-		keyPairs = append(keyPairs, outputCountKeyPair)
-	}
-
-	if g.txInfo.txModifiable != nil {
-		txModifiable := new(bytes.Buffer)
-		if err := binary.Write(txModifiable, binary.LittleEndian, g.txInfo.txModifiable); err != nil {
-			return nil, err
-		}
-		txModifiableKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalTxModifiable,
-				keyData: nil,
-			},
-			value: txModifiable.Bytes(),
-		}
-		keyPairs = append(keyPairs, txModifiableKeyPair)
-	}
-
-	if g.version != nil {
-		globalVersion := make([]byte, 4)
-		binary.LittleEndian.PutUint32(globalVersion, *g.version)
-		globalVersionKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalVersion,
-				keyData: nil,
-			},
-			value: globalVersion,
-		}
-		keyPairs = append(keyPairs, globalVersionKeyPair)
-	}
-
-	for _, v := range g.scalars {
-		scalarKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalProprietary,
-				keyData: proprietaryKey(PsetElementsGlobalScalar, v),
-			},
-			value: nil,
-		}
-		keyPairs = append(keyPairs, scalarKeyPair)
-	}
-
-	if g.elementsTxModifiableFlag != nil {
-		elementsTxModifiableFlag := new(bytes.Buffer)
-		if err := binary.Write(elementsTxModifiableFlag, binary.LittleEndian, g.elementsTxModifiableFlag); err != nil {
-			return nil, err
-		}
-		elementsTxModifiableKeyPair := keyPair{
-			key: key{
-				keyType: PsbtGlobalProprietary,
-				keyData: proprietaryKey(PsetElementsGlobalTxModifiable, nil),
-			},
-			value: elementsTxModifiableFlag.Bytes(),
-		}
-		keyPairs = append(keyPairs, elementsTxModifiableKeyPair)
-	}
-
-	for _, v := range g.proprietaryData {
-		kp := keyPair{
-			key: key{
-				keyType: PsbtGlobalProprietary,
-				keyData: proprietaryKey(v.subtype, v.keyData),
-			},
-			value: v.value,
-		}
-		keyPairs = append(keyPairs, kp)
-	}
-
-	for _, v := range g.unknowns {
-		keyPairs = append(keyPairs, v)
-	}
-
-	return keyPairs, nil
-}
-
-func deserializeGlobal(buf *bytes.Buffer) (*Global, error) {
-	global := &Global{}
-	kp := &keyPair{}
+func (g *Global) deserialize(buf *bytes.Buffer) error {
+	kp := KeyPair{}
 
 	//read bytes and do the deserialization until separator is found at the
 	//end of global map
@@ -266,132 +246,132 @@ func deserializeGlobal(buf *bytes.Buffer) (*Global, error) {
 			if err == ErrNoMoreKeyPairs {
 				break
 			}
-			return nil, err
+			return err
 		}
 
-		switch kp.key.keyType {
-		case PsbtGlobalTxVersion:
-			version := binary.LittleEndian.Uint32(kp.value)
-			global.txInfo.version = &version
-		case PsbtGlobalFallbackLocktime:
-			fallBackLockTime := binary.LittleEndian.Uint32(kp.value)
-			global.txInfo.fallBackLockTime = &fallBackLockTime
-		case PsbtGlobalInputCount:
-			tmp := make([]byte, 8)
-			for i, v := range kp.value {
-				tmp[i] = v
+		switch kp.Key.KeyType {
+		case GlobalXpub:
+			if len(kp.Key.KeyData) != pubKeyLength {
+				return ErrInvalidXPub
 			}
-			ic := binary.LittleEndian.Uint64(tmp)
-			global.txInfo.inputCount = &ic
-		case PsbtGlobalOutputCount:
-			tmp := make([]byte, 8)
-			for i, v := range kp.value {
-				tmp[i] = v
+			// Parse xpub to make sure it's valid
+			xpubStr := base58.Encode(kp.Key.KeyData)
+			if _, err := hdkeychain.NewKeyFromString(xpubStr); err != nil {
+				return err
 			}
 
-			oc := binary.LittleEndian.Uint64(tmp)
-			global.txInfo.outputCount = &oc
-		case PsbtGlobalTxModifiable:
-			var tm uint8
-			buf := bytes.NewReader(kp.value)
-			if err := binary.Read(buf, binary.LittleEndian, tm); err != nil {
-				return nil, err
+			if len(kp.Value) == 0 || len(kp.Value)%4 != 0 {
+				return ErrInvalidXPubDerivationPathLength
 			}
 
-			global.txInfo.txModifiable = &tm
-		case PsbtGlobalXpub:
-			if len(kp.key.keyData) != pubKeyLength {
-				return nil, ErrInvalidXPub
-			}
-			xpubStr := base58.Encode(kp.key.keyData)
-			extendedPubKey, err := hdkeychain.NewKeyFromString(xpubStr)
+			master, derivationPath, err := readBip32Derivation(kp.Value)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
-			if len(kp.value) == 0 || len(kp.value)%4 != 0 {
-				return nil, ErrInvalidXPubDerivationPathLength
-			}
-
-			master, derivationPath, err := readBip32Derivation(kp.value)
-			if err != nil {
-				return nil, err
-			}
-
-			global.xPub = append(global.xPub, DerivationPathWithXPub{
-				extendedPubKey:       extendedPubKey,
-				masterKeyFingerPrint: &master,
-				derivationPath:       derivationPath,
+			g.Xpub = append(g.Xpub, Xpub{
+				ExtendedKey:       kp.Key.KeyData,
+				MasterFingerprint: master,
+				DerivationPath:    derivationPath,
 			})
-
-		case PsbtGlobalVersion:
-			version := binary.LittleEndian.Uint32(kp.value)
-			global.version = &version
-		case PsbtGlobalProprietary:
-			pd := &proprietaryData{}
-			if err := pd.proprietaryDataFromKeyPair(*kp); err != nil {
-				return nil, err
+		case GlobalTxVersion:
+			if g.TxVersion != 0 {
+				return ErrDuplicateKey
+			}
+			g.TxVersion = binary.LittleEndian.Uint32(kp.Value)
+		case GlobalFallbackLocktime:
+			if g.FallbackLocktime != 0 {
+				return ErrDuplicateKey
+			}
+			g.FallbackLocktime = binary.LittleEndian.Uint32(kp.Value)
+		case GlobalInputCount:
+			if g.InputCount != 0 {
+				return ErrDuplicateKey
+			}
+			if len(kp.Value) != 1 {
+				return fmt.Errorf("invalid length of global input count value")
+			}
+			g.InputCount = uint64(kp.Value[0])
+		case GlobalOutputCount:
+			if g.OutputCount != 0 {
+				return ErrDuplicateKey
+			}
+			if len(kp.Value) != 1 {
+				return fmt.Errorf("invalid length of global output count value")
+			}
+			g.OutputCount = uint64(kp.Value[0])
+		case GlobalTxModifiable:
+			if g.TxModifiable != nil {
+				return ErrDuplicateKey
+			}
+			var tm uint8
+			buf := bytes.NewReader(kp.Value)
+			if err := binary.Read(buf, binary.LittleEndian, tm); err != nil {
+				return err
+			}
+			txModifiable, err := NewBitSetFromBuffer(byte(tm))
+			if err != nil {
+				return err
+			}
+			g.TxModifiable = txModifiable
+		case GlobalVersion:
+			if g.Version != 0 {
+				return ErrDuplicateKey
+			}
+			g.Version = binary.LittleEndian.Uint32(kp.Value)
+		case GlobalProprietary:
+			pd := ProprietaryData{}
+			if err := pd.fromKeyPair(kp); err != nil {
+				return err
 			}
 
-			if bytes.Equal(pd.identifier, psetMagic) {
-				switch pd.subtype {
-				case PsetElementsGlobalScalar:
-					scalar := pd.keyData
+			if bytes.Equal(pd.Identifier, magicPrefix) {
+				switch pd.Subtype {
+				case GlobalScalar:
+					scalar := pd.KeyData
 					if len(scalar) != 32 {
-						return nil, ErrInvalidScalarLength
+						return ErrInvalidScalarLength
 					}
 
-					if global.scalars == nil {
-						global.scalars = make([][]byte, 0)
+					if g.Scalars == nil {
+						g.Scalars = make([][]byte, 0)
 					}
 
-					global.scalars = append(global.scalars, scalar)
-				case PsetElementsGlobalTxModifiable:
-					elementsTxModifiable := pd.value
-					if len(elementsTxModifiable) != 1 {
-						return nil, ErrInvalidElementsTxModifiableValue
+					g.Scalars = append(g.Scalars, scalar)
+				case GlobalModifiable:
+					if g.Modifiable != nil {
+						return ErrDuplicateKey
 					}
-
 					var etm uint8
-					buf := bytes.NewReader(kp.value)
+					buf := bytes.NewReader(kp.Value)
 					if err := binary.Read(buf, binary.LittleEndian, &etm); err != nil {
-						return nil, err
+						return err
 					}
-
-					global.elementsTxModifiableFlag = &etm
+					modifiable, err := NewBitSetFromBuffer(byte(etm))
+					if err != nil {
+						return err
+					}
+					g.Modifiable = modifiable
 				default:
-					if global.proprietaryData == nil {
-						global.proprietaryData = make([]proprietaryData, 0)
+					if g.ProprietaryData == nil {
+						g.ProprietaryData = make([]ProprietaryData, 0)
 					}
-					global.proprietaryData = append(global.proprietaryData, *pd)
+					g.ProprietaryData = append(g.ProprietaryData, pd)
 				}
 			}
-
 		default:
-			unknowns, err := deserializeUnknownKeyPairs(buf)
-			if err != nil {
-				return nil, err
-			}
-			global.unknowns = unknowns
+			g.Unknowns = append(g.Unknowns, kp)
 		}
 
 	}
 
-	//check mandatory fields
-	if global.version == nil && *global.version != 2 {
-		return nil, ErrInvalidPsetVersion
-	}
-	if global.txInfo.version == nil && *global.txInfo.version == 0 {
-		return nil, ErrInvalidTxVersion
-	}
+	return nil
+}
 
-	if global.txInfo.inputCount == nil && *global.txInfo.inputCount == 0 {
-		return nil, ErrInvalidTxVersion
+func stepToString(step uint32) string {
+	if step < hdkeychain.HardenedKeyStart {
+		return fmt.Sprintf("%d", step)
 	}
-
-	if global.txInfo.outputCount == nil && *global.txInfo.outputCount == 0 {
-		return nil, ErrInvalidTxVersion
-	}
-
-	return global, nil
+	step -= hdkeychain.HardenedKeyStart
+	return fmt.Sprintf("%d'", step)
 }

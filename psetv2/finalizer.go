@@ -4,7 +4,7 @@
 
 package psetv2
 
-// The FinalizerRole requires provision of a single PSET input
+// The Finalizer requires provision of a single PSET input
 // in which all necessary signatures are encoded, and
 // uses it to construct valid final sigScript and scriptWitness
 // fields.
@@ -12,7 +12,7 @@ package psetv2
 // multisig and no other custom script.
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/btcsuite/btcd/txscript"
 )
@@ -22,33 +22,22 @@ var (
 	// uses Sighash flags that are not in accordance with the requirement
 	// according to the entry in PsbtInSighashType, or otherwise not the
 	// default value (SIGHASH_ALL)
-	ErrInvalidSigHashFlags = errors.New("invalid sighash flags")
+	ErrInvalidSigHashFlags = fmt.Errorf("invalid sighash flags")
 	// ErrNotFinalizable indicates that the PSBT struct does not have
 	// sufficient data (e.g. signatures) for finalization
-	ErrNotFinalizable = errors.New("PSBT is not finalizable")
-	// ErrInputAlreadyFinalized indicates that the PSBT passed to a FinalizerRole
+	ErrNotFinalizable = fmt.Errorf("PSBT is not finalizable")
+	// ErrInputAlreadyFinalized indicates that the PSBT passed to a Finalizer
 	// already contains the finalized scriptSig or witness.
-	ErrInputAlreadyFinalized = errors.New("cannot finalize PSBT, finalized " +
-		"scriptSig or scriptWitnes already exists")
+	ErrInputAlreadyFinalized = fmt.Errorf(
+		"cannot finalize PSBT, finalized scriptSig or scriptWitnes already exists",
+	)
 )
-
-type FinalizerRole struct {
-	pset *Pset
-}
-
-func NewFinalizerRole(pset *Pset) *FinalizerRole {
-
-	return &FinalizerRole{
-		pset: pset,
-	}
-}
 
 // FinalizeAll finalizes all inputs of a partial elements transaction by
 // calling the Finalize function for every partial input
-func (f *FinalizerRole) FinalizeAll(p *Pset) error {
+func FinalizeAll(p *Pset) error {
 	for inIndex := range p.Inputs {
-		err := f.Finalize(p, inIndex)
-		if err != nil {
+		if err := Finalize(p, inIndex); err != nil {
 			return err
 		}
 	}
@@ -62,41 +51,34 @@ func (f *FinalizerRole) FinalizeAll(p *Pset) error {
 // 08. The witness/non-witness utxo fields in the inputs (key-types 00 and 01)
 // are left intact as they may be needed for validation (?).  If there is any
 // invalid or incomplete data, an error is returned.
-func (f *FinalizerRole) Finalize(p *Pset, inIndex int) error {
+func Finalize(p *Pset, inIndex int) error {
 	input := p.Inputs[inIndex]
 
 	// Depending on the UTXO type, we either attempt to finalize it as a
 	// witness or legacy UTXO.
 	switch {
-	case input.witnessUtxo != nil:
+	case input.WitnessUtxo != nil:
 		if err := finalizeWitnessInput(p, inIndex); err != nil {
 			return err
 		}
-
-	case input.nonWitnessUtxo != nil:
+	case input.NonWitnessUtxo != nil:
 		if err := finalizeNonWitnessInput(p, inIndex); err != nil {
 			return err
 		}
-
 	default:
 		return ErrInvalidPsbtFormat
 	}
 
 	// Before returning we sanity check the PSET to ensure we don't extract
 	// an invalid transaction or produce an invalid intermediate state.
-	if err := p.SanityCheck(); err != nil {
-		return err
-	}
-
-	return nil
+	return p.SanityCheck()
 }
 
 // MaybeFinalizeAll attempts to finalize all inputs of the pset.Pset that are
 // not already finalized, and returns an error if it fails to do so.
-func (f *FinalizerRole) MaybeFinalizeAll(p *Pset) error {
-
+func MaybeFinalizeAll(p *Pset) error {
 	for i := range p.Inputs {
-		success, err := f.MaybeFinalize(p, i)
+		success, err := MaybeFinalize(p, i)
 		if err != nil || !success {
 			return err
 		}
@@ -108,7 +90,7 @@ func (f *FinalizerRole) MaybeFinalizeAll(p *Pset) error {
 // MaybeFinalize attempts to finalize the input at index inIndex in the PSET p,
 // returning true with no error if it succeeds, OR if the input has already
 // been finalized.
-func (f *FinalizerRole) MaybeFinalize(p *Pset, inIndex int) (bool, error) {
+func MaybeFinalize(p *Pset, inIndex int) (bool, error) {
 	if isFinalized(p, inIndex) {
 		return true, nil
 	}
@@ -117,7 +99,7 @@ func (f *FinalizerRole) MaybeFinalize(p *Pset, inIndex int) (bool, error) {
 		return false, ErrNotFinalizable
 	}
 
-	if err := f.Finalize(p, inIndex); err != nil {
+	if err := Finalize(p, inIndex); err != nil {
 		return false, err
 	}
 
@@ -129,46 +111,46 @@ func (f *FinalizerRole) MaybeFinalize(p *Pset, inIndex int) (bool, error) {
 // successful call to Finalize*).
 func isFinalized(p *Pset, inIndex int) bool {
 	input := p.Inputs[inIndex]
-	return input.finalScriptSig != nil || input.finalScriptWitness != nil
+	return len(input.FinalScriptSig) > 0 || len(input.FinalScriptWitness) > 0
 }
 
 // isFinalizableWitnessInput returns true if the target input is a witness UTXO
 // that can be finalized.
 func isFinalizableWitnessInput(input *Input) bool {
-	pkScript := input.witnessUtxo.Script
+	pkScript := input.WitnessUtxo.Script
 
 	switch {
 	// If this is a native witness output, then we require both
 	// the witness script, but not a redeem script.
 	case txscript.IsWitnessProgram(pkScript):
 		if txscript.IsPayToWitnessScriptHash(pkScript) {
-			if input.witnessScript == nil ||
-				input.redeemScript != nil {
+			if len(input.WitnessScript) == 0 ||
+				len(input.RedeemScript) > 0 {
 				return false
 			}
 		} else {
 			// A P2WKH output on the other hand doesn't need
 			// neither a witnessScript or redeemScript.
-			if input.witnessScript != nil ||
-				input.redeemScript != nil {
+			if len(input.WitnessScript) > 0 ||
+				len(input.RedeemScript) > 0 {
 				return false
 			}
 		}
 
 	// For nested P2SH inputs, we verify that a witness script is known.
 	case txscript.IsPayToScriptHash(pkScript):
-		if input.redeemScript == nil {
+		if len(input.RedeemScript) == 0 {
 			return false
 		}
 
 		// If this is a nested P2SH input, then it must also have a
 		// witness script, while we don't need one for P2WKH.
-		if txscript.IsPayToWitnessScriptHash(input.redeemScript) {
-			if input.witnessScript == nil {
+		if txscript.IsPayToWitnessScriptHash(input.RedeemScript) {
+			if len(input.WitnessScript) == 0 {
 				return false
 			}
-		} else if txscript.IsPayToWitnessPubKeyHash(input.redeemScript) {
-			if input.witnessScript != nil {
+		} else if txscript.IsPayToWitnessPubKeyHash(input.RedeemScript) {
+			if len(input.WitnessScript) > 0 {
 				return false
 			}
 		} else {
@@ -189,19 +171,19 @@ func isFinalizableWitnessInput(input *Input) bool {
 // (non-witness) that can be finalized.
 func isFinalizableLegacyInput(p *Pset, input *Input, inIndex int) bool {
 	// If the input has a witness, then it's invalid.
-	if input.witnessScript != nil {
+	if len(input.WitnessScript) > 0 {
 		return false
 	}
 
 	// Otherwise, we'll verify that we only have a RedeemScript if the prev
 	// output script is P2SH.
-	outIndex := p.Inputs[inIndex].previousOutputIndex
-	if txscript.IsPayToScriptHash(input.nonWitnessUtxo.Outputs[*outIndex].Script) {
-		if input.redeemScript == nil {
+	outIndex := p.Inputs[inIndex].PreviousTxIndex
+	if txscript.IsPayToScriptHash(input.NonWitnessUtxo.Outputs[outIndex].Script) {
+		if len(input.RedeemScript) == 0 {
 			return false
 		}
 	} else {
-		if input.redeemScript != nil {
+		if len(input.RedeemScript) > 0 {
 			return false
 		}
 	}
@@ -216,7 +198,7 @@ func isFinalizable(p *Pset, inIndex int) bool {
 	input := p.Inputs[inIndex]
 
 	// The input cannot be finalized without any signatures
-	if input.partialSigs == nil {
+	if len(input.PartialSigs) == 0 {
 		return false
 	}
 
@@ -224,15 +206,14 @@ func isFinalizable(p *Pset, inIndex int) bool {
 	// UTXOs present. Each UTXO type has a distinct set of requirements to
 	// be considered finalized.
 	switch {
-
 	// A witness input must be either native P2WSH or nested P2SH with all
 	// relevant sigScript or witness data populated.
-	case input.witnessUtxo != nil:
+	case input.WitnessUtxo != nil:
 		if !isFinalizableWitnessInput(&input) {
 			return false
 		}
 
-	case input.nonWitnessUtxo != nil:
+	case input.NonWitnessUtxo != nil:
 		if !isFinalizableLegacyInput(p, &input, inIndex) {
 			return false
 		}
@@ -252,11 +233,11 @@ func isFinalizable(p *Pset, inIndex int) bool {
 func checkFinalScriptSigWitness(p *Pset, inIndex int) bool {
 	input := p.Inputs[inIndex]
 
-	if input.finalScriptSig != nil {
+	if len(input.FinalScriptSig) > 0 {
 		return true
 	}
 
-	if input.finalScriptWitness != nil {
+	if len(input.FinalScriptWitness) > 0 {
 		return true
 	}
 
@@ -280,13 +261,13 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 	var sigScript []byte
 
 	input := p.Inputs[inIndex]
-	containsRedeemScript := input.redeemScript != nil
+	containsRedeemScript := len(input.RedeemScript) > 0
 
 	var (
 		pubKeys [][]byte
 		sigs    [][]byte
 	)
-	for _, ps := range input.partialSigs {
+	for _, ps := range input.PartialSigs {
 		pubKeys = append(pubKeys, ps.PubKey)
 
 		sigOK := checkSigHashFlags(ps.Signature, input)
@@ -326,7 +307,7 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 		// This is assumed p2sh multisig Given redeemScript and pubKeys
 		// we can decide in what order signatures must be appended.
 		orderedSigs, err := extractKeyOrderFromScript(
-			input.redeemScript, pubKeys, sigs,
+			input.RedeemScript, pubKeys, sigs,
 		)
 		if err != nil {
 			return err
@@ -343,7 +324,7 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 		for _, os := range orderedSigs {
 			builder.AddData(os)
 		}
-		builder.AddData(input.redeemScript)
+		builder.AddData(input.RedeemScript)
 		sigScript, err = builder.Script()
 		if err != nil {
 			return err
@@ -351,7 +332,7 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 	}
 
 	if len(sigScript) > 0 {
-		p.Inputs[inIndex].finalScriptSig = sigScript
+		p.Inputs[inIndex].FinalScriptSig = sigScript
 	}
 
 	return nil
@@ -383,7 +364,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 		pubKeys [][]byte
 		sigs    [][]byte
 	)
-	for _, ps := range input.partialSigs {
+	for _, ps := range input.PartialSigs {
 		pubKeys = append(pubKeys, ps.PubKey)
 
 		sigOK := checkSigHashFlags(ps.Signature, input)
@@ -401,8 +382,8 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 		return ErrNotFinalizable
 	}
 
-	containsRedeemScript := input.redeemScript != nil
-	containsWitnessScript := input.witnessScript != nil
+	containsRedeemScript := len(input.RedeemScript) > 0
+	containsWitnessScript := len(input.WitnessScript) > 0
 
 	// If there's no redeem script, then we assume that this is native
 	// segwit input.
@@ -433,7 +414,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 			}
 
 			serializedWitness, err = getMultisigScriptWitness(
-				input.witnessScript, pubKeys, sigs,
+				input.WitnessScript, pubKeys, sigs,
 			)
 			if err != nil {
 				return err
@@ -447,7 +428,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 		// program in this case), and push it on the stack within the
 		// sigScript.
 		builder := txscript.NewScriptBuilder()
-		builder.AddData(input.redeemScript)
+		builder.AddData(input.RedeemScript)
 		sigScript, err = builder.Script()
 		if err != nil {
 			return err
@@ -471,7 +452,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 			// Otherwise, we assume that this is a p2wsh multi-sig,
 			// so we generate the proper witness.
 			serializedWitness, err = getMultisigScriptWitness(
-				input.witnessScript, pubKeys, sigs,
+				input.WitnessScript, pubKeys, sigs,
 			)
 			if err != nil {
 				return err
@@ -480,11 +461,11 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 	}
 
 	if len(sigScript) > 0 {
-		p.Inputs[inIndex].finalScriptSig = sigScript
+		p.Inputs[inIndex].FinalScriptSig = sigScript
 	}
 
 	if len(serializedWitness) > 0 {
-		p.Inputs[inIndex].finalScriptWitness = serializedWitness
+		p.Inputs[inIndex].FinalScriptWitness = serializedWitness
 	}
 	return nil
 }

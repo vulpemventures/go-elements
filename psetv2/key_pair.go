@@ -10,103 +10,77 @@ import (
 //<keypair> := <key> <value>
 //<key> := <keylen> <keytype> <keydata>
 //<value> := <valuelen> <valuedata>
-type keyPair struct {
-	key   key
-	value []byte
+type KeyPair struct {
+	Key   Key
+	Value []byte
 }
 
-type key struct {
-	keyType uint8
-	keyData []byte
+type Key struct {
+	KeyType uint8
+	KeyData []byte
 }
 
-func serializeKeyPair(kp keyPair, s *bufferutil.Serializer) error {
-	if err := s.WriteVarInt(uint64(len(kp.key.keyData) + 1)); err != nil {
+func (k *KeyPair) serialize(s *bufferutil.Serializer) error {
+	if err := k.Key.serialize(s); err != nil {
 		return err
 	}
 
-	if err := s.WriteUint8(kp.key.keyType); err != nil {
+	return s.WriteVarSlice(k.Value)
+}
+
+func (k *KeyPair) deserialize(buf *bytes.Buffer) error {
+	d := bufferutil.NewDeserializer(buf)
+
+	if err := k.Key.deserialize(d); err != nil {
 		return err
 	}
 
-	if err := s.WriteSlice(kp.key.keyData); err != nil {
+	value, err := d.ReadVarSlice()
+	if err != nil {
 		return err
 	}
 
-	if err := s.WriteVarInt(uint64(len(kp.value))); err != nil {
-		return err
-	}
-
-	if err := s.WriteSlice(kp.value); err != nil {
-		return err
-	}
+	k.Value = value
 
 	return nil
 }
 
-func (k *keyPair) deserialize(buf *bytes.Buffer) error {
-	if err := k.key.deserialize(buf); err != nil {
-		return err
-	}
-
-	d := bufferutil.NewDeserializer(buf)
-	valueSize, err := d.ReadVarInt()
-	if err != nil {
-		return err
-	}
-
-	valueData, err := d.ReadSlice(uint(valueSize))
-	if err != nil {
-		return err
-	}
-
-	k.value = valueData
-
-	return nil
+func (k *Key) serialize(s *bufferutil.Serializer) error {
+	key := append([]byte{k.KeyType}, k.KeyData...)
+	return s.WriteVarSlice(key)
 }
 
-func (k *key) deserialize(buf *bytes.Buffer) error {
-	d := bufferutil.NewDeserializer(buf)
-
-	keyByteSize, err := d.ReadVarInt()
+func (k *Key) deserialize(d *bufferutil.Deserializer) error {
+	key, err := d.ReadVarSlice()
 	if err != nil {
 		return err
 	}
 
-	if keyByteSize == 0 {
+	if len(key) == 0 {
 		return ErrNoMoreKeyPairs
 	}
 
-	if keyByteSize > maxPsbtKeyLength {
+	if len(key) > maxPsbtKeyLength {
 		return ErrInvalidKeySize
 	}
 
-	key, err := d.ReadSlice(uint(keyByteSize))
-	if err != nil {
-		return err
-	}
-
-	keyType := key[0]
-	k.keyType = keyType
-	k.keyData = nil
-	if len(key) > 1 {
-		k.keyData = key[1:]
-	}
+	k.KeyType = key[0]
+	k.KeyData = key[1:]
 
 	return nil
 }
 
-type proprietaryData struct {
-	identifier []byte
-	subtype    uint8
-	keyData    []byte
-	value      []byte
+type ProprietaryData struct {
+	Identifier []byte
+	Subtype    uint8
+	KeyData    []byte
+	Value      []byte
 }
 
-func (p *proprietaryData) proprietaryDataFromKeyPair(keyPair keyPair) error {
-	d := bufferutil.NewDeserializer(bytes.NewBuffer(keyPair.key.keyData))
+func (p *ProprietaryData) fromKeyPair(keyPair KeyPair) error {
+	d := bufferutil.NewDeserializer(bytes.NewBuffer(keyPair.Key.KeyData))
 
-	if keyPair.key.keyType != 0xFC {
+	if keyPair.Key.KeyType != 0xFC {
 		return ErrInvalidProprietaryKey
 	}
 
@@ -131,40 +105,24 @@ func (p *proprietaryData) proprietaryDataFromKeyPair(keyPair keyPair) error {
 
 	keyData := d.ReadToEnd()
 
-	value := keyPair.value
+	value := keyPair.Value
 
-	p.identifier = identifier
-	p.subtype = subType
-	p.keyData = keyData
-	p.value = value
+	p.Identifier = identifier
+	p.Subtype = subType
+	p.KeyData = keyData
+	p.Value = value
 
 	return nil
 }
 
 func proprietaryKey(subType uint8, keyData []byte) []byte {
 	result := make([]byte, 0)
-	result = append(result, byte(len(psetMagic)-1))
-	result = append(result, psetMagic[:len(psetMagic)-1]...)
+	result = append(result, byte(len(magicPrefix)-1))
+	result = append(result, magicPrefix[:len(magicPrefix)-1]...)
 	result = append(result, subType)
 	if keyData != nil {
 		result = append(result, keyData...)
 	}
 
 	return result
-}
-
-func deserializeUnknownKeyPairs(buf *bytes.Buffer) ([]keyPair, error) {
-	unknowns := make([]keyPair, 0)
-	for {
-		kp := &keyPair{}
-		if err := kp.deserialize(buf); err != nil {
-			if err == ErrNoMoreKeyPairs {
-				break
-			}
-			return nil, err
-		}
-		unknowns = append(unknowns, *kp)
-	}
-
-	return unknowns, nil
 }

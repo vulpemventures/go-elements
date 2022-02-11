@@ -4,11 +4,16 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/elementsutil"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/payment"
 
-	"github.com/btcsuite/btcutil/psbt"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/txscript"
 
 	"github.com/vulpemventures/go-elements/transaction"
 )
@@ -21,28 +26,30 @@ const (
 )
 
 var (
-	psetMagic                       = []byte{0x70, 0x73, 0x65, 0x74, 0xFF} //'pset' string with magic separator 0xFF
-	ErrInvalidPsbtFormat            = errors.New("invalid PSBT serialization format")
-	ErrNoMoreKeyPairs               = errors.New("no more key-pairs")
-	ErrInvalidKeySize               = errors.New("invalid key size")
-	ErrInvalidProprietaryKey        = errors.New("invalid proprietaryData key")
-	ErrInvalidProprietaryIdentifier = errors.New("invalid proprietaryData identifier")
-	ErrInvalidMagicBytes            = errors.New("invalid magic bytes")
-	ErrNotModifiable                = errors.New("pset not modifiable")
-	ErrInputAlreadyExist            = errors.New("input already exists")
-	ErrInvalidLockTimeType          = errors.New("invalid locktime type")
-	ErrInvalidLockTime              = errors.New("invalid lock time")
-	ErrMissingMandatoryFields       = errors.New("missing mandatory fields")
+	// magicPrefix is the prefix + separator for partial transactions
+	magicPrefix                     = []byte{0x70, 0x73, 0x65, 0x74, 0xff}
+	ErrInvalidPsbtFormat            = fmt.Errorf("invalid PSBT serialization format")
+	ErrNoMoreKeyPairs               = fmt.Errorf("no more key-pairs")
+	ErrInvalidKeySize               = fmt.Errorf("invalid key size")
+	ErrInvalidProprietaryKey        = fmt.Errorf("invalid ProprietaryData key")
+	ErrInvalidProprietaryIdentifier = fmt.Errorf("invalid ProprietaryData identifier")
+	ErrInvalidMagicBytes            = fmt.Errorf("invalid magic bytes")
+	ErrNotModifiable                = fmt.Errorf("pset not modifiable")
+	ErrInputAlreadyExist            = fmt.Errorf("input already exists")
+	ErrInvalidLockTimeType          = fmt.Errorf("invalid locktime type")
+	ErrInvalidLockTime              = fmt.Errorf("invalid lock time")
+	ErrMissingMandatoryFields       = fmt.Errorf("missing mandatory fields")
 	// ErrInvalidSignatureForInput indicates that the signature the user is
 	// trying to append to the PSBT is invalid, either because it does
 	// not correspond to the previous transaction hash, or redeem script,
 	// or witness script.
 	// NOTE this does not include ECDSA signature checking.
-	ErrInvalidSignatureForInput = errors.New("Signature does not correspond " +
-		"to this input")
+	ErrInvalidSignatureForInput = fmt.Errorf(
+		"signature does not correspond to this input",
+	)
 )
 
-// Pset - Partially signed Element's transaction
+// Pset - Partially Signed Elements Transaction
 //Format:
 //<pset> := <magic> <global-map> <input-map>* <output-map>*
 //<magic> := 0x70 0x73 0x65 0x74 0xFF -> pset starts with magic bytes, after which goes global map
@@ -53,25 +60,16 @@ var (
 //<keypair> := <key> <value>
 //<key> := <keylen> <keytype> <keydata>
 //<value> := <valuelen> <valuedata>
-// Each map can contain proprietaryData data and unknowns keypair's
-// Full spec: https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki
+// Each map can contain ProprietaryData data and unknowns keypair's
+// Full spec: https://github.com/ElementsProject/elements/blob/master/doc/pset.mediawiki
 type Pset struct {
-	Global  *Global
+	Global  Global
 	Inputs  []Input
 	Outputs []Output
 }
 
-func NewFromBuffer(buf *bytes.Buffer) (*Pset, error) {
+func NewPsetFromBuffer(buf *bytes.Buffer) (*Pset, error) {
 	return deserialize(buf)
-}
-
-func NewFromHex(h string) (*Pset, error) {
-	hexBytes, err := hex.DecodeString(h)
-	if err != nil {
-		return nil, err
-	}
-	buf := bytes.NewBuffer(hexBytes)
-	return NewFromBuffer(buf)
 }
 
 func NewPsetFromBase64(psetBase64 string) (*Pset, error) {
@@ -80,8 +78,7 @@ func NewPsetFromBase64(psetBase64 string) (*Pset, error) {
 		return nil, err
 	}
 
-	buf := bytes.NewBuffer(psetBytes)
-	return NewFromBuffer(buf)
+	return deserialize(bytes.NewBuffer(psetBytes))
 }
 
 func (p *Pset) ToBase64() (string, error) {
@@ -93,350 +90,524 @@ func (p *Pset) ToBase64() (string, error) {
 	return base64.StdEncoding.EncodeToString(buf), nil
 }
 
-func (p *Pset) ToHex() (string, error) {
-	buf, err := p.serialize()
-	if err != nil {
-		return "", err
+func (p *Pset) Copy() *Pset {
+	return &Pset{
+		Global:  p.Global,
+		Inputs:  p.Inputs,
+		Outputs: p.Outputs,
 	}
-
-	return hex.EncodeToString(buf), nil
 }
 
-type InputArg struct {
-	TimeLock *TimeLock
-	TxInput  transaction.TxInput
-}
-
-func (p *Pset) addInput(inputArg InputArg) error {
-	if !p.IsInputModifiable() {
-		return ErrNotModifiable
-	}
-
-	if p.IsInputDuplicate(inputArg.TxInput) {
-		return ErrInputAlreadyExist
-	}
-
-	input, err := psetInputFromTxInput(inputArg.TxInput)
-	if err != nil {
-		return err
-	}
-
-	if inputArg.TimeLock != nil {
-		if inputArg.TimeLock.RequiredTimeLock != nil {
-			input.requiredTimeLocktime = inputArg.TimeLock.RequiredTimeLock
-		}
-		if inputArg.TimeLock.RequiredHeightTimeLock != nil {
-			input.requiredHeightLocktime = inputArg.TimeLock.RequiredHeightTimeLock
-		}
-	}
-
-	if input != nil {
-		if err := p.validateInputTimeLock(*input); err != nil {
-			return err
-		}
-
-		p.Inputs = append(p.Inputs, *input)
-		*p.Global.txInfo.inputCount++
-	}
-
-	return nil
-}
-
-type OutputArg struct {
-	BlinderIndex   uint32
-	BlindingPubKey []byte
-	TxOutput       transaction.TxOutput
-}
-
-func (p *Pset) addOutput(outputArg OutputArg) error {
-	if !p.IsOutputModifiable() {
-		return ErrNotModifiable
-	}
-
-	output, err := psetOutputFromTxOutput(outputArg.TxOutput)
-	if err != nil {
-		return err
-	}
-
-	if output != nil {
-		if output.outputAmount == nil || output.outputScript == nil {
-			return ErrMissingMandatoryFields
-		}
-
-		if outputArg.BlindingPubKey != nil {
-			p.BlindingNeeded()
-			output.outputBlindingPubkey = outputArg.BlindingPubKey
-			output.outputBlinderIndex = &outputArg.BlinderIndex
-		}
-
-		p.Outputs = append(p.Outputs, *output)
-		*p.Global.txInfo.outputCount++
-	}
-
-	return nil
-}
-
-func (p *Pset) LockForModification() {
-	var lockedForModification uint8 = 0 //0000 0000
-	p.Global.txInfo.txModifiable = &lockedForModification
-}
-
-func (p *Pset) BlindingNeeded() {
-	var blindingNeeded uint8 = 1 //0000 0001
-	p.Global.elementsTxModifiableFlag = &blindingNeeded
-}
-
-func (p *Pset) IsInputModifiable() bool {
-	if p.Global.txInfo.txModifiable == nil {
+func (p *Pset) InputsModifiable() bool {
+	if p.Global.TxModifiable == nil {
 		return true
 	}
-
-	return *p.Global.txInfo.txModifiable&1 == 1 // 0000 0001
+	return p.Global.TxModifiable.Test(0)
 }
 
-func (p *Pset) IsInputDuplicate(txInput transaction.TxInput) bool {
-	for _, v := range p.Inputs {
-		if *v.previousOutputIndex == txInput.Index && bytes.Equal(v.previousTxid, txInput.Hash) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (p *Pset) IsOutputModifiable() bool {
-	if p.Global.txInfo.txModifiable == nil {
+func (p *Pset) OutputsModifiable() bool {
+	if p.Global.TxModifiable == nil {
 		return true
 	}
-
-	return *p.Global.txInfo.txModifiable&2 == 2 // 0000 0010
+	return p.Global.TxModifiable.Test(1)
 }
 
-func (p *Pset) CalculateTimeLock() *uint32 {
-	var heightLockTime uint32
-	var timeLockTime uint32
-	for _, v := range p.Inputs {
-		if v.requiredTimeLocktime != nil {
-			if *v.requiredTimeLocktime > timeLockTime {
-				timeLockTime = *v.requiredTimeLocktime
-			}
-		}
-		if v.requiredHeightLocktime != nil {
-			if *v.requiredHeightLocktime > heightLockTime {
-				heightLockTime = *v.requiredHeightLocktime
-			}
-		}
+func (p *Pset) HasSighashSingle() bool {
+	if p.Global.TxModifiable == nil {
+		return false
 	}
-
-	if heightLockTime > 0 {
-		return &heightLockTime
-	}
-
-	if timeLockTime > 0 {
-		return &timeLockTime
-	}
-
-	if p.Global.txInfo.fallBackLockTime != nil {
-		return p.Global.txInfo.fallBackLockTime
-	}
-
-	return nil
+	return p.Global.TxModifiable.Test(2)
 }
 
-// OwnerProvidedOutputBlindingInfo verifies if owner of the input/output provided
-//necessary output blinding
-func (p *Pset) OwnerProvidedOutputBlindingInfo(blinderIndex int) bool {
-	var bi = uint32(blinderIndex)
-	for _, v := range p.Outputs {
-		if v.outputBlinderIndex != nil {
-			if *v.outputBlinderIndex == bi {
-				return v.outputBlindingPubkey != nil
-			}
-		}
+func (p *Pset) NeedsBlinding() bool {
+	if p.Global.Modifiable == nil {
+		return false
 	}
-
-	return false
+	return p.Global.Modifiable.Test(0)
 }
 
-func (p *Pset) validateInputTimeLock(input Input) error {
-	shouldIterate := input.requiredTimeLocktime != nil || input.requiredHeightLocktime != nil
-	var timeLocktime uint32
-	var heightLocktime uint32
-	hasSigs := false
-	if shouldIterate {
-		if input.requiredTimeLocktime != nil || input.requiredHeightLocktime != nil {
-			oldTimeLock := p.CalculateTimeLock()
-			for _, v := range p.Inputs {
-				if v.requiredTimeLocktime != nil && v.requiredHeightLocktime == nil {
-					if input.requiredTimeLocktime == nil {
-						return ErrInvalidLockTimeType
-					}
-				}
-
-				if v.requiredTimeLocktime == nil && v.requiredHeightLocktime != nil {
-					if input.requiredHeightLocktime == nil {
-						return ErrInvalidLockTimeType
-					}
-				}
-
-				if v.requiredTimeLocktime != nil && input.requiredTimeLocktime != nil {
-					timeLocktime = *v.requiredTimeLocktime
-					if *input.requiredTimeLocktime > timeLocktime {
-						timeLocktime = *input.requiredTimeLocktime
-					}
-				}
-
-				if v.requiredHeightLocktime != nil && input.requiredHeightLocktime != nil {
-					heightLocktime = *v.requiredHeightLocktime
-					if *input.requiredHeightLocktime > heightLocktime {
-						heightLocktime = *input.requiredHeightLocktime
-					}
-				}
-
-				if v.partialSigs != nil {
-					hasSigs = true
-				}
-			}
-
-			var newTimeLock uint32
-			if p.Global.txInfo.fallBackLockTime != nil {
-				newTimeLock = *p.Global.txInfo.fallBackLockTime
-			}
-
-			if heightLocktime > 0 {
-				newTimeLock = heightLocktime
-			}
-
-			if timeLocktime > 0 {
-				newTimeLock = timeLocktime
-			}
-
-			if oldTimeLock != nil {
-				if hasSigs && *oldTimeLock != newTimeLock {
-					return ErrInvalidLockTime
-				}
-			}
-		}
+func (p *Pset) IsFullyBlinded() bool {
+	if !p.NeedsBlinding() {
+		return false
 	}
 
-	return nil
+	return !p.Global.Modifiable.Test(0)
 }
 
-func (p *Pset) SanityCheck() error {
-	for _, tin := range p.Inputs {
-		if !tin.IsSane() {
-			return psbt.ErrInvalidPsbtFormat
-		}
-	}
-
-	return nil
-}
-
-func (p *Pset) blinded() bool {
-	for _, v := range p.Outputs {
-		if v.ToBlind() {
-			if !v.IsBlinded() {
-				return false
-			}
+func (p *Pset) IsComplete() bool {
+	for i := 0; i < len(p.Inputs); i++ {
+		if !isFinalized(p, i) {
+			return false
 		}
 	}
 	return true
 }
 
-func (p *Pset) UnsignedTx(blinderSvc Blinder) (*transaction.Transaction, error) {
-	tx := transaction.NewTx(int32(*p.Global.version))
-
+func (p *Pset) Locktime() uint32 {
+	var heightLocktime, timeLocktime uint32
 	for _, v := range p.Inputs {
-		txInput := &transaction.TxInput{}
-		txInput.Hash = v.previousTxid
-		txInput.Index = *v.previousOutputIndex
-		txInput.Sequence = *v.sequence
-		if txInput.Issuance != nil {
-			txInput.Issuance.AssetBlindingNonce = v.issuanceBlindingNonce
-			txInput.Issuance.AssetEntropy = v.issuanceAssetEntropy
-			if v.issuanceValue != nil {
-				issuanceValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceValue))
-				if err != nil {
-					return nil, err
-				}
-				txInput.Issuance.AssetAmount = issuanceValue
-			}
-			if v.issuanceValueCommitment != nil {
-				txInput.Issuance.AssetAmount = v.issuanceValueCommitment
-			}
-
-			if v.issuanceInflationKeys != nil {
-				tokenValue, err := elementsutil.SatoshiToElementsValue(uint64(*v.issuanceInflationKeys))
-				if err != nil {
-					return nil, err
-				}
-				txInput.Issuance.TokenAmount = tokenValue
-			}
-			if v.issuanceInflationKeysCommitment != nil {
-				txInput.Issuance.TokenAmount = v.issuanceInflationKeysCommitment
+		if v.RequiredTimeLocktime > 0 {
+			if v.RequiredTimeLocktime > timeLocktime {
+				timeLocktime = v.RequiredTimeLocktime
 			}
 		}
-
-		tx.AddInput(txInput)
+		if v.RequiredHeightLocktime > 0 {
+			if v.RequiredHeightLocktime > heightLocktime {
+				heightLocktime = v.RequiredHeightLocktime
+			}
+		}
 	}
 
-	for _, v := range p.Outputs {
-		txOutput := &transaction.TxOutput{}
-		txOutput.Script = v.outputScript
+	if heightLocktime > 0 {
+		return heightLocktime
+	}
 
-		expValue := v.outputValueCommitment == nil
-		expValue = expValue && v.outputAmount != nil
-		if v.outputValueCommitment != nil && v.outputAmount != nil {
-			expValue = expValue && v.outputBlindValueProof != nil
-			expValue = expValue && v.outputAssetCommitment != nil
-			valid, err := blinderSvc.VerifyBlindValueProof(
-				*v.outputAmount,
-				v.outputValueCommitment,
-				v.outputBlindValueProof,
-				v.outputAssetCommitment,
-			)
-			if err != nil {
-				return nil, err
+	if timeLocktime > 0 {
+		return timeLocktime
+	}
+
+	return p.Global.FallbackLocktime
+}
+
+func (p *Pset) SanityCheck() error {
+	var hasBlindedInput, hasBlindedOutput, hasFullyBlindedOutput bool
+	for i, in := range p.Inputs {
+		if err := in.SanityCheck(); err != nil {
+			return fmt.Errorf("invalid input %d: %s", i, err)
+		}
+		if prevout := in.GetUtxo(); prevout != nil {
+			if prevout.IsConfidential() {
+				hasBlindedInput = true
 			}
-			expValue = expValue && valid
 		}
-		if expValue {
-			value, err := elementsutil.SatoshiToElementsValue(uint64(*v.outputAmount))
-			if err != nil {
-				return nil, err
+	}
+	for i, out := range p.Outputs {
+		if err := out.SanityCheck(); err != nil {
+			return fmt.Errorf("invalid output %d: %s", i, err)
+		}
+		if out.IsBlinded() {
+			hasBlindedOutput = true
+		}
+		if out.IsFullyBlinded() {
+			hasFullyBlindedOutput = true
+		}
+	}
+
+	if hasBlindedInput && !hasBlindedOutput {
+		return fmt.Errorf(
+			"blinded input(s) detected, at least one output must be blinded",
+		)
+	}
+
+	if hasFullyBlindedOutput && len(p.Global.Scalars) == 0 && p.NeedsBlinding() {
+		return fmt.Errorf(
+			"invalid global modifiable flag: must be unset for pset blinded by " +
+				"last blinder",
+		)
+	}
+
+	return nil
+}
+
+func (p *Pset) UnsignedTx() (*transaction.Transaction, error) {
+	tx := transaction.NewTx(int32(p.Global.TxVersion))
+	tx.Locktime = p.Locktime()
+
+	for _, in := range p.Inputs {
+		txIn := transaction.NewTxInput(in.PreviousTxid, in.PreviousTxIndex)
+		sequence := in.Sequence
+		if sequence == 0 {
+			sequence = transaction.DefaultSequence
+		}
+		txIn.Sequence = sequence
+		if in.IssuanceAssetEntropy != nil {
+			issuanceValue := in.IssuanceValueCommitment
+			if issuanceValue == nil {
+				issuanceValue, _ = elementsutil.ValueToBytes(in.IssuanceValue)
 			}
-			txOutput.Value = value
-		} else {
-			txOutput.Value = v.outputValueCommitment
-			txOutput.RangeProof = v.outputValueRangeproof
-		}
-
-		expAsset := v.outputAssetCommitment == nil
-		expAsset = expAsset && v.outputAsset != nil
-		if v.outputAssetCommitment != nil && v.outputAsset != nil {
-			expAsset = expAsset && v.outputBlindAssetProof != nil
-			expAsset = expAsset && v.outputAsset != nil
-			valid, err := blinderSvc.VerifyBlindAssetProof(
-				v.outputAsset,
-				v.outputBlindAssetProof,
-				v.outputAssetCommitment,
-			)
-			if err != nil {
-				return nil, err
+			tokenValue := in.IssuanceInflationKeysCommitment
+			if tokenValue == nil {
+				tokenValue, _ = elementsutil.ValueToBytes(in.IssuanceInflationKeys)
 			}
-			expAsset = expAsset && valid
-		}
-		if expAsset {
-			txOutput.Asset = v.outputAsset
-		} else {
-			txOutput.Asset = v.outputAssetCommitment
-			txOutput.SurjectionProof = v.outputAssetSurjectionProof
+			txIn.Issuance = &transaction.TxIssuance{
+				AssetEntropy:       in.IssuanceAssetEntropy,
+				AssetBlindingNonce: in.IssuanceBlindingNonce,
+				AssetAmount:        issuanceValue,
+				TokenAmount:        tokenValue,
+			}
 		}
 
-		txOutput.Nonce = v.outputEcdhPubkey
+		tx.AddInput(txIn)
+	}
 
-		tx.AddOutput(txOutput)
+	for _, out := range p.Outputs {
+		value := out.ValueCommitment
+		if value == nil {
+			value, _ = elementsutil.ValueToBytes(out.Value)
+		}
+		asset := out.AssetCommitment
+		if asset == nil {
+			asset = append([]byte{0x01}, out.Asset...)
+		}
+		txOut := transaction.NewTxOutput(asset, value, out.Script)
+		txOut.Script = out.Script
+		txOut.RangeProof = out.ValueRangeproof
+		txOut.SurjectionProof = out.AssetSurjectionProof
+		if out.EcdhPubkey != nil {
+			txOut.Nonce = out.EcdhPubkey
+		}
+
+		tx.AddOutput(txOut)
 	}
 
 	return tx, nil
+}
+
+func (p *Pset) ValidateAllSignatures() (bool, error) {
+	for i := range p.Inputs {
+		valid, err := p.ValidateInputSignatures(i)
+		if err != nil {
+			return false, err
+		}
+		if !valid {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (p *Pset) ValidateInputSignatures(inputIndex int) (
+	bool, error,
+) {
+	if len(p.Inputs[inputIndex].PartialSigs) > 0 {
+		for _, partialSig := range p.Inputs[inputIndex].PartialSigs {
+			valid, err := p.validatePartialSignature(inputIndex, partialSig)
+			if err != nil {
+				return false, err
+			}
+			if !valid {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (p *Pset) addInput(in Input) error {
+	if err := in.SanityCheck(); err != nil {
+		return err
+	}
+	if p.isDuplicateInput(in) {
+		return ErrDuplicateKey
+	}
+	if !p.InputsModifiable() {
+		return fmt.Errorf("pset locked for modifications on inputs")
+	}
+	if in.RequiredHeightLocktime != 0 || in.RequiredTimeLocktime != 0 {
+		oldLocktime := p.Locktime()
+		timeLocktime := in.RequiredTimeLocktime
+		heightLocktime := in.RequiredHeightLocktime
+		hasSigs := false
+		for _, i := range p.Inputs {
+			if i.RequiredTimeLocktime != 0 && i.RequiredHeightLocktime == 0 {
+				heightLocktime = 0
+				if timeLocktime == 0 {
+					return fmt.Errorf("invalid input locktime")
+				}
+			}
+			if i.RequiredTimeLocktime == 0 && i.RequiredHeightLocktime != 0 {
+				timeLocktime = 0
+				if heightLocktime == 0 {
+					return fmt.Errorf("invalid input locktime")
+				}
+			}
+			if i.RequiredTimeLocktime != 0 && timeLocktime != 0 {
+				timeLocktime = max(timeLocktime, i.RequiredTimeLocktime)
+			}
+			if i.RequiredHeightLocktime != 0 && heightLocktime != 0 {
+				heightLocktime = max(heightLocktime, i.RequiredHeightLocktime)
+			}
+			if len(i.PartialSigs) > 0 {
+				hasSigs = true
+			}
+		}
+		newLocktime := p.Global.FallbackLocktime
+		if timeLocktime != 0 {
+			newLocktime = timeLocktime
+		}
+		if heightLocktime != 0 {
+			newLocktime = heightLocktime
+		}
+		if hasSigs && oldLocktime != newLocktime {
+			return fmt.Errorf("invalid input locktime")
+		}
+	}
+
+	p.Inputs = append(p.Inputs, in)
+	p.Global.InputCount++
+	return nil
+}
+
+func (p *Pset) addOutput(out Output) error {
+	if err := out.SanityCheck(); err != nil {
+		return err
+	}
+	if !p.OutputsModifiable() {
+		return fmt.Errorf("pset locked for outputs modifications")
+	}
+
+	p.Outputs = append(p.Outputs, out)
+	p.Global.OutputCount++
+	if out.IsBlinded() {
+		p.Global.Modifiable.Set(0)
+	}
+	return nil
+}
+
+func (p *Pset) isDuplicateInput(in Input) bool {
+	for _, i := range p.Inputs {
+		if bytes.Equal(i.PreviousTxid, in.PreviousTxid) &&
+			i.PreviousTxIndex == in.PreviousTxIndex {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Pset) validatePartialSignature(
+	inputIndex int, partialSignature PartialSig,
+) (bool, error) {
+	if partialSignature.PubKey == nil {
+		return false, fmt.Errorf("no pub key for partial signature")
+	}
+
+	signatureLen := len(partialSignature.Signature)
+	sigHashType := partialSignature.Signature[signatureLen-1]
+	signatureDer := partialSignature.Signature[:signatureLen-1]
+
+	sigHash, script, err := p.getHashAndScriptForSignature(
+		inputIndex,
+		uint32(sigHashType),
+	)
+	if err != nil {
+		return false, err
+	}
+
+	valid, err := p.verifyScriptForPubKey(script, partialSignature.PubKey)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, nil
+	}
+
+	pSig, err := btcec.ParseDERSignature(signatureDer, btcec.S256())
+	if err != nil {
+		return false, nil
+	}
+
+	pubKey, err := btcec.ParsePubKey(partialSignature.PubKey, btcec.S256())
+	if err != nil {
+		return false, nil
+	}
+
+	return pSig.Verify(sigHash, pubKey), nil
+}
+
+func (p *Pset) getHashAndScriptForSignature(
+	inputIndex int, sigHashType uint32,
+) ([]byte, []byte, error) {
+	var hash [32]byte
+	var script []byte
+
+	unsignedTx, err := p.UnsignedTx()
+	if err != nil {
+		return nil, nil, err
+	}
+	sighash := txscript.SigHashType(sigHashType)
+
+	input := p.Inputs[inputIndex]
+
+	if input.NonWitnessUtxo != nil {
+		prevoutHash := p.Inputs[inputIndex].PreviousTxid
+		utxoHash := input.NonWitnessUtxo.TxHash()
+
+		if !bytes.Equal(prevoutHash, utxoHash.CloneBytes()) {
+			return nil, nil, fmt.Errorf(
+				"non-witness utxo hash for input doesnt match the hash specified" +
+					"in the prevout",
+			)
+		}
+
+		prevoutIndex := p.Inputs[inputIndex].PreviousTxIndex
+		prevout := input.NonWitnessUtxo.Outputs[prevoutIndex]
+		if input.RedeemScript != nil {
+			script = input.RedeemScript
+		} else {
+			script = prevout.Script
+		}
+
+		switch address.GetScriptType(script) {
+
+		case address.P2WshScript:
+			if input.WitnessScript == nil {
+				return nil, nil, fmt.Errorf(
+					"segwit input needs witnessScript if not p2wpkh",
+				)
+			}
+			hash = unsignedTx.HashForWitnessV0(
+				inputIndex, input.WitnessScript, prevout.Value, sighash,
+			)
+			script = input.WitnessScript
+
+		case address.P2WpkhScript:
+			pay, err := payment.FromScript(script, nil, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+			hash = unsignedTx.HashForWitnessV0(
+				inputIndex, pay.Script, input.WitnessUtxo.Value, sighash,
+			)
+		default:
+			var err error
+			hash, err = unsignedTx.HashForSignature(
+				inputIndex, script, sighash,
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+	} else if input.WitnessUtxo != nil {
+		if input.RedeemScript != nil {
+			script = input.RedeemScript
+		} else {
+			script = input.WitnessUtxo.Script
+		}
+		switch address.GetScriptType(script) {
+
+		case address.P2WpkhScript:
+			pay, err := payment.FromScript(script, nil, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+			hash = unsignedTx.HashForWitnessV0(
+				inputIndex, pay.Script, input.WitnessUtxo.Value, sighash,
+			)
+		case address.P2WshScript:
+			hash = unsignedTx.HashForWitnessV0(
+				inputIndex, input.WitnessScript, input.WitnessUtxo.Value, sighash,
+			)
+			script = input.WitnessScript
+		default:
+			return nil, nil, fmt.Errorf("inputhas witnessUtxo but non-segwit script")
+		}
+	} else {
+		return nil, nil, fmt.Errorf("need a utxo input item for signing")
+	}
+
+	return hash[:], script, nil
+}
+
+func (p *Pset) verifyScriptForPubKey(
+	script []byte,
+	pubKey []byte,
+) (bool, error) {
+	pk, err := btcec.ParsePubKey(pubKey, btcec.S256())
+	if err != nil {
+		return false, err
+	}
+
+	pkHash := payment.Hash160(pubKey)
+
+	scriptAsm, err := txscript.DisasmString(script)
+	if err != nil {
+		return false, err
+	}
+
+	if strings.Contains(
+		scriptAsm, hex.EncodeToString(pk.SerializeCompressed()),
+	) || strings.Contains(
+		scriptAsm, hex.EncodeToString(pkHash),
+	) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (p *Pset) serialize() ([]byte, error) {
+	if p == nil {
+		return nil, fmt.Errorf("")
+	}
+
+	s := bufferutil.NewSerializer(nil)
+
+	if err := s.WriteSlice(magicPrefix); err != nil {
+		return nil, err
+	}
+
+	if err := p.Global.serialize(s); err != nil {
+		return nil, err
+	}
+
+	for _, v := range p.Inputs {
+		if err := v.serialize(s); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, v := range p.Outputs {
+		if err := v.serialize(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.Bytes(), nil
+}
+
+func deserialize(buf *bytes.Buffer) (*Pset, error) {
+	d := bufferutil.NewDeserializer(buf)
+
+	magic, err := d.ReadSlice(uint(len(magicPrefix)))
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(magic, magicPrefix) {
+		return nil, ErrInvalidMagicBytes
+	}
+
+	global := Global{}
+	if err := global.deserialize(buf); err != nil {
+		return nil, err
+	}
+
+	inputs := make([]Input, 0)
+	for i := 0; i < int(global.InputCount); i++ {
+		input := Input{}
+		if err := input.deserialize(buf); err != nil {
+			return nil, err
+		}
+
+		inputs = append(inputs, input)
+	}
+
+	outputs := make([]Output, 0)
+	for i := 0; i < int(global.OutputCount); i++ {
+		output := Output{}
+		err := output.deserialize(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		outputs = append(outputs, output)
+	}
+
+	newPset := &Pset{Global: global, Inputs: inputs, Outputs: outputs}
+	if err := newPset.SanityCheck(); err != nil {
+		return nil, err
+	}
+
+	return newPset, nil
 }

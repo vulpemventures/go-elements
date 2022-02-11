@@ -20,11 +20,6 @@ type DerivationPathWithPubKey struct {
 	Bip32Path []uint32
 }
 
-// checkValid ensures that the PubKey in the DerivationPathWithPubKey struct is valid.
-func (pb *DerivationPathWithPubKey) checkValid() bool {
-	return validatePubkey(pb.PubKey)
-}
-
 // Bip32Sorter implements sort.Interface for the DerivationPathWithPubKey struct.
 type Bip32Sorter []*DerivationPathWithPubKey
 
@@ -40,7 +35,6 @@ func (s Bip32Sorter) Less(i, j int) bool {
 // little endian encodings of uint32 values, the first of which is the
 // masterkeyfingerprint and the remainder of which are the derivation path.
 func readBip32Derivation(path []byte) (uint32, []uint32, error) {
-
 	if len(path)%4 != 0 || len(path)/4-1 < 1 {
 		return 0, nil, ErrInvalidPsbtFormat
 	}

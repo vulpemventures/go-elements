@@ -24,9 +24,19 @@ const (
 )
 
 var (
-	ErrDuplicateKey          = fmt.Errorf("invalid psbt due to duplicate key")
-	ErrInputIndexOutOfRange  = fmt.Errorf("provided input index is out of range")
-	ErrOutputIndexOutOfRange = fmt.Errorf("provided output index is out of range")
+	ErrInputIndexOutOfRange              = fmt.Errorf("provided input index is out of range")
+	ErrOutputIndexOutOfRange             = fmt.Errorf("provided output index is out of range")
+	ErrInvalidSignatureForInput          = fmt.Errorf("signature does not correspond to this input")
+	ErrInIssuanceMissingAssetAddress     = fmt.Errorf("missing destination address for asset to (re)issue")
+	ErrInIssuanceMissingTokenAddress     = fmt.Errorf("missing destination address for token to (re)issue")
+	ErrInIssuanceAddressesMismatch       = fmt.Errorf("asset and token destination addresses must both be confidential or non-confidential")
+	ErrPsetMissingInputForIssuance       = fmt.Errorf("pset must contain at least one input to add issuance to")
+	ErrPsetMissingEmptyInputsForIssuance = fmt.Errorf("transaction does not contain any input with empty issuance")
+	ErrInReissuanceMissingPrevout        = fmt.Errorf("either WitnessUtxo or NonWitnessUtxo must be defined")
+	ErrInReissuanceInvalidTokenBlinder   = fmt.Errorf("invalid token prevout blinder length")
+	ErrInReissuanceZeroTokenBlinder      = fmt.Errorf("token prevout blinder must not be a zero blinder")
+	ErrInReissuanceInvalidAssetAmount    = fmt.Errorf("invalid reissuance asset amount")
+	ErrInReissuanceInvalidTokenAmount    = fmt.Errorf("invalid reissuance token amount")
 )
 
 // Updater encapsulates the role 'Updater' as specified in BIP174; it accepts
@@ -39,7 +49,7 @@ type Updater struct {
 // in a valid form, else an error.a
 func NewUpdater(p *Pset) (*Updater, error) {
 	if err := p.SanityCheck(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid pset: %s", err)
 	}
 
 	return &Updater{Pset: p}, nil
@@ -53,14 +63,11 @@ func (u *Updater) AddInputs(inputs []InputArgs) error {
 		}
 	}
 
-	p := &Pset{
-		Global:  u.Pset.Global,
-		Inputs:  u.Pset.Inputs,
-		Outputs: u.Pset.Outputs,
-	}
+	p := u.Pset.Copy()
+
 	for _, in := range inputs {
 		if err := p.addInput(in.toPartialInput()); err != nil {
-			return err
+			return fmt.Errorf("faile to add input: %s", err)
 		}
 	}
 
@@ -78,14 +85,11 @@ func (u *Updater) AddOutputs(outputs []OutputArgs) error {
 		}
 	}
 
-	p := &Pset{
-		Global:  u.Pset.Global,
-		Inputs:  u.Pset.Inputs,
-		Outputs: u.Pset.Outputs,
-	}
+	p := u.Pset.Copy()
+
 	for _, out := range outputs {
 		if err := p.addOutput(out.toPartialOutput()); err != nil {
-			return err
+			return fmt.Errorf("failed to add output: %s", err)
 		}
 	}
 
@@ -102,6 +106,10 @@ func (u *Updater) AddOutputs(outputs []OutputArgs) error {
 func (u *Updater) AddInNonWitnessUtxo(inIndex int, tx *transaction.Transaction) error {
 	if inIndex > len(u.Pset.Inputs)-1 {
 		return ErrInputIndexOutOfRange
+	}
+	txid := tx.TxHash()
+	if !bytes.Equal(txid[:], u.Pset.Inputs[inIndex].PreviousTxid) {
+		return ErrInInvalidNonWitnessUtxo
 	}
 	u.Pset.Inputs[inIndex].NonWitnessUtxo = tx
 
@@ -221,26 +229,23 @@ func (arg AddInIssuanceArgs) validate() error {
 	}
 
 	if len(arg.AssetAddress) <= 0 {
-		return fmt.Errorf("missing destination address for asset to issue")
+		return ErrInIssuanceMissingAssetAddress
 	}
 
 	if _, err := address.DecodeType(arg.AssetAddress); err != nil {
-		return err
+		return fmt.Errorf("invalid issuance asset address: %s", err)
 	}
 
 	if arg.TokenAmount > 0 {
 		if len(arg.TokenAddress) <= 0 {
-			return fmt.Errorf("missing destination address for token to issue")
+			return ErrInIssuanceMissingTokenAddress
 		}
 		if _, err := address.DecodeType(arg.TokenAddress); err != nil {
-			return err
+			return fmt.Errorf("invalid issuance token address: %s", err)
 		}
 	}
 	if !arg.matchAddressTypes() {
-		return fmt.Errorf(
-			"asset and token destination addresses must both be confidential or " +
-				"non-confidential",
-		)
+		return ErrInIssuanceAddressesMismatch
 	}
 
 	return nil
@@ -270,21 +275,16 @@ func (u *Updater) AddInIssuance(arg AddInIssuanceArgs) error {
 	}
 
 	if len(u.Pset.Inputs) == 0 {
-		return fmt.Errorf("transaction must contain at least one input")
+		return ErrPsetMissingInputForIssuance
 	}
 
 	prevoutIndex, prevoutHash, inputIndex := findInputWithEmptyIssuance(u.Pset)
 	if inputIndex < 0 {
-		return fmt.Errorf(
-			"transaction does not contain any input with empty issuance",
-		)
+		return ErrPsetMissingEmptyInputsForIssuance
 	}
 
-	p := &Pset{
-		Global:  u.Pset.Global,
-		Inputs:  u.Pset.Inputs,
-		Outputs: u.Pset.Outputs,
-	}
+	p := u.Pset.Copy()
+
 	issuance, _ := transaction.NewTxIssuance(
 		arg.AssetAmount,
 		arg.TokenAmount,
@@ -350,7 +350,7 @@ func (u *Updater) AddInIssuance(arg AddInIssuanceArgs) error {
 //		PrevOutIndex: the prevout index of the token that will be added as input to the tx
 //		PrevOutBlinder: the asset blinder used to blind the prevout token
 //		WitnessUtxo: the prevout token in case it is a witness one
-//		NonWitnessUtxo: the prevout tx that include the token output in case it is a non witness one
+//		NonWitnessUtxo: the prevout tx that include the token output in case it is a non-witness one
 //		Entropy: the entropy used to generate token and asset
 //		AssetAmount: the amount of asset to re-issue
 //		TokenAmount: the same unblinded amount of the prevout token
@@ -370,17 +370,17 @@ type AddInReissuanceArgs struct {
 
 func (arg AddInReissuanceArgs) validate() error {
 	if arg.WitnessUtxo == nil && arg.NonWitnessUtxo == nil {
-		return fmt.Errorf("either WitnessUtxo or NonWitnessUtxo must be defined")
+		return ErrInReissuanceMissingPrevout
 	}
 
 	if err := arg.TokenPrevOut.validate(); err != nil {
-		return err
+		return fmt.Errorf("invalid token prevout: %s", err)
 	}
 
 	if arg.NonWitnessUtxo != nil {
 		hash := arg.NonWitnessUtxo.TxHash()
 		if elementsutil.TxIDFromBytes(hash[:]) != arg.TokenPrevOut.Txid {
-			return fmt.Errorf("input and non witness utxo hashes must match")
+			return ErrInInvalidNonWitnessUtxo
 		}
 	}
 
@@ -396,32 +396,35 @@ func (arg AddInReissuanceArgs) validate() error {
 	}
 
 	if len(arg.TokenPrevOutBlinder) != 32 {
-		return fmt.Errorf("invalid input blinder")
+		return ErrInReissuanceInvalidTokenBlinder
+	}
+	if bytes.Equal(arg.TokenPrevOutBlinder, zeroBlinder) {
+		return ErrInReissuanceZeroTokenBlinder
 	}
 
 	if buf, err := hex.DecodeString(arg.Entropy); err != nil || len(buf) != 32 {
-		return fmt.Errorf("invalid asset entropy")
+		return ErrInInvalidIssuanceAssetEntropy
 	}
 
-	if arg.AssetAmount <= 0 {
-		return fmt.Errorf("invalid asset amount")
+	if arg.AssetAmount == 0 {
+		return ErrInReissuanceInvalidAssetAmount
 	}
 
-	if arg.TokenAmount <= 0 {
-		return fmt.Errorf("invalid token amount")
+	if arg.TokenAmount == 0 {
+		return ErrInReissuanceInvalidTokenAmount
 	}
 
 	if len(arg.AssetAddress) <= 0 {
-		return fmt.Errorf("invalid destination address for asset")
+		return ErrInIssuanceMissingAssetAddress
 	}
 	if _, err := address.DecodeType(arg.AssetAddress); err != nil {
-		return err
+		return fmt.Errorf("invalid reissuance asset address: %s", err)
 	}
 	if len(arg.TokenAddress) <= 0 {
-		return fmt.Errorf("invalid destination address for token")
+		return ErrInIssuanceMissingTokenAddress
 	}
 	if _, err := address.DecodeType(arg.TokenAddress); err != nil {
-		return err
+		return fmt.Errorf("invalid reissuance token address: %s", err)
 	}
 	if !arg.areAddressesConfidential() {
 		return fmt.Errorf("asset and token address must be both confidential")
@@ -459,11 +462,7 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 		)
 	}
 
-	p := &Pset{
-		Global:  u.Pset.Global,
-		Inputs:  u.Pset.Inputs,
-		Outputs: u.Pset.Outputs,
-	}
+	p := u.Pset.Copy()
 
 	// add input
 	if err := p.addInput(arg.TokenPrevOut.toPartialInput()); err != nil {

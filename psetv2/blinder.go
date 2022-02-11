@@ -7,12 +7,55 @@ import (
 )
 
 var (
-	ErrOutputsToBeBlindedNotOwned           = fmt.Errorf("outputs that are supposed to be blinded are not owned by blinder")
-	ErrOwnerDidntProvidedOutputBlindingData = fmt.Errorf("owner didnt provided output blinding data")
-	ErrNeedUtxo                             = fmt.Errorf("input needs utxo")
-	ErrInvalidBlinder                       = fmt.Errorf("invalid blinder")
-	ErrGenerateSurjectionProof              = fmt.Errorf("failed to generate surjection proof, please retry")
-	zeroBlinder                             = make([]byte, 32)
+	zeroBlinder = make([]byte, 32)
+
+	// Output errors
+	ErrOutMissingBlindingKey = fmt.Errorf(
+		"cannot blind an output that misses blinding pubkey",
+	)
+	ErrOutMissingNonce                = fmt.Errorf("missing output ecdh nonce")
+	ErrOutMissingAssetBlinder         = fmt.Errorf("missing output asset blinder")
+	ErrOutMissingAssetCommitment      = fmt.Errorf("missing output asset commitment")
+	ErrOutMissingAssetSurjectionProof = fmt.Errorf("missing output asset surjetcion proof")
+	ErrOutMissingAssetBlindProof      = fmt.Errorf("missing output asset blind proof")
+	ErrOutMissingValueBlinder         = fmt.Errorf("missing output value blinder")
+	ErrOutMissingValueCommitment      = fmt.Errorf("missing output value commitment")
+	ErrOutMissingValueRangeProof      = fmt.Errorf("missing output value range proof")
+	ErrOutMissingValueBlindProof      = fmt.Errorf("missing output value blind proof")
+	ErrOutInvalidNonce                = fmt.Errorf("invalid output ecdh nonce length")
+	ErrOutInvalidValueBlinder         = fmt.Errorf("invalid output value blinder length")
+	ErrOutInvalidAssetBlinder         = fmt.Errorf("invalid output asset blinder length")
+	ErrOutInvalidAssetCommitment      = fmt.Errorf("invalid output asset commitment length")
+	ErrOutInvalidValueCommitment      = fmt.Errorf("invalid output value commitment length")
+
+	// Input issuance errors
+	ErrInIssuanceMissingValueBlinder    = fmt.Errorf("missing issuance value blinder")
+	ErrInIssuanceMissingValueCommitment = fmt.Errorf("missing issuance value commitment")
+	ErrInIssuanceMissingValueRangeProof = fmt.Errorf("missing issuance value range proof")
+	ErrInIssuanceMissingValueBlindProof = fmt.Errorf("missing issuance value blind proof")
+	ErrInIssuanceMissingTokenBlinder    = fmt.Errorf("missing issuance token value blinder")
+	ErrInIssuanceMissingTokenCommitment = fmt.Errorf("missing issuance token value commitment")
+	ErrInIssuanceMissingTokenRangeProof = fmt.Errorf("missing issuance token value range proof")
+	ErrInIssuanceMissingTokenBlindProof = fmt.Errorf("missing issuance token value blind proof")
+	ErrInIssuanceInvalidValueBlinder    = fmt.Errorf("invalid issuance value blinder length")
+	ErrInIssuanceInvalidValueCommitment = fmt.Errorf("invalid issuance value commitment length")
+	ErrInIssuanceInvalidTokenBlinder    = fmt.Errorf("invalid issuance token value blinder length")
+	ErrInIssuanceInvalidTokenCommitment = fmt.Errorf("invalid issuance token value commitment length")
+
+	// Input errors
+	ErrOwnedInMissingValue        = fmt.Errorf("missing input value")
+	ErrOwnedInMissingAsset        = fmt.Errorf("missing input asset")
+	ErrOwnedInMissingValueBlinder = fmt.Errorf("missing input value blinder")
+	ErrOwnedInMissingAssetBlinder = fmt.Errorf("missing input asset blinder")
+	ErrOwnedInInvalidAsset        = fmt.Errorf("invalid input asset length")
+	ErrOwnedInInvalidAssetFormat  = fmt.Errorf("input asset must be a string in hex format")
+	ErrOwnedInInvalidValueBlinder = fmt.Errorf("invalid input value blinder length")
+	ErrOwnedInInvalidAssetBlinder = fmt.Errorf("invalid input asset blinder length")
+
+	// Blinder errors
+	ErrBlinderForbiddenBlinding  = fmt.Errorf("provided pset does not need to be blinded")
+	ErrBlinderMissingOwnedInputs = fmt.Errorf("missing list of owned inputs")
+	ErrBlinderMissingHandler     = fmt.Errorf("missing blinder handler")
 )
 
 type OutputBlindingArgs struct {
@@ -34,50 +77,50 @@ func (a OutputBlindingArgs) validate(p *Pset, isLastOutput bool) error {
 	}
 	out := p.Outputs[a.Index]
 	if !out.IsBlinded() {
-		return fmt.Errorf("cannot blind an output that misses blinding pubkey")
+		return ErrOutMissingBlindingKey
 	}
 	if a.Nonce == nil {
-		return fmt.Errorf("missing ecdh nonce")
+		return ErrOutMissingNonce
 	}
 	if len(a.Nonce) != 33 {
-		return fmt.Errorf("invalid ecdh nonce length")
+		return ErrOutInvalidNonce
 	}
 	if a.ValueBlinder == nil {
-		return fmt.Errorf("missing value blinder")
+		return ErrOutMissingValueBlinder
 	}
 	if len(a.ValueBlinder) != 32 {
-		return fmt.Errorf("invalid value blinder length")
+		return ErrOutInvalidValueBlinder
 	}
 	if a.AssetBlinder == nil {
-		return fmt.Errorf("missing asset blinder")
+		return ErrOutMissingAssetBlinder
 	}
 	if len(a.AssetBlinder) != 32 {
-		return fmt.Errorf("invalid asset blinder length")
-	}
-	if a.AssetSurjectionProof == nil {
-		return fmt.Errorf("missing asset surjetcion proof")
-	}
-	if a.AssetBlindProof == nil {
-		return fmt.Errorf("missing asset blind proof")
+		return ErrOutInvalidAssetBlinder
 	}
 	if a.AssetCommitment == nil {
-		return fmt.Errorf("missing asset commitment")
+		return ErrOutMissingAssetCommitment
 	}
 	if len(a.AssetCommitment) != 33 {
-		return fmt.Errorf("invalid asset commitment length")
+		return ErrOutInvalidAssetCommitment
+	}
+	if a.AssetSurjectionProof == nil {
+		return ErrOutMissingAssetSurjectionProof
+	}
+	if a.AssetBlindProof == nil {
+		return ErrOutMissingAssetBlindProof
 	}
 	if !isLastOutput {
 		if a.ValueCommitment == nil {
-			return fmt.Errorf("missing value commitment")
+			return ErrOutMissingValueCommitment
 		}
 		if len(a.ValueCommitment) != 33 {
-			return fmt.Errorf("invalid value commitment length")
+			return ErrOutInvalidValueCommitment
 		}
 		if a.ValueRangeProof == nil {
-			return fmt.Errorf("missing value range proof")
+			return ErrOutMissingValueRangeProof
 		}
 		if a.ValueBlindProof == nil {
-			return fmt.Errorf("missing value blind proof")
+			return ErrOutMissingValueBlindProof
 		}
 	}
 	return nil
@@ -103,37 +146,43 @@ func (a InputIssuanceBlindingArgs) validate(p *Pset) error {
 	}
 	targetInput := p.Inputs[a.Index]
 	if targetInput.IssuanceValue > 0 && len(a.IssuanceValueCommitment) > 0 {
+		if len(a.IssuanceValueCommitment) == 0 {
+			if len(a.IssuanceValueBlinder) == 0 {
+				return ErrInIssuanceMissingValueBlindProof
+			}
+			if len(a.IssuanceValueBlinder) != 32 {
+				return ErrInIssuanceInvalidValueBlinder
+			}
+			return ErrInIssuanceMissingValueCommitment
+		}
 		if len(a.IssuanceValueCommitment) != 33 {
-			return fmt.Errorf("invalid issuance value commitment length")
+			return ErrInIssuanceInvalidValueCommitment
 		}
 		if len(a.IssuanceValueRangeProof) == 0 {
-			return fmt.Errorf("missing issuance value range proof")
+			return ErrInIssuanceMissingValueRangeProof
 		}
 		if len(a.IssuanceValueBlindProof) == 0 {
-			return fmt.Errorf("missing issuance value blind proof")
-		}
-		if len(a.IssuanceValueBlinder) == 0 {
-			return fmt.Errorf("missing issuance value blinder")
-		}
-		if len(a.IssuanceValueBlinder) != 32 {
-			return fmt.Errorf("invalid issuance value blinder length")
+			return ErrInIssuanceMissingValueBlindProof
 		}
 	}
 	if targetInput.IssuanceInflationKeys > 0 && len(a.IssuanceTokenCommitment) > 0 {
-		if len(a.IssuanceTokenCommitment) != 33 {
-			return fmt.Errorf("invalid issuance token commitment length")
-		}
-		if len(a.IssuanceTokenRangeProof) == 0 {
-			return fmt.Errorf("missing issuance token range proof")
-		}
-		if len(a.IssuanceTokenBlindProof) == 0 {
-			return fmt.Errorf("missing issuance token blind proof")
-		}
 		if len(a.IssuanceTokenBlinder) == 0 {
-			return fmt.Errorf("missing issuance token blinder")
+			return ErrInIssuanceMissingTokenBlinder
 		}
 		if len(a.IssuanceTokenBlinder) != 32 {
-			return fmt.Errorf("invalid issuance token blinder length")
+			return ErrInIssuanceInvalidTokenBlinder
+		}
+		if len(a.IssuanceTokenCommitment) == 0 {
+			return ErrInIssuanceMissingTokenCommitment
+		}
+		if len(a.IssuanceTokenCommitment) != 33 {
+			return ErrInIssuanceInvalidTokenCommitment
+		}
+		if len(a.IssuanceTokenRangeProof) == 0 {
+			return ErrInIssuanceMissingTokenRangeProof
+		}
+		if len(a.IssuanceTokenBlindProof) == 0 {
+			return ErrInIssuanceMissingTokenBlindProof
 		}
 	}
 	return nil
@@ -170,26 +219,29 @@ func (i OwnedInput) validate(p *Pset) error {
 		return nil
 	}
 	if i.Value == 0 {
-		return fmt.Errorf("missing input value")
+		return ErrOwnedInMissingValue
 	}
 	if len(i.Asset) == 0 {
-		return fmt.Errorf("missing input asset")
+		return ErrOwnedInMissingAsset
 	}
 	buf, err := hex.DecodeString(i.Asset)
 	if err != nil {
-		return fmt.Errorf("input asset must be a string in hex format")
+		return ErrOwnedInInvalidAssetFormat
 	}
 	if len(buf) != 32 {
-		return fmt.Errorf("invalid input asset length")
+		return ErrOwnedInInvalidAsset
 	}
 	if len(i.ValueBlinder) == 0 {
-		return fmt.Errorf("missing input value blinder")
+		return ErrOwnedInMissingValueBlinder
 	}
 	if len(i.ValueBlinder) != 32 {
-		return fmt.Errorf("invalid input value blinder length")
+		return ErrOwnedInInvalidValueBlinder
+	}
+	if len(i.AssetBlinder) == 0 {
+		return ErrOwnedInMissingAssetBlinder
 	}
 	if len(i.AssetBlinder) != 32 {
-		return fmt.Errorf("invalid input asset blinder length")
+		return ErrOwnedInInvalidAssetBlinder
 	}
 	return nil
 }
@@ -230,10 +282,10 @@ func NewBlinder(
 		return nil, fmt.Errorf("invalid pset: %s", err)
 	}
 	if !p.NeedsBlinding() {
-		return nil, fmt.Errorf("provided pset does not need to be blinded")
+		return nil, ErrBlinderForbiddenBlinding
 	}
 	if len(ownedInputs) == 0 {
-		return nil, fmt.Errorf("missing list of owned inputs")
+		return nil, ErrBlinderMissingOwnedInputs
 	}
 
 	for i, in := range ownedInputs {
@@ -243,7 +295,7 @@ func NewBlinder(
 	}
 
 	if blinderHandler == nil {
-		return nil, fmt.Errorf("missing blinder handler")
+		return nil, ErrBlinderMissingHandler
 	}
 
 	return &Blinder{p, ownedInputs, blinderHandler}, nil

@@ -10,15 +10,19 @@ import (
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
+var (
+	ErrExtractorForbiddenExtraction = fmt.Errorf(
+		"pset must be complete to extract final transaction",
+	)
+)
+
 func Extract(p *Pset) (*transaction.Transaction, error) {
 	if err := p.SanityCheck(); err != nil {
 		return nil, fmt.Errorf("invalid pset: %s", err)
 	}
 
 	if !p.IsComplete() {
-		return nil, fmt.Errorf(
-			"pset must be complete to extract final transaction",
-		)
+		return nil, ErrExtractorForbiddenExtraction
 	}
 	tx := transaction.NewTx(int32(p.Global.Version))
 	tx.Locktime = p.Locktime()

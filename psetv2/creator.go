@@ -14,6 +14,19 @@ const (
 	defaultTxVersion = 2
 )
 
+var (
+	// Input errors
+	ErrInMissingTxid       = fmt.Errorf("missing input txid")
+	ErrInInvalidTxidFormat = fmt.Errorf("input txid must be in hex format")
+	ErrInInvalidTxid       = fmt.Errorf("invalid input txid length")
+
+	// Output errors
+	ErrOutMissingAsset       = fmt.Errorf("missing output asset")
+	ErrOutInvalidAssetFormat = fmt.Errorf("output asset must be in hex format")
+	ErrOutInvalidAsset       = fmt.Errorf("invalid output asset length")
+	ErrOutInvalidAddress     = fmt.Errorf("invalid output address")
+)
+
 type InputArgs struct {
 	Txid       string
 	TxIndex    uint32
@@ -23,12 +36,15 @@ type InputArgs struct {
 }
 
 func (a InputArgs) validate() error {
+	if a.Txid == "" {
+		return ErrInMissingTxid
+	}
 	buf, err := hex.DecodeString(a.Txid)
 	if err != nil {
-		return fmt.Errorf("invalid txid")
+		return ErrInInvalidTxidFormat
 	}
 	if len(buf) != 32 {
-		return fmt.Errorf("invalid txid length")
+		return ErrInInvalidTxid
 	}
 	return nil
 }
@@ -57,16 +73,19 @@ type OutputArgs struct {
 }
 
 func (a OutputArgs) validate() error {
-	buf, err := elementsutil.AssetHashToBytes(a.Asset)
-	if err != nil {
-		return fmt.Errorf("invalid asset")
+	if a.Asset == "" {
+		return ErrOutMissingAsset
 	}
-	if len(buf) != 33 {
-		return fmt.Errorf("invalid asset length")
+	buf, err := hex.DecodeString(a.Asset)
+	if err != nil {
+		return ErrOutInvalidAssetFormat
+	}
+	if len(buf) != 32 {
+		return ErrOutInvalidAsset
 	}
 	if len(a.Address) > 0 {
 		if _, err := address.ToOutputScript(a.Address); err != nil {
-			return fmt.Errorf("invalid address: %s", err)
+			return ErrOutInvalidAddress
 		}
 	}
 	return nil

@@ -18,18 +18,10 @@ import (
 )
 
 var (
-	// ErrInvalidSigHashFlags indicates that a signature added to the PSBT
-	// uses Sighash flags that are not in accordance with the requirement
-	// according to the entry in PsbtInSighashType, or otherwise not the
-	// default value (SIGHASH_ALL)
-	ErrInvalidSigHashFlags = fmt.Errorf("invalid sighash flags")
-	// ErrNotFinalizable indicates that the PSBT struct does not have
-	// sufficient data (e.g. signatures) for finalization
-	ErrNotFinalizable = fmt.Errorf("PSBT is not finalizable")
-	// ErrInputAlreadyFinalized indicates that the PSBT passed to a Finalizer
-	// already contains the finalized scriptSig or witness.
-	ErrInputAlreadyFinalized = fmt.Errorf(
-		"cannot finalize PSBT, finalized scriptSig or scriptWitnes already exists",
+	ErrFinalizerInvalidSigHashFlags   = fmt.Errorf("invalid sighash flags")
+	ErrFinalizerForbiddenFinalization = fmt.Errorf("pset is not finalizable")
+	ErrFinalizerAlreadyFinalized      = fmt.Errorf(
+		"cannot finalize pset, finalized scriptSig or scriptWitnes already exists",
 	)
 )
 
@@ -96,7 +88,7 @@ func MaybeFinalize(p *Pset, inIndex int) (bool, error) {
 	}
 
 	if !isFinalizable(p, inIndex) {
-		return false, ErrNotFinalizable
+		return false, ErrFinalizerForbiddenFinalization
 	}
 
 	if err := Finalize(p, inIndex); err != nil {
@@ -251,7 +243,7 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 	// If this input has already been finalized, then we'll return an error
 	// as we can't proceed.
 	if checkFinalScriptSigWitness(p, inIndex) {
-		return ErrInputAlreadyFinalized
+		return ErrFinalizerAlreadyFinalized
 	}
 
 	// Our goal here is to construct a sigScript given the pubkey,
@@ -272,7 +264,7 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 
 		sigOK := checkSigHashFlags(ps.Signature, input)
 		if !sigOK {
-			return ErrInvalidSigHashFlags
+			return ErrFinalizerInvalidSigHashFlags
 		}
 
 		sigs = append(sigs, ps.Signature)
@@ -282,7 +274,7 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 	// which indicates it was not ready to be finalized. As a result, we
 	// can't proceed.
 	if len(sigs) < 1 || len(pubKeys) < 1 {
-		return ErrNotFinalizable
+		return ErrFinalizerForbiddenFinalization
 	}
 
 	// If this input doesn't need a redeem script (P2PKH), then we'll
@@ -293,7 +285,7 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 		// At this point, we should only have a single signature and
 		// pubkey.
 		if len(sigs) != 1 || len(pubKeys) != 1 {
-			return ErrNotFinalizable
+			return ErrFinalizerForbiddenFinalization
 		}
 
 		// In this case, our sigScript is just: <sig> <pubkey>.
@@ -346,7 +338,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 	// If this input has already been finalized, then we'll return an error
 	// as we can't proceed.
 	if checkFinalScriptSigWitness(p, inIndex) {
-		return ErrInputAlreadyFinalized
+		return ErrFinalizerAlreadyFinalized
 	}
 
 	// Depending on the actual output type, we'll either populate a
@@ -369,7 +361,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 
 		sigOK := checkSigHashFlags(ps.Signature, input)
 		if !sigOK {
-			return ErrInvalidSigHashFlags
+			return ErrFinalizerInvalidSigHashFlags
 
 		}
 
@@ -379,7 +371,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 	// If at this point, we don't have any pubkey+sig pairs, then we bail
 	// as we can't proceed.
 	if len(sigs) == 0 || len(pubKeys) == 0 {
-		return ErrNotFinalizable
+		return ErrFinalizerForbiddenFinalization
 	}
 
 	containsRedeemScript := len(input.RedeemScript) > 0
@@ -410,7 +402,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 			// non-multisig P2WSH outputs (HTLCs, delay outputs,
 			// etc).
 			if !containsWitnessScript {
-				return ErrNotFinalizable
+				return ErrFinalizerForbiddenFinalization
 			}
 
 			serializedWitness, err = getMultisigScriptWitness(
@@ -440,7 +432,7 @@ func finalizeWitnessInput(p *Pset, inIndex int) error {
 			// Assumed p2sh-p2wkh Here the witness is just (sig,
 			// pub) as for p2pkh case
 			if len(sigs) != 1 || len(pubKeys) != 1 {
-				return ErrNotFinalizable
+				return ErrFinalizerForbiddenFinalization
 			}
 
 			serializedWitness, err = writePKHWitness(sigs[0], pubKeys[0])

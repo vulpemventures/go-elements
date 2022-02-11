@@ -82,10 +82,6 @@ func readTxOut(txout []byte) (*transaction.TxOutput, error) {
 	}, nil
 }
 
-func isAssetExplicit(asset []byte) bool {
-	return len(asset) == 33 && asset[0] == 1
-}
-
 // extractKeyOrderFromScript is a utility function to extract an ordered list
 // of signatures, given a serialized script (redeemscript or witness script), a
 // list of pubkeys and the signatures corresponding to those pubkeys. This
@@ -254,13 +250,6 @@ func checkSigHashFlags(sig []byte, input Input) bool {
 	}
 
 	return expectedSighashType == txscript.SigHashType(sig[len(sig)-1])
-}
-
-func min(x, y uint32) uint32 {
-	if x < y {
-		return x
-	}
-	return y
 }
 
 func max(x, y uint32) uint32 {

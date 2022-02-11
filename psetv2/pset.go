@@ -26,26 +26,26 @@ const (
 )
 
 var (
-	// magicPrefix is the prefix + separator for partial transactions
-	magicPrefix                     = []byte{0x70, 0x73, 0x65, 0x74, 0xff}
-	ErrInvalidPsbtFormat            = fmt.Errorf("invalid PSBT serialization format")
-	ErrNoMoreKeyPairs               = fmt.Errorf("no more key-pairs")
-	ErrInvalidKeySize               = fmt.Errorf("invalid key size")
-	ErrInvalidProprietaryKey        = fmt.Errorf("invalid ProprietaryData key")
-	ErrInvalidProprietaryIdentifier = fmt.Errorf("invalid ProprietaryData identifier")
-	ErrInvalidMagicBytes            = fmt.Errorf("invalid magic bytes")
-	ErrNotModifiable                = fmt.Errorf("pset not modifiable")
-	ErrInputAlreadyExist            = fmt.Errorf("input already exists")
-	ErrInvalidLockTimeType          = fmt.Errorf("invalid locktime type")
-	ErrInvalidLockTime              = fmt.Errorf("invalid lock time")
-	ErrMissingMandatoryFields       = fmt.Errorf("missing mandatory fields")
-	// ErrInvalidSignatureForInput indicates that the signature the user is
-	// trying to append to the PSBT is invalid, either because it does
-	// not correspond to the previous transaction hash, or redeem script,
-	// or witness script.
-	// NOTE this does not include ECDSA signature checking.
-	ErrInvalidSignatureForInput = fmt.Errorf(
-		"signature does not correspond to this input",
+	magicPrefix = []byte{0x70, 0x73, 0x65, 0x74, 0xff}
+
+	ErrInvalidPsbtFormat        = fmt.Errorf("invalid PSBT serialization format")
+	ErrNoMoreKeyPairs           = fmt.Errorf("no more key-pairs")
+	ErrInvalidMagicBytes        = fmt.Errorf("invalid magic bytes")
+	ErrDuplicateKey             = fmt.Errorf("invalid psbt due to duplicate key")
+	ErrPsetMissingBlindedOutput = fmt.Errorf(
+		"pset has blinded inputs, at least one output must be blinded",
+	)
+	ErrPsetInvalidGlobablModifiableState = fmt.Errorf(
+		"global modifiable flag must be unset for fully blinded pset",
+	)
+	ErrPsetForbiddenInputsModification = fmt.Errorf(
+		"pset locked for modifications on inputs",
+	)
+	ErrPsetForbiddenOutputsModification = fmt.Errorf(
+		"pset locked for modifications on outputs",
+	)
+	ErrPartialSignatureMissingPubKey = fmt.Errorf(
+		"input partial signature is missing pubkey",
 	)
 )
 
@@ -75,7 +75,7 @@ func NewPsetFromBuffer(buf *bytes.Buffer) (*Pset, error) {
 func NewPsetFromBase64(psetBase64 string) (*Pset, error) {
 	psetBytes, err := base64.StdEncoding.DecodeString(psetBase64)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse pset in base64 format: %s", err)
 	}
 
 	return deserialize(bytes.NewBuffer(psetBytes))
@@ -194,16 +194,11 @@ func (p *Pset) SanityCheck() error {
 	}
 
 	if hasBlindedInput && !hasBlindedOutput {
-		return fmt.Errorf(
-			"blinded input(s) detected, at least one output must be blinded",
-		)
+		return ErrPsetMissingBlindedOutput
 	}
 
 	if hasFullyBlindedOutput && len(p.Global.Scalars) == 0 && p.NeedsBlinding() {
-		return fmt.Errorf(
-			"invalid global modifiable flag: must be unset for pset blinded by " +
-				"last blinder",
-		)
+		return ErrPsetInvalidGlobablModifiableState
 	}
 
 	return nil
@@ -276,9 +271,9 @@ func (p *Pset) ValidateAllSignatures() (bool, error) {
 	return true, nil
 }
 
-func (p *Pset) ValidateInputSignatures(inputIndex int) (
-	bool, error,
-) {
+func (p *Pset) ValidateInputSignatures(
+	inputIndex int,
+) (bool, error) {
 	if len(p.Inputs[inputIndex].PartialSigs) > 0 {
 		for _, partialSig := range p.Inputs[inputIndex].PartialSigs {
 			valid, err := p.validatePartialSignature(inputIndex, partialSig)
@@ -302,7 +297,7 @@ func (p *Pset) addInput(in Input) error {
 		return ErrDuplicateKey
 	}
 	if !p.InputsModifiable() {
-		return fmt.Errorf("pset locked for modifications on inputs")
+		return ErrPsetForbiddenInputsModification
 	}
 	if in.RequiredHeightLocktime != 0 || in.RequiredTimeLocktime != 0 {
 		oldLocktime := p.Locktime()
@@ -313,13 +308,13 @@ func (p *Pset) addInput(in Input) error {
 			if i.RequiredTimeLocktime != 0 && i.RequiredHeightLocktime == 0 {
 				heightLocktime = 0
 				if timeLocktime == 0 {
-					return fmt.Errorf("invalid input locktime")
+					return ErrInInvalidLocktime
 				}
 			}
 			if i.RequiredTimeLocktime == 0 && i.RequiredHeightLocktime != 0 {
 				timeLocktime = 0
 				if heightLocktime == 0 {
-					return fmt.Errorf("invalid input locktime")
+					return ErrInInvalidLocktime
 				}
 			}
 			if i.RequiredTimeLocktime != 0 && timeLocktime != 0 {
@@ -340,7 +335,7 @@ func (p *Pset) addInput(in Input) error {
 			newLocktime = heightLocktime
 		}
 		if hasSigs && oldLocktime != newLocktime {
-			return fmt.Errorf("invalid input locktime")
+			return ErrInInvalidLocktime
 		}
 	}
 
@@ -354,7 +349,7 @@ func (p *Pset) addOutput(out Output) error {
 		return err
 	}
 	if !p.OutputsModifiable() {
-		return fmt.Errorf("pset locked for outputs modifications")
+		return ErrPsetForbiddenOutputsModification
 	}
 
 	p.Outputs = append(p.Outputs, out)
@@ -378,8 +373,8 @@ func (p *Pset) isDuplicateInput(in Input) bool {
 func (p *Pset) validatePartialSignature(
 	inputIndex int, partialSignature PartialSig,
 ) (bool, error) {
-	if partialSignature.PubKey == nil {
-		return false, fmt.Errorf("no pub key for partial signature")
+	if len(partialSignature.PubKey) == 0 {
+		return false, ErrPartialSignatureMissingPubKey
 	}
 
 	signatureLen := len(partialSignature.Signature)
@@ -387,8 +382,7 @@ func (p *Pset) validatePartialSignature(
 	signatureDer := partialSignature.Signature[:signatureLen-1]
 
 	sigHash, script, err := p.getHashAndScriptForSignature(
-		inputIndex,
-		uint32(sigHashType),
+		inputIndex, uint32(sigHashType),
 	)
 	if err != nil {
 		return false, err
@@ -434,10 +428,7 @@ func (p *Pset) getHashAndScriptForSignature(
 		utxoHash := input.NonWitnessUtxo.TxHash()
 
 		if !bytes.Equal(prevoutHash, utxoHash.CloneBytes()) {
-			return nil, nil, fmt.Errorf(
-				"non-witness utxo hash for input doesnt match the hash specified" +
-					"in the prevout",
-			)
+			return nil, nil, ErrInInvalidNonWitnessUtxo
 		}
 
 		prevoutIndex := p.Inputs[inputIndex].PreviousTxIndex
@@ -500,7 +491,7 @@ func (p *Pset) getHashAndScriptForSignature(
 			)
 			script = input.WitnessScript
 		default:
-			return nil, nil, fmt.Errorf("inputhas witnessUtxo but non-segwit script")
+			return nil, nil, fmt.Errorf("input has witnessUtxo but non-segwit script")
 		}
 	} else {
 		return nil, nil, fmt.Errorf("need a utxo input item for signing")
@@ -509,10 +500,7 @@ func (p *Pset) getHashAndScriptForSignature(
 	return hash[:], script, nil
 }
 
-func (p *Pset) verifyScriptForPubKey(
-	script []byte,
-	pubKey []byte,
-) (bool, error) {
+func (p *Pset) verifyScriptForPubKey(script, pubKey []byte) (bool, error) {
 	pk, err := btcec.ParsePubKey(pubKey, btcec.S256())
 	if err != nil {
 		return false, err
@@ -537,10 +525,6 @@ func (p *Pset) verifyScriptForPubKey(
 }
 
 func (p *Pset) serialize() ([]byte, error) {
-	if p == nil {
-		return nil, fmt.Errorf("")
-	}
-
 	s := bufferutil.NewSerializer(nil)
 
 	if err := s.WriteSlice(magicPrefix); err != nil {

@@ -10,26 +10,6 @@ import (
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
-var (
-	// ErrInvalidPsbtFormat is a generic error for any situation in which a
-	// provided Psbt serialization does not conform to the rules of BIP174.
-	ErrDuplicatePubKeyInPartSig      = fmt.Errorf("duplicate pubkey in partial signature")
-	ErrDuplicatePubKeyInBip32DerPath = fmt.Errorf("duplicate pubkey in bip32 der path")
-	// ErrInvalidKeydata indicates that a key-value pair in the PSBT
-	// serialization contains data in the key which is not valid.
-	ErrInvalidKeydata                               = fmt.Errorf("invalid key data")
-	ErrMissingPrevTxID                              = fmt.Errorf("missing previous tx id")
-	ErrMissingOutputIndex                           = fmt.Errorf("missing output index")
-	ErrInvalidPrevTxIdLength                        = fmt.Errorf("invalid previous tx id length")
-	ErrInvalidIssuanceValueCommitmentLength         = fmt.Errorf("invalid issuance value commitment length")
-	ErrInvalidPeginGenesisHashLength                = fmt.Errorf("invalid pegin genesis hash length")
-	ErrInvalidIssuanceInflationKeysCommitmentLength = fmt.Errorf("invalid issuance inflation keys commitment")
-	ErrInvalidIssuanceBlindingNonceLength           = fmt.Errorf("invalid issuance blinding nonce length")
-	ErrInvalidIssuanceAssetEntropyLength            = fmt.Errorf("invalid issuance asset entropy length")
-	ErrInvalidAssetCommitmentLength                 = fmt.Errorf("invalid asset commitment length")
-	ErrInvalidTokenCommitmentLength                 = fmt.Errorf("invalid token commitment length")
-)
-
 const (
 	//Per input types: BIP 127, 174, 370, 371
 	InputNonWitnessUtxo         = 0x00 //BIP 174
@@ -47,7 +27,7 @@ const (
 	InputHash160                = 0x0c //BIP 174
 	InputHash256                = 0x0d //BIP 174
 	InputPreviousTxid           = 0x0e //BIP 370
-	InputOutputIndex            = 0x0f //BIP 370
+	InputPreviousTxIndex        = 0x0f //BIP 370
 	InputSequence               = 0x10 //BIP 370
 	InputRequiredTimeLocktime   = 0x11 //BIP 370
 	InputRequiredHeightLocktime = 0x12 //BIP 370
@@ -64,12 +44,12 @@ const (
 	InputIssuanceValueCommitment         = 0x01
 	InputIssuanceValueRangeproof         = 0x02
 	InputIssuanceInflationKeysRangeproof = 0x03
-	InputPegInTx                         = 0x04
-	InputPegInTxoutProof                 = 0x05
-	InputPegInGenesis                    = 0x06
-	InputPegInClaimScript                = 0x07
-	InputPegInValue                      = 0x08
-	InputPegInWitness                    = 0x09
+	InputPeginTx                         = 0x04
+	InputPeginTxoutProof                 = 0x05
+	InputPeginGenesis                    = 0x06
+	InputPeginClaimScript                = 0x07
+	InputPeginValue                      = 0x08
+	InputPeginWitness                    = 0x09
 	InputIssuanceInflationKeys           = 0x0a
 	InputIssuanceInflationKeysCommitment = 0x0b
 	InputIssuanceBlindingNonce           = 0x0c
@@ -77,6 +57,75 @@ const (
 	InputUtxoRangeProof                  = 0x0e
 	InputIssuanceBlindValueProof         = 0x0f
 	InputIssuanceBlindInflationKeysProof = 0x10
+)
+
+var (
+	ErrInInvalidPartialSignature = fmt.Errorf(
+		"invalid input partial signature",
+	)
+	ErrInInvalidSigHash = fmt.Errorf(
+		"invalid input sighash length",
+	)
+	ErrInInvalidPubKey = fmt.Errorf(
+		"invalid input pubkey length",
+	)
+	ErrInInvalidPreviousTxid = fmt.Errorf(
+		"invalid input prev txid length",
+	)
+	ErrInInvalidPreviousTxIndex = fmt.Errorf(
+		"invalid input prev tx index length",
+	)
+	ErrInInvalidSequence = fmt.Errorf(
+		"invalid input sequence length",
+	)
+	ErrInInvalidRequiredLocktime = fmt.Errorf(
+		"invalid input required locktime length",
+	)
+	ErrInInvalidRequiredHeightLocktime = fmt.Errorf(
+		"invalid input required height locktime length",
+	)
+	ErrInInvalidIssuanceValue = fmt.Errorf(
+		"invalid input issuance value length",
+	)
+	ErrInInvalidIssuanceCommitment = fmt.Errorf(
+		"invalid input issuance value commitment length",
+	)
+	ErrInInvalidPeginGenesisHash = fmt.Errorf(
+		"invalid input pegin genesis hash length",
+	)
+	ErrInInvalidPeginValue = fmt.Errorf(
+		"invalid input pegin value length",
+	)
+	ErrInInvalidIssuanceInflationKeys = fmt.Errorf(
+		"invalid input issuance inflation keys length",
+	)
+	ErrInInvalidIssuanceInflationKeysCommitment = fmt.Errorf(
+		"invalid input issuance inflation keys commitment length",
+	)
+	ErrInInvalidIssuanceBlindingNonce = fmt.Errorf(
+		"invalid input issuance blinding nonce length",
+	)
+	ErrInInvalidIssuanceAssetEntropy = fmt.Errorf(
+		"invalid input issuance asset entropy length",
+	)
+	ErrInInvalidWitnessScript = fmt.Errorf(
+		"input witness script cannot be set if witness utxo is unset",
+	)
+	ErrInInvalidFinalScriptWitness = fmt.Errorf(
+		"input final script witness cannot be set if witness utxo is unset",
+	)
+	ErrInInvalidIssuanceBlinding = fmt.Errorf(
+		"input issuance value commitment and range proof must be both either " +
+			"set or unset",
+	)
+	ErrInInvalidIssuanceInflationKeysBlinding = fmt.Errorf(
+		"input issuance inflation keys commitment and range proof must be both " +
+			"either set or unset",
+	)
+	ErrInInvalidLocktime       = fmt.Errorf("invalid input locktime")
+	ErrInInvalidNonWitnessUtxo = fmt.Errorf(
+		"non-witness utxo hash does not match input txid",
+	)
 )
 
 type Input struct {
@@ -121,31 +170,23 @@ type Input struct {
 
 func (i *Input) SanityCheck() error {
 	if i.WitnessUtxo == nil && len(i.WitnessScript) > 0 {
-		return fmt.Errorf("witness script cannot be set if witness utxo is unset")
+		return ErrInInvalidWitnessScript
 	}
 	if i.WitnessUtxo == nil && len(i.FinalScriptWitness) > 0 {
-		return fmt.Errorf(
-			"final script witness cannot be set if witness utxo is unset",
-		)
+		return ErrInInvalidFinalScriptWitness
 	}
 	if len(i.PreviousTxid) == 0 {
-		return fmt.Errorf("previous txid and output index are both mandatory")
+		return ErrInMissingTxid
 	}
 	issuanceValueCommitmentSet := len(i.IssuanceValueCommitment) > 0
 	issuanceValueRangeproofSet := len(i.IssuanceValueRangeproof) > 0
 	if issuanceValueCommitmentSet != issuanceValueRangeproofSet {
-		return fmt.Errorf(
-			"issuance value commitment and range proof must be both either set or " +
-				"unset",
-		)
+		return ErrInInvalidIssuanceBlinding
 	}
 	issuanceInflationKeysCommitmentSet := len(i.IssuanceInflationKeysCommitment) > 0
 	issuanceInflationKeysRangeproofSet := len(i.IssuanceInflationKeysRangeproof) > 0
 	if issuanceInflationKeysCommitmentSet != issuanceInflationKeysRangeproofSet {
-		return fmt.Errorf(
-			"issuance inflation keys commitment and range proof must be both " +
-				"either set or unset",
-		)
+		return ErrInInvalidIssuanceInflationKeysBlinding
 	}
 
 	return nil
@@ -391,7 +432,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	binary.LittleEndian.PutUint32(prevTxIndex, i.PreviousTxIndex)
 	previousOutputIndexKeyPair := KeyPair{
 		Key: Key{
-			KeyType: InputOutputIndex,
+			KeyType: InputPreviousTxIndex,
 			KeyData: nil,
 		},
 		Value: prevTxIndex,
@@ -490,7 +531,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		peginTxKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalProprietary,
-				KeyData: proprietaryKey(InputPegInTx, nil),
+				KeyData: proprietaryKey(InputPeginTx, nil),
 			},
 			Value: peginTxBytes,
 		}
@@ -501,7 +542,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		peginTxoutProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalProprietary,
-				KeyData: proprietaryKey(InputPegInTxoutProof, nil),
+				KeyData: proprietaryKey(InputPeginTxoutProof, nil),
 			},
 			Value: i.PeginTxoutProof,
 		}
@@ -512,7 +553,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		peginGenesisHashKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalProprietary,
-				KeyData: proprietaryKey(InputPegInGenesis, nil),
+				KeyData: proprietaryKey(InputPeginGenesis, nil),
 			},
 			Value: i.PeginGenesisHash,
 		}
@@ -523,7 +564,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		peginClaimScriptKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalProprietary,
-				KeyData: proprietaryKey(InputPegInClaimScript, nil),
+				KeyData: proprietaryKey(InputPeginClaimScript, nil),
 			},
 			Value: i.PeginClaimScript,
 		}
@@ -537,7 +578,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		peginValueKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalProprietary,
-				KeyData: proprietaryKey(InputPegInValue, nil),
+				KeyData: proprietaryKey(InputPeginValue, nil),
 			},
 			Value: peginValueBytes,
 		}
@@ -548,7 +589,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		peginWitnessKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalProprietary,
-				KeyData: proprietaryKey(InputPegInWitness, nil),
+				KeyData: proprietaryKey(InputPeginWitness, nil),
 			},
 			Value: i.PeginWitness,
 		}
@@ -691,7 +732,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 
 			tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.Value))
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid input non-witness utxo: %s", err)
 			}
 
 			i.NonWitnessUtxo = tx
@@ -702,7 +743,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 
 			txOut, err := readTxOut(kp.Value)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid input witness utxo: %s", err)
 			}
 
 			i.WitnessUtxo = txOut
@@ -710,6 +751,9 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			partialSignature := PartialSig{
 				PubKey:    kp.Key.KeyData,
 				Signature: kp.Value,
+			}
+			if !partialSignature.checkValid() {
+				return ErrInInvalidPartialSignature
 			}
 
 			// Duplicate keys are not allowed
@@ -723,6 +767,10 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 		case InputSighashType:
 			if i.SigHashType != 0 {
 				return ErrDuplicateKey
+			}
+
+			if len(kp.Value) != 4 {
+				return ErrInInvalidSigHash
 			}
 
 			sigHashType := txscript.SigHashType(
@@ -742,11 +790,11 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.WitnessScript = kp.Value
 		case InputBip32Derivation:
 			if !validatePubkey(kp.Key.KeyData) {
-				return ErrInvalidPsbtFormat
+				return ErrInInvalidPubKey
 			}
 			master, derivationPath, err := readBip32Derivation(kp.Value)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid input bip32 derivation path: %s", err)
 			}
 
 			// Duplicate keys are not allowed
@@ -778,6 +826,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			if i.Ripemd160Preimages == nil {
 				i.Ripemd160Preimages = make(map[[20]byte][]byte)
 			}
+
 			var hash [20]byte
 			copy(hash[:], kp.Key.KeyData[:])
 			i.Ripemd160Preimages[hash] = kp.Value
@@ -806,25 +855,40 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			if i.PreviousTxid != nil {
 				return ErrDuplicateKey
 			}
+			if len(kp.Value) != 32 {
+				return ErrInInvalidPreviousTxid
+			}
 			i.PreviousTxid = kp.Value
-		case InputOutputIndex:
+		case InputPreviousTxIndex:
 			if i.PreviousTxIndex != 0 {
 				return ErrDuplicateKey
+			}
+			if len(kp.Value) != 4 {
+				return ErrInInvalidPreviousTxIndex
 			}
 			i.PreviousTxIndex = binary.LittleEndian.Uint32(kp.Value)
 		case InputSequence:
 			if i.Sequence != 0 {
 				return ErrDuplicateKey
 			}
+			if len(kp.Value) != 4 {
+				return ErrInInvalidSequence
+			}
 			i.Sequence = binary.LittleEndian.Uint32(kp.Value)
 		case InputRequiredTimeLocktime:
 			if i.RequiredTimeLocktime != 0 {
 				return ErrDuplicateKey
 			}
+			if len(kp.Value) != 4 {
+				return ErrInInvalidRequiredLocktime
+			}
 			i.RequiredTimeLocktime = binary.LittleEndian.Uint32(kp.Value)
 		case InputRequiredHeightLocktime:
 			if i.RequiredHeightLocktime != 0 {
 				return ErrDuplicateKey
+			}
+			if len(kp.Value) != 4 {
+				return ErrInInvalidRequiredHeightLocktime
 			}
 			i.RequiredHeightLocktime = binary.LittleEndian.Uint32(kp.Value)
 		case GlobalProprietary:
@@ -839,10 +903,16 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					if i.IssuanceValue != 0 {
 						return ErrDuplicateKey
 					}
+					if len(kp.Value) != 8 {
+						return ErrInInvalidIssuanceValue
+					}
 					i.IssuanceValue = binary.LittleEndian.Uint64(kp.Value)
 				case InputIssuanceValueCommitment:
 					if i.IssuanceValueCommitment != nil {
 						return ErrDuplicateKey
+					}
+					if len(kp.Value) != 33 {
+						return ErrInInvalidIssuanceCommitment
 					}
 					i.IssuanceValueCommitment = kp.Value
 				case InputIssuanceValueRangeproof:
@@ -855,36 +925,42 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 						return ErrDuplicateKey
 					}
 					i.IssuanceInflationKeysRangeproof = kp.Value
-				case InputPegInTx:
+				case InputPeginTx:
 					if i.PeginTx != nil {
 						return ErrDuplicateKey
 					}
 					tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.Value))
 					if err != nil {
-						return err
+						return fmt.Errorf("invalid input pegin tx: %s", err)
 					}
 					i.PeginTx = tx
-				case InputPegInTxoutProof:
+				case InputPeginTxoutProof:
 					if i.PeginTxoutProof != nil {
 						return ErrDuplicateKey
 					}
 					i.PeginTxoutProof = kp.Value
-				case InputPegInGenesis:
+				case InputPeginGenesis:
 					if i.PeginGenesisHash != nil {
 						return ErrDuplicateKey
 					}
+					if len(kp.Value) != 32 {
+						return ErrInInvalidPeginGenesisHash
+					}
 					i.PeginGenesisHash = kp.Value
-				case InputPegInClaimScript:
+				case InputPeginClaimScript:
 					if i.PeginClaimScript != nil {
 						return ErrDuplicateKey
 					}
 					i.PeginClaimScript = kp.Value
-				case InputPegInValue:
+				case InputPeginValue:
 					if i.PeginValue != 0 {
 						return ErrDuplicateKey
 					}
+					if len(kp.Value) != 8 {
+						return ErrInInvalidPeginValue
+					}
 					i.PeginValue = binary.LittleEndian.Uint64(kp.Value)
-				case InputPegInWitness:
+				case InputPeginWitness:
 					if i.PeginWitness != nil {
 						return ErrDuplicateKey
 					}
@@ -893,20 +969,32 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					if i.IssuanceInflationKeys != 0 {
 						return ErrDuplicateKey
 					}
+					if len(kp.Value) != 8 {
+						return ErrInInvalidIssuanceInflationKeys
+					}
 					i.IssuanceInflationKeys = binary.LittleEndian.Uint64(kp.Value)
 				case InputIssuanceInflationKeysCommitment:
 					if i.IssuanceInflationKeysCommitment != nil {
 						return ErrDuplicateKey
+					}
+					if len(kp.Value) != 33 {
+						return ErrInInvalidIssuanceInflationKeysCommitment
 					}
 					i.IssuanceInflationKeysCommitment = kp.Value
 				case InputIssuanceBlindingNonce:
 					if i.IssuanceBlindingNonce != nil {
 						return ErrDuplicateKey
 					}
+					if len(kp.Value) != 33 {
+						return ErrInInvalidIssuanceBlindingNonce
+					}
 					i.IssuanceBlindingNonce = kp.Value
 				case InputIssuanceAssetEntropy:
 					if i.IssuanceAssetEntropy != nil {
 						return ErrDuplicateKey
+					}
+					if len(kp.Value) != 32 {
+						return ErrInInvalidIssuanceAssetEntropy
 					}
 					i.IssuanceAssetEntropy = kp.Value
 				case InputUtxoRangeProof:

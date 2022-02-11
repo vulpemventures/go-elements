@@ -35,13 +35,19 @@ const (
 )
 
 var (
-	ErrMissingOutAsset                 = fmt.Errorf("missing output asset")
-	ErrMissingOutAmount                = fmt.Errorf("missing output amount")
-	ErrMissingScript                   = fmt.Errorf("missing output script")
-	ErrInvalidValueCommitmentLength    = fmt.Errorf("invalid value commitment length")
-	ErrInvalidOutAssetLength           = fmt.Errorf("invalid output asset length")
-	ErrInvalidOutAssetCommitmentLength = fmt.Errorf("invalid output asset commitment length")
-	ErrInvalidOutputScriptLength       = fmt.Errorf("invalid output script length")
+	ErrOutInvalidBlinding = fmt.Errorf(
+		"output is partially blinded while it must be either unblinded or " +
+			"fully blinded",
+	)
+	ErrOutInvalidBlinderIndexState = fmt.Errorf(
+		"blinder index must be unset for fully blinded output",
+	)
+	ErrOutInvalidValue          = fmt.Errorf("invalid output value length")
+	ErrOutInvalidPubKey         = fmt.Errorf("invalid output pubkey length")
+	ErrOutInvalidBlindingPubKey = fmt.Errorf(
+		"invalid output blinding pubkey length",
+	)
+	ErrOutInvalidBlinderIndex = fmt.Errorf("invalid output blinder index length")
 )
 
 type Output struct {
@@ -66,16 +72,13 @@ type Output struct {
 
 func (o *Output) SanityCheck() error {
 	if len(o.Asset) == 0 {
-		return fmt.Errorf("asset is mandatory")
+		return ErrOutMissingAsset
 	}
 	if o.IsBlinded() && o.IsPartiallyBlinded() && !o.IsFullyBlinded() {
-		return fmt.Errorf(
-			"output is partially blinded while it must be either unblinded or " +
-				"fully blinded",
-		)
+		return ErrOutInvalidBlinding
 	}
 	if o.IsFullyBlinded() && o.BlinderIndex != 0 {
-		return fmt.Errorf("blinder index must be unset for fully blinded output")
+		return ErrOutInvalidBlinderIndexState
 	}
 
 	return nil
@@ -333,11 +336,11 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 			o.WitnessScript = kp.Value
 		case OutputBip32Derivation:
 			if !validatePubkey(kp.Key.KeyData) {
-				return ErrInvalidPsbtFormat
+				return ErrOutInvalidPubKey
 			}
 			master, derivationPath, err := readBip32Derivation(kp.Value)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid output bip32 derivation: %s", err)
 			}
 
 			// Duplicate keys are not allowed
@@ -359,6 +362,9 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 			if o.Value != 0 {
 				return ErrDuplicateKey
 			}
+			if len(kp.Value) != 8 {
+				return ErrOutInvalidValue
+			}
 			o.Value = binary.LittleEndian.Uint64(kp.Value)
 		case OutputScript:
 			if o.Script != nil {
@@ -377,15 +383,24 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					if o.ValueCommitment != nil {
 						return ErrDuplicateKey
 					}
+					if len(kp.Value) != 33 {
+						return ErrOutInvalidValueCommitment
+					}
 					o.ValueCommitment = kp.Value
 				case OutputAsset:
 					if o.Asset != nil {
 						return ErrDuplicateKey
 					}
+					if len(kp.Value) != 32 {
+						return ErrOutInvalidAsset
+					}
 					o.Asset = kp.Value
 				case OutputAssetCommitment:
 					if o.AssetCommitment != nil {
 						return ErrDuplicateKey
+					}
+					if len(kp.Value) != 33 {
+						return ErrOutInvalidAssetCommitment
 					}
 					o.AssetCommitment = kp.Value
 				case OutputValueRangeproof:
@@ -403,7 +418,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 						return ErrDuplicateKey
 					}
 					if !validatePubkey(kp.Value) {
-						return ErrInvalidPsbtFormat
+						return ErrOutInvalidBlindingPubKey
 					}
 					o.BlindingPubkey = kp.Value
 				case OutputEcdhPubkey:
@@ -411,12 +426,15 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 						return ErrDuplicateKey
 					}
 					if !validatePubkey(kp.Value) {
-						return ErrInvalidPsbtFormat
+						return ErrOutInvalidNonce
 					}
 					o.EcdhPubkey = kp.Value
 				case OutputBlinderIndex:
 					if o.BlinderIndex != 0 {
 						return ErrDuplicateKey
+					}
+					if len(kp.Value) != 4 {
+						return ErrOutInvalidBlinderIndex
 					}
 					o.BlinderIndex = binary.LittleEndian.Uint32(kp.Value)
 				case OutputBlindValueProof:
@@ -438,6 +456,5 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 		}
 	}
 
-	return nil
-	// return o.SanityCheck()
+	return o.SanityCheck()
 }

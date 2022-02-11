@@ -2,8 +2,15 @@ package psetv2
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
+)
+
+var (
+	ErrKeyInvalidSize               = fmt.Errorf("invalid key size")
+	ErrProprietaryInvalidKey        = fmt.Errorf("invalid ProprietaryData key")
+	ErrProprietaryInvalidIdentifier = fmt.Errorf("invalid ProprietaryData identifier")
 )
 
 // keyPair format:
@@ -61,7 +68,7 @@ func (k *Key) deserialize(d *bufferutil.Deserializer) error {
 	}
 
 	if len(key) > maxPsbtKeyLength {
-		return ErrInvalidKeySize
+		return ErrKeyInvalidSize
 	}
 
 	k.KeyType = key[0]
@@ -81,7 +88,7 @@ func (p *ProprietaryData) fromKeyPair(keyPair KeyPair) error {
 	d := bufferutil.NewDeserializer(bytes.NewBuffer(keyPair.Key.KeyData))
 
 	if keyPair.Key.KeyType != 0xFC {
-		return ErrInvalidProprietaryKey
+		return ErrProprietaryInvalidKey
 	}
 
 	identifierByteSize, err := d.ReadVarInt()
@@ -90,7 +97,7 @@ func (p *ProprietaryData) fromKeyPair(keyPair KeyPair) error {
 	}
 
 	if identifierByteSize == 0 {
-		return ErrInvalidProprietaryIdentifier
+		return ErrProprietaryInvalidIdentifier
 	}
 
 	identifier, err := d.ReadSlice(uint(identifierByteSize))

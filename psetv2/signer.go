@@ -15,6 +15,10 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 )
 
+var (
+	ErrSignerForbiddenSigning = fmt.Errorf("pset is not fully blinded")
+)
+
 type Signer = Updater
 
 func NewSigner(pset *Pset) (*Signer, error) {
@@ -52,7 +56,7 @@ func (s *Signer) SignInput(
 
 	for _, out := range p.Outputs {
 		if out.IsBlinded() && !out.IsFullyBlinded() {
-			return fmt.Errorf("pset is not fully blinded")
+			return ErrSignerForbiddenSigning
 		}
 	}
 
@@ -60,7 +64,7 @@ func (s *Signer) SignInput(
 	// exists, it will be overwritten.
 	if witnessScript != nil {
 		if err := u.AddInWitnessScript(witnessScript, inIndex); err != nil {
-			return err
+			return fmt.Errorf("failed to add input witness script: %s", err)
 		}
 	}
 
@@ -68,7 +72,7 @@ func (s *Signer) SignInput(
 	// exists, it will be overwritten.
 	if redeemScript != nil {
 		if err := u.AddInRedeemScript(redeemScript, inIndex); err != nil {
-			return err
+			return fmt.Errorf("failed to add input redeem script: %s", err)
 		}
 	}
 
@@ -81,7 +85,9 @@ func (s *Signer) SignInput(
 	case p.Inputs[inIndex].WitnessScript != nil:
 		if p.Inputs[inIndex].WitnessUtxo == nil {
 			if err := u.nonWitnessToWitness(inIndex); err != nil {
-				return err
+				return fmt.Errorf(
+					"failed to parse non-witness to witness utxo: %s", err,
+				)
 			}
 		}
 
@@ -94,7 +100,9 @@ func (s *Signer) SignInput(
 		if txscript.IsWitnessProgram(redeemScript) {
 			if p.Inputs[inIndex].WitnessUtxo == nil {
 				if err := u.nonWitnessToWitness(inIndex); err != nil {
-					return err
+					return fmt.Errorf(
+						"failed to parse non-witness to witness utxo: %s", err,
+					)
 				}
 			}
 		}
@@ -109,14 +117,16 @@ func (s *Signer) SignInput(
 
 			if txscript.IsWitnessProgram(script) {
 				if err := u.nonWitnessToWitness(inIndex); err != nil {
-					return err
+					return fmt.Errorf(
+						"failed to parse non-witness to witness utxo: %s", err,
+					)
 				}
 			}
 		}
 	}
 
 	if err := u.addPartialSignature(inIndex, sig, pubKey); err != nil {
-		return err
+		return fmt.Errorf("failed to add signature for input %d: %s", inIndex, err)
 	}
 
 	s.Pset.Global = p.Global

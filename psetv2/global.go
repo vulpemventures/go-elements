@@ -33,12 +33,16 @@ const (
 )
 
 var (
-	ErrInvalidElementsTxModifiableValue = fmt.Errorf("invalid elements tx modifiable value")
-	ErrInvalidXPub                      = fmt.Errorf("invalid xpub")
-	ErrInvalidXPubDerivationPathLength  = fmt.Errorf("incorrect length of global xpub derivation data")
-	ErrInvalidPsetVersion               = fmt.Errorf("incorrect pset version")
-	ErrInvalidTxVersion                 = fmt.Errorf("incorrect tx version")
-	ErrInvalidScalarLength              = fmt.Errorf("invalid scalar length")
+	ErrGlobalInvalidXPub               = fmt.Errorf("invalid global xpub")
+	ErrGlobalInvalidXPubDerivationPath = fmt.Errorf("invalid global xpub derivation path length")
+	ErrGlobalInvalidTxVersion          = fmt.Errorf("invalid global tx version length")
+	ErrGlobalInvalidFallbackLocktime   = fmt.Errorf("invalid global fallback locktime length")
+	ErrGlobalInvalidInputCount         = fmt.Errorf("invalid global input count length")
+	ErrGlobalInvalidOutputCount        = fmt.Errorf("invalid global output count length")
+	ErrGlobalInvalidTxModifiable       = fmt.Errorf("invalid global tx modifiable length")
+	ErrGlobalInvalidVersion            = fmt.Errorf("invalid global version length")
+	ErrGlobalInvalidScalar             = fmt.Errorf("invalid global scalar length")
+	ErrGlobalInvalidModifiable         = fmt.Errorf("invalid global modifiable length")
 )
 
 type DerivationPath []uint32
@@ -252,7 +256,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 		switch kp.Key.KeyType {
 		case GlobalXpub:
 			if len(kp.Key.KeyData) != pubKeyLength {
-				return ErrInvalidXPub
+				return ErrGlobalInvalidXPub
 			}
 			// Parse xpub to make sure it's valid
 			xpubStr := base58.Encode(kp.Key.KeyData)
@@ -261,12 +265,12 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			}
 
 			if len(kp.Value) == 0 || len(kp.Value)%4 != 0 {
-				return ErrInvalidXPubDerivationPathLength
+				return ErrGlobalInvalidXPubDerivationPath
 			}
 
 			master, derivationPath, err := readBip32Derivation(kp.Value)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid gloabl bip32 derivation: %s", err)
 			}
 
 			g.Xpub = append(g.Xpub, Xpub{
@@ -278,10 +282,16 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			if g.TxVersion != 0 {
 				return ErrDuplicateKey
 			}
+			if len(kp.Value) != 4 {
+				return ErrGlobalInvalidTxVersion
+			}
 			g.TxVersion = binary.LittleEndian.Uint32(kp.Value)
 		case GlobalFallbackLocktime:
 			if g.FallbackLocktime != 0 {
 				return ErrDuplicateKey
+			}
+			if len(kp.Value) != 4 {
+				return ErrGlobalInvalidFallbackLocktime
 			}
 			g.FallbackLocktime = binary.LittleEndian.Uint32(kp.Value)
 		case GlobalInputCount:
@@ -289,7 +299,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 1 {
-				return fmt.Errorf("invalid length of global input count value")
+				return ErrGlobalInvalidInputCount
 			}
 			g.InputCount = uint64(kp.Value[0])
 		case GlobalOutputCount:
@@ -297,12 +307,15 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 1 {
-				return fmt.Errorf("invalid length of global output count value")
+				return ErrGlobalInvalidOutputCount
 			}
 			g.OutputCount = uint64(kp.Value[0])
 		case GlobalTxModifiable:
 			if g.TxModifiable != nil {
 				return ErrDuplicateKey
+			}
+			if len(kp.Value) != 1 {
+				return ErrGlobalInvalidTxModifiable
 			}
 			var tm uint8
 			buf := bytes.NewReader(kp.Value)
@@ -318,6 +331,9 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			if g.Version != 0 {
 				return ErrDuplicateKey
 			}
+			if len(kp.Value) != 4 {
+				return ErrGlobalInvalidVersion
+			}
 			g.Version = binary.LittleEndian.Uint32(kp.Value)
 		case GlobalProprietary:
 			pd := ProprietaryData{}
@@ -330,7 +346,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				case GlobalScalar:
 					scalar := pd.KeyData
 					if len(scalar) != 32 {
-						return ErrInvalidScalarLength
+						return ErrGlobalInvalidScalar
 					}
 
 					if g.Scalars == nil {
@@ -341,6 +357,9 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				case GlobalModifiable:
 					if g.Modifiable != nil {
 						return ErrDuplicateKey
+					}
+					if len(kp.Value) != 1 {
+						return ErrGlobalInvalidModifiable
 					}
 					var etm uint8
 					buf := bytes.NewReader(kp.Value)

@@ -301,7 +301,23 @@ func NewBlinder(
 	return &Blinder{p, ownedInputs, blinderHandler}, nil
 }
 
-func (b *Blinder) Blind(
+func (b *Blinder) BlindNonLast(
+	inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
+	outBlindingArgs []OutputBlindingArgs,
+) error {
+	isLastBlinder := true
+	return b.blind(inIssuanceBlindingArgs, outBlindingArgs, !isLastBlinder)
+}
+
+func (b *Blinder) BlindLast(
+	inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
+	outBlindingArgs []OutputBlindingArgs,
+) error {
+	isLastBlinder := true
+	return b.blind(inIssuanceBlindingArgs, outBlindingArgs, isLastBlinder)
+}
+
+func (b *Blinder) blind(
 	inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
 	outBlindingArgs []OutputBlindingArgs, isLastBlinder bool,
 ) error {

@@ -265,7 +265,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	outBlindingArgs, err := handler.BlindOutputs(ptx, []uint32{1}, nil)
 	require.NoError(t, err)
 
-	err = blinder.Blind(nil, outBlindingArgs, true)
+	err = blinder.BlindLast(nil, outBlindingArgs)
 	require.NoError(t, err)
 
 	prvKeys := []*btcec.PrivateKey{privkey}
@@ -383,7 +383,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	outBlindingArgs, err := handler.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
 	require.NoError(t, err)
 
-	err = blinder.Blind(inIssuanceBlindingArgs, outBlindingArgs, true)
+	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
 	require.NoError(t, err)
 
 	prvKeys := []*btcec.PrivateKey{privkey}
@@ -494,18 +494,10 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	inIssuanceBlindingArgs, err := handler.BlindIssuances(ptx, issuanceKeysByIndex)
 	require.NoError(t, err)
 
-	// inIssuanceBlindingArgs := []psetv2.InputIssuanceBlindingArgs{
-	// 	{
-	// 		Index:         0,
-	// 		IssuanceAsset: ptx.Inputs[0].GetIssuanceAssetHash(),
-	// 		IssuanceToken: ptx.Inputs[0].GetIssuanceInflationKeysHash(false),
-	// 	},
-	// }
-
 	outBlindingArgs, err := handler.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
 	require.NoError(t, err)
 
-	err = blinder.Blind(inIssuanceBlindingArgs, outBlindingArgs, true)
+	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
 	require.NoError(t, err)
 
 	prvKeys := []*btcec.PrivateKey{privkey}
@@ -686,7 +678,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	require.NoError(t, err)
 
 	// Bob blinds the pset as last blinder.
-	err = blinder.Blind(nil, outBlindingArgs, true)
+	err = blinder.BlindLast(nil, outBlindingArgs)
 	require.NoError(t, err)
 
 	// Now that blinding is complete, both parties can sign the pset...

@@ -477,7 +477,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	}
 
 	if i.IssuanceValue != 0 {
-		issuanceValueBytes := make([]byte, 4)
+		issuanceValueBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(issuanceValueBytes, uint64(i.IssuanceValue))
 		issuanceValueKeyPair := KeyPair{
 			Key: Key{
@@ -597,7 +597,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	}
 
 	if i.IssuanceInflationKeys != 0 {
-		var issuanceInflationKeysBytes []byte
+		issuanceInflationKeysBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(issuanceInflationKeysBytes, i.IssuanceInflationKeys)
 
 		issuanceInflationKeysKeyPair := KeyPair{

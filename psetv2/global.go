@@ -121,7 +121,7 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	keyPairs = append(keyPairs, fallbackLocktimeKeyPair)
 
 	inputCount := new(bytes.Buffer)
-	if err := wire.WriteVarInt(inputCount, 0, uint64(g.InputCount)); err != nil {
+	if err := wire.WriteVarInt(inputCount, 0, g.InputCount); err != nil {
 		return nil, err
 	}
 	inputCountKeyPair := KeyPair{
@@ -134,9 +134,7 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	keyPairs = append(keyPairs, inputCountKeyPair)
 
 	outputCount := new(bytes.Buffer)
-	if err := wire.WriteVarInt(
-		outputCount, 0, uint64(g.OutputCount),
-	); err != nil {
+	if err := wire.WriteVarInt(outputCount, 0, g.OutputCount); err != nil {
 		return nil, err
 	}
 	outputCountKeyPair := KeyPair{

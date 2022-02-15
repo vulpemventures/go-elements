@@ -7,8 +7,7 @@ import (
 )
 
 const (
-	bitsetSize     = 8
-	maxBitSetValue = 255
+	bitsetSize = 8
 )
 
 type BitSet []byte
@@ -57,7 +56,7 @@ func (s BitSet) Clear() {
 func (s BitSet) Uint8() uint8 {
 	var n uint8
 	for i, v := range s {
-		n += uint8(v) * uint8(math.Pow(2, float64(i)))
+		n += v * uint8(math.Pow(2, float64(i)))
 	}
 	return n
 }

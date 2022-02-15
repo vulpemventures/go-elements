@@ -6,6 +6,10 @@ import (
 	"sort"
 )
 
+const (
+	isLastBlinder = true
+)
+
 var (
 	zeroBlinder = make([]byte, 32)
 
@@ -305,7 +309,6 @@ func (b *Blinder) BlindNonLast(
 	inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
 	outBlindingArgs []OutputBlindingArgs,
 ) error {
-	isLastBlinder := true
 	return b.blind(inIssuanceBlindingArgs, outBlindingArgs, !isLastBlinder)
 }
 
@@ -313,7 +316,6 @@ func (b *Blinder) BlindLast(
 	inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
 	outBlindingArgs []OutputBlindingArgs,
 ) error {
-	isLastBlinder := true
 	return b.blind(inIssuanceBlindingArgs, outBlindingArgs, isLastBlinder)
 }
 

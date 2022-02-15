@@ -123,13 +123,9 @@ func (p *ProprietaryData) fromKeyPair(keyPair KeyPair) error {
 }
 
 func proprietaryKey(subType uint8, keyData []byte) []byte {
-	result := make([]byte, 0)
-	result = append(result, byte(len(magicPrefix)-1))
-	result = append(result, magicPrefix[:len(magicPrefix)-1]...)
-	result = append(result, subType)
-	if keyData != nil {
-		result = append(result, keyData...)
-	}
-
-	return result
+	s := bufferutil.NewSerializer(nil)
+	s.WriteVarSlice(magicPrefix)
+	s.WriteSlice([]byte{subType})
+	s.WriteSlice(keyData)
+	return s.Bytes()
 }

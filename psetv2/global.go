@@ -22,7 +22,6 @@ const (
 	GlobalOutputCount      = 0x05 //BIP 370
 	GlobalTxModifiable     = 0x06 //BIP 370
 	GlobalVersion          = 0xFB //BIP 174
-	GlobalProprietary      = 0xFC //BIP 174
 
 	//Elements Proprietary types
 	GlobalScalar     = 0x00
@@ -180,7 +179,7 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	for _, v := range g.Scalars {
 		scalarKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(GlobalScalar, v),
 			},
 			Value: nil,
@@ -197,7 +196,7 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 		}
 		elementsTxModifiableKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(GlobalModifiable, nil),
 			},
 			Value: modifiable.Bytes(),
@@ -208,7 +207,7 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	for _, v := range g.ProprietaryData {
 		kp := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(v.Subtype, v.KeyData),
 			},
 			Value: v.Value,
@@ -335,7 +334,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return ErrGlobalInvalidVersion
 			}
 			g.Version = binary.LittleEndian.Uint32(kp.Value)
-		case GlobalProprietary:
+		case PsetProprietary:
 			pd := ProprietaryData{}
 			if err := pd.fromKeyPair(kp); err != nil {
 				return err

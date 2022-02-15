@@ -23,10 +23,13 @@ const (
 	maxPsbtKeyLength  = 10000
 	minTimeLockTime   = 500000000
 	maxHeightLockTime = 499999999
+
+	PsetProprietary = 0xfc
 )
 
 var (
-	magicPrefix = []byte{0x70, 0x73, 0x65, 0x74, 0xff}
+	magicPrefix              = []byte{0x70, 0x73, 0x65, 0x74}
+	magicPrefixWithSeparator = append(magicPrefix, 0xff)
 
 	ErrInvalidPsbtFormat        = fmt.Errorf("invalid PSBT serialization format")
 	ErrNoMoreKeyPairs           = fmt.Errorf("no more key-pairs")
@@ -527,7 +530,7 @@ func (p *Pset) verifyScriptForPubKey(script, pubKey []byte) (bool, error) {
 func (p *Pset) serialize() ([]byte, error) {
 	s := bufferutil.NewSerializer(nil)
 
-	if err := s.WriteSlice(magicPrefix); err != nil {
+	if err := s.WriteSlice(magicPrefixWithSeparator); err != nil {
 		return nil, err
 	}
 
@@ -553,12 +556,12 @@ func (p *Pset) serialize() ([]byte, error) {
 func deserialize(buf *bytes.Buffer) (*Pset, error) {
 	d := bufferutil.NewDeserializer(buf)
 
-	magic, err := d.ReadSlice(uint(len(magicPrefix)))
+	magic, err := d.ReadSlice(uint(len(magicPrefixWithSeparator)))
 	if err != nil {
 		return nil, err
 	}
 
-	if !bytes.Equal(magic, magicPrefix) {
+	if !bytes.Equal(magic, magicPrefixWithSeparator) {
 		return nil, ErrInvalidMagicBytes
 	}
 

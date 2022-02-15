@@ -37,7 +37,6 @@ const (
 	InputTapBip32Derivation     = 0x16 //BIP 371
 	InputTapInternalKey         = 0x17 //BIP 371
 	InputTapMerkleRoot          = 0x18 //BIP 371
-	InputProprietary            = 0xFC //BIP 174
 
 	//Elements Proprietary types
 	InputIssuanceValue                   = 0x00
@@ -481,7 +480,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		binary.LittleEndian.PutUint64(issuanceValueBytes, uint64(i.IssuanceValue))
 		issuanceValueKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceValue, nil),
 			},
 			Value: issuanceValueBytes,
@@ -492,7 +491,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceValueCommitment != nil {
 		issuanceValueCommitmentKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceValueCommitment, nil),
 			},
 			Value: i.IssuanceValueCommitment,
@@ -503,7 +502,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceValueRangeproof != nil {
 		issuanceValueRangeproofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceValueRangeproof, nil),
 			},
 			Value: i.IssuanceValueRangeproof,
@@ -514,7 +513,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceInflationKeysRangeproof != nil {
 		issuanceKeysRangeproofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceInflationKeysRangeproof, nil),
 			},
 			Value: i.IssuanceInflationKeysRangeproof,
@@ -530,7 +529,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 
 		peginTxKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginTx, nil),
 			},
 			Value: peginTxBytes,
@@ -541,7 +540,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.PeginTxoutProof != nil {
 		peginTxoutProofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginTxoutProof, nil),
 			},
 			Value: i.PeginTxoutProof,
@@ -552,7 +551,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.PeginGenesisHash != nil {
 		peginGenesisHashKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginGenesis, nil),
 			},
 			Value: i.PeginGenesisHash,
@@ -563,7 +562,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.PeginClaimScript != nil {
 		peginClaimScriptKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginClaimScript, nil),
 			},
 			Value: i.PeginClaimScript,
@@ -577,7 +576,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 
 		peginValueKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginValue, nil),
 			},
 			Value: peginValueBytes,
@@ -588,7 +587,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.PeginWitness != nil {
 		peginWitnessKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginWitness, nil),
 			},
 			Value: i.PeginWitness,
@@ -602,7 +601,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 
 		issuanceInflationKeysKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceInflationKeys, nil),
 			},
 			Value: issuanceInflationKeysBytes,
@@ -613,7 +612,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceInflationKeysCommitment != nil {
 		issuanceInflationKeysCommitmentKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceInflationKeysCommitment, nil),
 			},
 			Value: i.IssuanceInflationKeysCommitment,
@@ -624,7 +623,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceBlindingNonce != nil {
 		issuanceBlindingNonceKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceBlindingNonce, nil),
 			},
 			Value: i.IssuanceBlindingNonce,
@@ -635,7 +634,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceAssetEntropy != nil {
 		issuanceAssetEntropyKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceAssetEntropy, nil),
 			},
 			Value: i.IssuanceAssetEntropy,
@@ -646,7 +645,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.UtxoRangeProof != nil {
 		inUtxoRangeProofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputUtxoRangeProof, nil),
 			},
 			Value: i.UtxoRangeProof,
@@ -657,7 +656,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceBlindValueProof != nil {
 		issuanceBlindValueProofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceBlindValueProof, nil),
 			},
 			Value: i.IssuanceBlindValueProof,
@@ -668,7 +667,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	if i.IssuanceBlindInflationKeysProof != nil {
 		issuanceBlindInflationKeysProofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputIssuanceBlindInflationKeysProof, nil),
 			},
 			Value: i.IssuanceBlindInflationKeysProof,
@@ -679,7 +678,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	for _, v := range i.ProprietaryData {
 		kp := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(v.Subtype, v.KeyData),
 			},
 			Value: v.Value,
@@ -891,7 +890,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 				return ErrInInvalidRequiredHeightLocktime
 			}
 			i.RequiredHeightLocktime = binary.LittleEndian.Uint32(kp.Value)
-		case GlobalProprietary:
+		case PsetProprietary:
 			pd := ProprietaryData{}
 			if err := pd.fromKeyPair(kp); err != nil {
 				return err

@@ -19,7 +19,6 @@ const (
 	OutputTapTree            = 0x06 //BIP 371
 	OutputTapLeafScript      = 0x06 //BIP 371 //TODO is duplicate key type allowed?
 	OutputTapBip32Derivation = 0x07 //BIP 371
-	OutputProprietary        = 0xFC //BIP 174
 
 	//Elements Proprietary types
 	OutputValueCommitment      = 0x01
@@ -156,7 +155,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.ValueCommitment != nil {
 		outputValueCommitmentKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputValueCommitment, nil),
 			},
 			Value: o.ValueCommitment,
@@ -178,7 +177,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.AssetCommitment != nil {
 		outputAssetCommitmentKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputAssetCommitment, nil),
 			},
 			Value: o.AssetCommitment,
@@ -189,7 +188,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.Asset != nil {
 		outputAssetKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputAsset, nil),
 			},
 			Value: o.Asset,
@@ -200,7 +199,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.ValueRangeproof != nil {
 		outputValueRangeproofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputValueRangeproof, nil),
 			},
 			Value: o.ValueRangeproof,
@@ -211,7 +210,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.AssetSurjectionProof != nil {
 		outputAssetSurjectionProofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputAssetSurjectionProof, nil),
 			},
 			Value: o.AssetSurjectionProof,
@@ -222,7 +221,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.BlindingPubkey != nil {
 		outputBlindingPubkeyKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputBlindingPubkey, nil),
 			},
 			Value: o.BlindingPubkey,
@@ -233,7 +232,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.EcdhPubkey != nil {
 		outputEcdhPubkeyKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputEcdhPubkey, nil),
 			},
 			Value: o.EcdhPubkey,
@@ -246,7 +245,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 
 	outputBlinderIndexKeyPair := KeyPair{
 		Key: Key{
-			KeyType: GlobalProprietary,
+			KeyType: PsetProprietary,
 			KeyData: proprietaryKey(OutputBlinderIndex, nil),
 		},
 		Value: outputBlinderIndexBytes,
@@ -256,7 +255,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.BlindValueProof != nil {
 		outputBlindValueProofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputBlindValueProof, nil),
 			},
 			Value: o.BlindValueProof,
@@ -267,7 +266,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	if o.BlindAssetProof != nil {
 		outputBlindAssetProofKeyPair := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(OutputBlindAssetProof, nil),
 			},
 			Value: o.BlindAssetProof,
@@ -278,7 +277,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	for _, v := range o.ProprietaryData {
 		kp := KeyPair{
 			Key: Key{
-				KeyType: GlobalProprietary,
+				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(v.Subtype, v.KeyData),
 			},
 			Value: v.Value,
@@ -371,13 +370,13 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 				return ErrDuplicateKey
 			}
 			o.Script = kp.Value
-		case GlobalProprietary:
+		case PsetProprietary:
 			pd := ProprietaryData{}
 			if err := pd.fromKeyPair(kp); err != nil {
 				return err
 			}
 
-			if bytes.Equal(pd.Identifier, magicPrefix[:len(magicPrefix)-1]) {
+			if bytes.Equal(pd.Identifier, magicPrefix) {
 				switch pd.Subtype {
 				case OutputValueCommitment:
 					if o.ValueCommitment != nil {

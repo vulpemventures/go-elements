@@ -38,9 +38,9 @@ func DeserializeHeader(
 		return nil, err
 	}
 
-	isDyna := version>>31 == 1
+	isDyna := DYNAFED_HF_MASK&version != 0
 	if isDyna {
-		version &= 0x7fff_ffff
+		version &= ^DYNAFED_HF_MASK
 	}
 
 	prevBlockHash, err := d.ReadSlice(hashSize)

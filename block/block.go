@@ -14,8 +14,7 @@ const (
 
 	hashSize = 32
 
-	proofVersion = 536870912
-	dynaVersion  = 2684354560
+	DYNAFED_HF_MASK = uint32(1 << 31)
 )
 
 type Block struct {

@@ -83,7 +83,7 @@ func (h *BlinderHandler) VerifyBlindAssetProof(
 	return VerifyBlindAssetProof(asset, assetCommitment, proof)
 }
 
-func (h *BlinderHandler) AddToScalarOffset(
+func (h *BlinderHandler) ComputeAndAddToScalarOffset(
 	scalar []byte, value uint64, assetBlinder, valueBlinder []byte,
 ) ([]byte, error) {
 	return ComputeAndAddToScalarOffset(scalar, value, assetBlinder, valueBlinder)

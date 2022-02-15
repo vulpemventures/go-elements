@@ -258,7 +258,7 @@ type BlinderHandler interface {
 	) bool
 	VerifyBlindAssetProof(asset, assetCommitment, proof []byte) bool
 	// Scalar methods
-	AddToScalarOffset(
+	ComputeAndAddToScalarOffset(
 		scalar []byte, value uint64, assetBlinder, valueBlinder []byte,
 	) ([]byte, error)
 	SubtractScalars(inputScalar, outputScalar []byte) ([]byte, error)
@@ -477,7 +477,7 @@ func (b *Blinder) calculateInputScalar(
 	}
 
 	for _, ownedIn := range b.OwnedInputs {
-		scalar, err = b.blinderHandler.AddToScalarOffset(
+		scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(
 			scalar, ownedIn.Value, ownedIn.AssetBlinder, ownedIn.ValueBlinder,
 		)
 		if err != nil {
@@ -486,13 +486,13 @@ func (b *Blinder) calculateInputScalar(
 		in := b.Pset.Inputs[ownedIn.Index]
 		if in.HasIssuance() {
 			if issuance := maybeGetIssuanceArgs(ownedIn.Index); issuance != nil {
-				scalar, err = b.blinderHandler.AddToScalarOffset(
+				scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(
 					scalar, in.IssuanceValue, zeroBlinder, issuance.valueBlinder())
 				if err != nil {
 					return nil, err
 				}
 				if in.IssuanceInflationKeys > 0 {
-					scalar, err = b.blinderHandler.AddToScalarOffset(
+					scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(
 						scalar, in.IssuanceInflationKeys, zeroBlinder, issuance.tokenBlinder())
 					if err != nil {
 						return nil, err
@@ -512,7 +512,7 @@ func (b *Blinder) calculateOutputScalar(
 	var err error
 	for _, a := range args {
 		out := b.Pset.Outputs[a.Index]
-		scalar, err = b.blinderHandler.AddToScalarOffset(scalar, out.Value, a.AssetBlinder, a.ValueBlinder)
+		scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(scalar, out.Value, a.AssetBlinder, a.ValueBlinder)
 		if err != nil {
 			return nil, err
 		}

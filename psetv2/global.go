@@ -85,15 +85,16 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	keyPairs := make([]KeyPair, 0)
 
 	for _, xpub := range g.Xpub {
+		keyData := append([]byte{byte(len(xpub.ExtendedKey))}, xpub.ExtendedKey...)
 		xPubKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalXpub,
-				KeyData: SerializeBIP32Derivation(
-					xpub.MasterFingerprint,
-					xpub.DerivationPath,
-				),
+				KeyData: keyData,
 			},
-			Value: xpub.ExtendedKey,
+			Value: SerializeBIP32Derivation(
+				xpub.MasterFingerprint,
+				xpub.DerivationPath,
+			),
 		}
 		keyPairs = append(keyPairs, xPubKeyPair)
 	}
@@ -149,7 +150,7 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	if g.TxModifiable != nil {
 		txModifiable := new(bytes.Buffer)
 		if err := binary.Write(
-			txModifiable, binary.LittleEndian, uint64(g.TxModifiable.Uint8()),
+			txModifiable, binary.LittleEndian, g.TxModifiable.Uint8(),
 		); err != nil {
 			return nil, err
 		}
@@ -188,7 +189,7 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	if g.Modifiable != nil {
 		modifiable := new(bytes.Buffer)
 		if err := binary.Write(
-			modifiable, binary.LittleEndian, uint64(g.Modifiable.Uint8()),
+			modifiable, binary.LittleEndian, g.Modifiable.Uint8(),
 		); err != nil {
 			return nil, err
 		}
@@ -252,11 +253,11 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 
 		switch kp.Key.KeyType {
 		case GlobalXpub:
-			if len(kp.Key.KeyData) != pubKeyLength {
+			if len(kp.Key.KeyData) != pubKeyLength+1 {
 				return ErrGlobalInvalidXPub
 			}
 			// Parse xpub to make sure it's valid
-			xpubStr := base58.Encode(kp.Key.KeyData)
+			xpubStr := base58.Encode(kp.Key.KeyData[1:])
 			if _, err := hdkeychain.NewKeyFromString(xpubStr); err != nil {
 				return err
 			}
@@ -314,12 +315,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			if len(kp.Value) != 1 {
 				return ErrGlobalInvalidTxModifiable
 			}
-			var tm uint8
-			buf := bytes.NewReader(kp.Value)
-			if err := binary.Read(buf, binary.LittleEndian, tm); err != nil {
-				return err
-			}
-			txModifiable, err := NewBitSetFromBuffer(byte(tm))
+			txModifiable, err := NewBitSetFromBuffer(byte(kp.Value[0]))
 			if err != nil {
 				return err
 			}
@@ -358,12 +354,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 					if len(kp.Value) != 1 {
 						return ErrGlobalInvalidModifiable
 					}
-					var etm uint8
-					buf := bytes.NewReader(kp.Value)
-					if err := binary.Read(buf, binary.LittleEndian, &etm); err != nil {
-						return err
-					}
-					modifiable, err := NewBitSetFromBuffer(byte(etm))
+					modifiable, err := NewBitSetFromBuffer(byte(kp.Value[0]))
 					if err != nil {
 						return err
 					}

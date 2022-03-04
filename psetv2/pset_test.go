@@ -216,11 +216,6 @@ func TestBroadcastBlindedTx(t *testing.T) {
 			Amount:  39999500,
 			Address: address,
 		},
-		{
-			Asset:   lbtc,
-			Amount:  500,
-			Address: "",
-		},
 	}
 
 	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
@@ -266,6 +261,15 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
+	require.NoError(t, err)
+
+	err = updater.AddOutputs([]psetv2.OutputArgs{
+		{
+			Asset:   lbtc,
+			Amount:  500,
+			Address: "",
+		},
+	})
 	require.NoError(t, err)
 
 	prvKeys := []*btcec.PrivateKey{privkey}

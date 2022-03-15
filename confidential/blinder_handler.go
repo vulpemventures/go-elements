@@ -18,12 +18,11 @@ type BlinderHandler struct {
 	masterBlindingKey *slip77.Slip77
 	inBlindingKeys    [][]byte
 	rng               RandomNumberGenerator
-	extraInputs       []UnblindOutputResult
+	ownedInputs       map[uint32]psetv2.OwnedInput
 }
 
 type BlinderHandlerOpts struct {
-	Rng         RandomNumberGenerator
-	ExtraInputs []UnblindOutputResult
+	Rng RandomNumberGenerator
 }
 
 func NewBlinderHandlerFromMasterBlindingKey(
@@ -34,20 +33,15 @@ func NewBlinderHandlerFromMasterBlindingKey(
 		return nil, err
 	}
 	rng := generateRandomNumber
-	var extraInputs []UnblindOutputResult
 	if opts != nil {
 		if opts.Rng != nil {
 			rng = opts.Rng
-		}
-		if opts.ExtraInputs != nil {
-			extraInputs = opts.ExtraInputs
 		}
 	}
 
 	return &BlinderHandler{
 		masterBlindingKey: masterKey,
 		rng:               rng,
-		extraInputs:       extraInputs,
 	}, nil
 }
 
@@ -55,20 +49,41 @@ func NewBlinderHandlerFromBlindingKeys(
 	inBlindingKeys [][]byte, opts *BlinderHandlerOpts,
 ) *BlinderHandler {
 	rng := generateRandomNumber
-	var extraInputs []UnblindOutputResult
 	if opts != nil {
 		if opts.Rng != nil {
 			rng = opts.Rng
-		}
-		if opts.ExtraInputs != nil {
-			extraInputs = opts.ExtraInputs
 		}
 	}
 	return &BlinderHandler{
 		inBlindingKeys: inBlindingKeys,
 		rng:            rng,
-		extraInputs:    extraInputs,
 	}
+}
+
+func NewBlinderHandlerFromOwnedInputs(
+	ownedInputs map[uint32]psetv2.OwnedInput, opts *BlinderHandlerOpts,
+) (*BlinderHandler, error) {
+	for i, ownedIn := range ownedInputs {
+		if i != ownedIn.Index {
+			return nil, fmt.Errorf(
+				"invalid index key for owned input, got %d expected %d",
+				i, ownedIn.Index,
+			)
+		}
+
+	}
+
+	rng := generateRandomNumber
+	if opts != nil {
+		if opts.Rng != nil {
+			rng = opts.Rng
+		}
+	}
+
+	return &BlinderHandler{
+		ownedInputs: ownedInputs,
+		rng:         rng,
+	}, nil
 }
 
 func (h *BlinderHandler) VerifyBlindValueProof(
@@ -131,24 +146,27 @@ func (h *BlinderHandler) LastValueRangeProof(
 func (h *BlinderHandler) UnblindInputs(
 	p *psetv2.Pset, inputIndexes []uint32,
 ) ([]psetv2.OwnedInput, error) {
-	if err := p.SanityCheck(); err != nil {
+	if err := validatePset(p); err != nil {
 		return nil, err
 	}
-	for i, in := range p.Inputs {
-		if in.GetUtxo() == nil {
-			return nil, fmt.Errorf("input %d is missing prevout", i)
-		}
-	}
-	for _, i := range inputIndexes {
-		if int(i) > int(p.Global.InputCount)-1 {
-			return nil, psetv2.ErrInputIndexOutOfRange
-		}
+	if err := validateInputIndexes(inputIndexes, p); err != nil {
+		return nil, err
 	}
 
 	if len(inputIndexes) == 0 {
 		for i := range p.Inputs {
 			inputIndexes = append(inputIndexes, uint32(i))
 		}
+	}
+
+	if len(h.ownedInputs) > 0 {
+		ownedIns := make([]psetv2.OwnedInput, 0, len(inputIndexes))
+		for _, i := range inputIndexes {
+			if ownedIn, ok := h.ownedInputs[i]; ok {
+				ownedIns = append(ownedIns, ownedIn)
+			}
+		}
+		return ownedIns, nil
 	}
 
 	revealedInputs := make([]psetv2.OwnedInput, 0)
@@ -169,20 +187,11 @@ func (h *BlinderHandler) UnblindInputs(
 func (h *BlinderHandler) BlindIssuances(
 	p *psetv2.Pset, blindingKeysByIndex map[uint32][]byte,
 ) ([]psetv2.InputIssuanceBlindingArgs, error) {
-	for index, key := range blindingKeysByIndex {
-		if int(index) < int(p.Global.InputCount)-1 {
-			return nil, psetv2.ErrInputIndexOutOfRange
-		}
-		if !p.Inputs[index].HasIssuance() {
-			return nil, fmt.Errorf(
-				"input %d does not have any issuance to blind", index,
-			)
-		}
-		if len(key) != 32 {
-			return nil, fmt.Errorf(
-				"invalid blinding private key for issuance of input %d", index,
-			)
-		}
+	if err := validatePset(p); err != nil {
+		return nil, err
+	}
+	if err := validateBlindKeysByIndex(blindingKeysByIndex, p); err != nil {
+		return nil, err
 	}
 
 	blindingArgs := make([]psetv2.InputIssuanceBlindingArgs, 0)
@@ -335,11 +344,13 @@ func (h *BlinderHandler) BlindOutputs(
 	p *psetv2.Pset, outputIndexes []uint32,
 	inIssuances []psetv2.InputIssuanceBlindingArgs,
 ) ([]psetv2.OutputBlindingArgs, error) {
-	for _, i := range outputIndexes {
-		if int(i) > int(p.Global.OutputCount)-1 {
-			return nil, psetv2.ErrOutputIndexOutOfRange
-		}
+	if err := validatePset(p); err != nil {
+		return nil, err
 	}
+	if err := validateOutputIndexes(outputIndexes, p); err != nil {
+		return nil, err
+	}
+
 	if outputIndexes == nil {
 		for i, out := range p.Outputs {
 			if out.IsBlinded() {
@@ -348,7 +359,7 @@ func (h *BlinderHandler) BlindOutputs(
 		}
 	}
 
-	maybeUnblindedIns := h.tryUnblindInputs(p.Inputs)
+	maybeUnblindedIns := h.revealInputs(p.Inputs)
 	inputAssets, inputAssetBlinders := maybeUnblindedIns.assetsAndBlinders()
 	for _, i := range inIssuances {
 		inputAssets = append(inputAssets, i.IssuanceAsset)
@@ -530,6 +541,13 @@ func (outs unblindedOuts) assetsAndBlinders() ([][]byte, [][]byte) {
 	return assets, assetBlinders
 }
 
+func (h *BlinderHandler) revealInputs(ins []psetv2.Input) unblindedOuts {
+	if len(h.ownedInputs) > 0 {
+		return sortUnblindedOuts(ins, h.ownedInputs)
+	}
+	return h.tryUnblindInputs(ins)
+}
+
 func (h *BlinderHandler) tryUnblindInputs(ins []psetv2.Input) unblindedOuts {
 	unblindedOuts := make(unblindedOuts, 0, len(ins))
 	for _, in := range ins {
@@ -555,7 +573,6 @@ func (h *BlinderHandler) tryUnblindInputs(ins []psetv2.Input) unblindedOuts {
 		}
 		unblindedOuts = append(unblindedOuts, unblindedOut)
 	}
-	unblindedOuts = append(unblindedOuts, h.extraInputs...)
 	return unblindedOuts
 }
 
@@ -566,4 +583,81 @@ func generateRandomNumber() ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func validatePset(p *psetv2.Pset) error {
+	if err := p.SanityCheck(); err != nil {
+		return err
+	}
+	for i, in := range p.Inputs {
+		if in.GetUtxo() == nil {
+			return fmt.Errorf("input %d is missing prevout", i)
+		}
+	}
+	return nil
+}
+
+func validateBlindKeysByIndex(
+	blindingKeysByIndex map[uint32][]byte, p *psetv2.Pset,
+) error {
+	for index, key := range blindingKeysByIndex {
+		if int(index) < int(p.Global.InputCount)-1 {
+			return psetv2.ErrInputIndexOutOfRange
+		}
+		if !p.Inputs[index].HasIssuance() {
+			return fmt.Errorf(
+				"input %d does not have any issuance to blind", index,
+			)
+		}
+		if len(key) != 32 {
+			return fmt.Errorf(
+				"invalid blinding private key for issuance of input %d", index,
+			)
+		}
+	}
+	return nil
+}
+
+func validateInputIndexes(inputIndexes []uint32, p *psetv2.Pset) error {
+	for _, i := range inputIndexes {
+		if int(i) > int(p.Global.InputCount)-1 {
+			return psetv2.ErrInputIndexOutOfRange
+		}
+	}
+	return nil
+}
+
+func validateOutputIndexes(outputIndexes []uint32, p *psetv2.Pset) error {
+	for _, i := range outputIndexes {
+		if int(i) > int(p.Global.OutputCount)-1 {
+			return psetv2.ErrOutputIndexOutOfRange
+		}
+	}
+	return nil
+}
+
+func sortUnblindedOuts(
+	ins []psetv2.Input, ownedIns map[uint32]psetv2.OwnedInput,
+) []UnblindOutputResult {
+	unblindedOuts := make([]UnblindOutputResult, len(ins))
+	for _, ownedIn := range ownedIns {
+		asset, _ := hex.DecodeString(ownedIn.Asset)
+		unblindedOuts[ownedIn.Index] = UnblindOutputResult{
+			Value:               ownedIn.Value,
+			Asset:               elementsutil.ReverseBytes(asset),
+			ValueBlindingFactor: ownedIn.ValueBlinder,
+			AssetBlindingFactor: ownedIn.AssetBlinder,
+		}
+	}
+
+	for i, unblindedOut := range unblindedOuts {
+		if len(unblindedOut.Asset) == 0 {
+			in := ins[i]
+			unblindedOuts[i] = UnblindOutputResult{
+				Asset:               in.GetUtxo().Asset,
+				AssetBlindingFactor: Zero,
+			}
+		}
+	}
+	return unblindedOuts
 }

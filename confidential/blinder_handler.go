@@ -476,7 +476,8 @@ func (h *BlinderHandler) BlindOutputs(
 
 		blindedOutputs = append(blindedOutputs, psetv2.OutputBlindingArgs{
 			Index:                i,
-			Nonce:                outputNonce.SerializeCompressed(),
+			Nonce:                nonce[:],
+			NonceCommitment:      outputNonce.SerializeCompressed(),
 			ValueCommitment:      valueCommitment,
 			AssetCommitment:      assetCommitment,
 			ValueRangeProof:      rangeProof,

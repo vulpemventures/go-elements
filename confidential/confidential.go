@@ -147,7 +147,6 @@ func (a RangeProofArgs) minBits() int {
 
 // RangeProof method calculates range proof
 func RangeProof(args RangeProofArgs) ([]byte, error) {
-
 	return rangeProof(args)
 }
 

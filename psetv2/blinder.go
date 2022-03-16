@@ -18,6 +18,7 @@ var (
 		"cannot blind an output that misses blinding pubkey",
 	)
 	ErrOutMissingNonce                = fmt.Errorf("missing output ecdh nonce")
+	ErrOutMissingNonceCommitment      = fmt.Errorf("missing output nonce commitment")
 	ErrOutMissingAssetBlinder         = fmt.Errorf("missing output asset blinder")
 	ErrOutMissingAssetCommitment      = fmt.Errorf("missing output asset commitment")
 	ErrOutMissingAssetSurjectionProof = fmt.Errorf("missing output asset surjetcion proof")
@@ -27,6 +28,7 @@ var (
 	ErrOutMissingValueRangeProof      = fmt.Errorf("missing output value range proof")
 	ErrOutMissingValueBlindProof      = fmt.Errorf("missing output value blind proof")
 	ErrOutInvalidNonce                = fmt.Errorf("invalid output ecdh nonce length")
+	ErrOutInvalidNonceCommitment      = fmt.Errorf("invalid output nonce commitment length")
 	ErrOutInvalidValueBlinder         = fmt.Errorf("invalid output value blinder length")
 	ErrOutInvalidAssetBlinder         = fmt.Errorf("invalid output asset blinder length")
 	ErrOutInvalidAssetCommitment      = fmt.Errorf("invalid output asset commitment length")
@@ -65,6 +67,7 @@ var (
 type OutputBlindingArgs struct {
 	Index                uint32
 	Nonce                []byte
+	NonceCommitment      []byte
 	ValueCommitment      []byte
 	AssetCommitment      []byte
 	ValueRangeProof      []byte
@@ -86,8 +89,14 @@ func (a OutputBlindingArgs) validate(p *Pset, isLastOutput bool) error {
 	if a.Nonce == nil {
 		return ErrOutMissingNonce
 	}
-	if len(a.Nonce) != 33 {
+	if len(a.Nonce) != 32 {
 		return ErrOutInvalidNonce
+	}
+	if a.NonceCommitment == nil {
+		return ErrOutMissingNonceCommitment
+	}
+	if len(a.NonceCommitment) != 33 {
+		return ErrOutInvalidNonceCommitment
 	}
 	if a.ValueBlinder == nil {
 		return ErrOutMissingValueBlinder
@@ -323,6 +332,10 @@ func (b *Blinder) blind(
 	inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
 	outBlindingArgs []OutputBlindingArgs, isLastBlinder bool,
 ) error {
+	if b.Pset.IsFullyBlinded() {
+		return nil
+	}
+
 	// Validate issuances blinding args
 	for i, args := range inIssuanceBlindingArgs {
 		if err := args.validate(b.Pset); err != nil {
@@ -369,10 +382,6 @@ func (b *Blinder) blind(
 		sort.Slice(outBlindingArgs, func(i, j int) bool {
 			return outBlindingArgs[i].Index < outBlindingArgs[j].Index
 		})
-	}
-
-	if b.Pset.IsFullyBlinded() {
-		return nil
 	}
 
 	inputScalar, err := b.calculateInputScalar(inIssuanceBlindingArgs)
@@ -436,7 +445,7 @@ func (b *Blinder) blind(
 		p.Outputs[a.Index].AssetSurjectionProof = a.AssetSurjectionProof
 		p.Outputs[a.Index].AssetCommitment = a.AssetCommitment
 		p.Outputs[a.Index].BlindAssetProof = a.AssetBlindProof
-		p.Outputs[a.Index].EcdhPubkey = a.Nonce
+		p.Outputs[a.Index].EcdhPubkey = a.NonceCommitment
 		p.Outputs[a.Index].BlinderIndex = 0
 	}
 

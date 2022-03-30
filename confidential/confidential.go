@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
@@ -47,7 +48,16 @@ func UnblindOutputWithKey(
 	out *transaction.TxOutput, blindKey []byte,
 ) (*UnblindOutputResult, error) {
 	if !out.IsConfidential() {
-		return nil, nil
+		value, err := elementsutil.ValueFromBytes(out.Value)
+		if err != nil {
+			return nil, err
+		}
+		return &UnblindOutputResult{
+			Value:               value,
+			Asset:               out.Asset[1:],
+			ValueBlindingFactor: Zero,
+			AssetBlindingFactor: Zero,
+		}, nil
 	}
 
 	nonce, err := NonceHash(out.Nonce, blindKey)
@@ -63,7 +73,16 @@ func UnblindOutputWithNonce(
 	out *transaction.TxOutput, nonce []byte,
 ) (*UnblindOutputResult, error) {
 	if !out.IsConfidential() {
-		return nil, nil
+		value, err := elementsutil.ValueFromBytes(out.Value)
+		if err != nil {
+			return nil, err
+		}
+		return &UnblindOutputResult{
+			Value:               value,
+			Asset:               out.Asset[1:],
+			ValueBlindingFactor: Zero,
+			AssetBlindingFactor: Zero,
+		}, nil
 	}
 
 	var nonce32 [32]byte

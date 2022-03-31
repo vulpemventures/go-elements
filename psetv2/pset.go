@@ -173,31 +173,19 @@ func (p *Pset) Locktime() uint32 {
 }
 
 func (p *Pset) SanityCheck() error {
-	var hasBlindedInput, hasBlindedOutput, hasFullyBlindedOutput bool
+	var hasFullyBlindedOutput bool
 	for i, in := range p.Inputs {
 		if err := in.SanityCheck(); err != nil {
 			return fmt.Errorf("invalid input %d: %s", i, err)
-		}
-		if prevout := in.GetUtxo(); prevout != nil {
-			if prevout.IsConfidential() {
-				hasBlindedInput = true
-			}
 		}
 	}
 	for i, out := range p.Outputs {
 		if err := out.SanityCheck(); err != nil {
 			return fmt.Errorf("invalid output %d: %s", i, err)
 		}
-		if out.IsBlinded() {
-			hasBlindedOutput = true
-		}
 		if out.IsFullyBlinded() {
 			hasFullyBlindedOutput = true
 		}
-	}
-
-	if hasBlindedInput && !hasBlindedOutput {
-		return ErrPsetMissingBlindedOutput
 	}
 
 	if hasFullyBlindedOutput && len(p.Global.Scalars) == 0 && p.NeedsBlinding() {

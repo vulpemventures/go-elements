@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -94,7 +95,10 @@ func (a OutputArgs) validate() error {
 func (a OutputArgs) toPartialOutput() Output {
 	var script, blindingKey []byte
 	if len(a.Address) > 0 {
-		script, _ = address.ToOutputScript(a.Address)
+		script = []byte{txscript.OP_RETURN}
+		if a.Amount > 0 {
+			script, _ = address.ToOutputScript(a.Address)
+		}
 		isConfidential, _ := address.IsConfidential(a.Address)
 		if isConfidential {
 			info, _ := address.FromConfidential(a.Address)

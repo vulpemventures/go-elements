@@ -144,6 +144,9 @@ type RangeProofArgs struct {
 }
 
 func (a RangeProofArgs) minValue() uint64 {
+	if a.Value == 0 {
+		return 0
+	}
 	if a.MinValue <= 0 {
 		return 1
 	}
@@ -159,7 +162,7 @@ func (a RangeProofArgs) exp() int {
 
 func (a RangeProofArgs) minBits() int {
 	if a.MinBits <= 0 {
-		return 36
+		return 52
 	}
 	return a.MinBits
 }

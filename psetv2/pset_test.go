@@ -281,6 +281,120 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
+	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	require.NoError(t, err)
+
+	blindingPublicKey := blindingPrivateKey.PubKey()
+
+	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	require.NoError(t, err)
+
+	pubkey := privkey.PubKey()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
+	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
+	unconfAddress, _ := p2wpkh.WitnessPubKeyHash()
+
+	// Fund sender address.
+	_, err = faucet(address)
+	require.NoError(t, err)
+	time.Sleep(time.Second * 3)
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	require.NoError(t, err)
+
+	prevoutIndex := uint32(utxos[0]["vout"].(float64))
+	prevoutTxid := utxos[0]["txid"].(string)
+
+	inputArgs := []psetv2.InputArgs{
+		{
+			TxIndex: prevoutIndex,
+			Txid:    prevoutTxid,
+		},
+	}
+
+	outputArgs := []psetv2.OutputArgs{
+		{
+			Asset:   lbtc,
+			Amount:  60000000,
+			Address: "2dwq2ByzMwkJuU7Swbdz51udh1UosBeaYZ2",
+		},
+		{
+			Asset:   lbtc,
+			Amount:  39999500,
+			Address: unconfAddress,
+		},
+		{
+			Asset:   lbtc,
+			Amount:  0,
+			Address: address,
+		},
+	}
+
+	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
+	require.NoError(t, err)
+
+	updater, err := psetv2.NewUpdater(ptx)
+	require.NoError(t, err)
+
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	require.NoError(t, err)
+
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:           assetCommitment,
+		Value:           valueCommitment,
+		Script:          p2wpkh.WitnessScript,
+		Nonce:           prevTx.Outputs[prevoutIndex].Nonce,
+		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
+		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
+	}
+	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	require.NoError(t, err)
+
+	err = updater.AddInSighashType(
+		txscript.SigHashAll|transaction.SighashRangeproof, 0,
+	)
+	require.NoError(t, err)
+
+	handler := confidential.NewBlinderHandlerFromBlindingKeys(
+		[][]byte{blindingPrivateKey.Serialize()},
+		nil,
+	)
+
+	ownedInputs, err := handler.UnblindInputs(ptx, nil)
+	require.NoError(t, err)
+
+	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, handler)
+	require.NoError(t, err)
+
+	outBlindingArgs, err := handler.BlindOutputs(ptx, []uint32{2}, nil)
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(nil, outBlindingArgs)
+	require.NoError(t, err)
+
+	err = updater.AddOutputs([]psetv2.OutputArgs{
+		{
+			Asset:   lbtc,
+			Amount:  500,
+			Address: "",
+		},
+	})
+	require.NoError(t, err)
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	require.NoError(t, err)
+
+	_, err = broadcastTransaction(ptx)
+	require.NoError(t, err)
+}
+
 func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
 	require.NoError(t, err)

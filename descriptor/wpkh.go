@@ -101,7 +101,7 @@ func (w WpkhWallet) Script(opts *ScriptOpts) ([]ScriptResponse, error) {
 		}
 
 		for _, v := range w.keyInfo.extendedKeyInfo.path {
-			masterExtKey, err = masterExtKey.Child(v)
+			masterExtKey, err = masterExtKey.Derive(v)
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +110,7 @@ func (w WpkhWallet) Script(opts *ScriptOpts) ([]ScriptResponse, error) {
 		if w.keyInfo.extendedKeyInfo.isRange {
 			if generateMoreScripts {
 				for i := 0; i < numOfScriptsToBeGenerated; i++ {
-					childKey, err := masterExtKey.Child(uint32(i))
+					childKey, err := masterExtKey.Derive(uint32(i))
 					if err != nil {
 						return nil, err
 					}
@@ -130,7 +130,7 @@ func (w WpkhWallet) Script(opts *ScriptOpts) ([]ScriptResponse, error) {
 					})
 				}
 			} else {
-				childKey, err := masterExtKey.Child(index)
+				childKey, err := masterExtKey.Derive(index)
 				if err != nil {
 					return nil, err
 				}

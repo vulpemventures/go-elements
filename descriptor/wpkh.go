@@ -149,6 +149,21 @@ func (w WpkhWallet) Script(opts *ScriptOpts) ([]ScriptResponse, error) {
 					Script:         script,
 				})
 			}
+		} else {
+			pubKey, err := masterExtKey.ECPubKey()
+			if err != nil {
+				return nil, err
+			}
+
+			script, err := wpkhScriptFromBytes(pubKey.SerializeCompressed())
+			if err != nil {
+				return nil, err
+			}
+
+			response = append(response, ScriptResponse{
+				DerivationPath: w.derivationPath(index),
+				Script:         script,
+			})
 		}
 
 		return response, nil

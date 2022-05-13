@@ -371,6 +371,27 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "wpkh_xpub_no_fingerprint_no_children",
+			args: args{
+				descriptor: "wpkh(xpub661MyMwAqRbcFFzgbS7PZzrLLXNYmno5FN7aYMceX7HcRgot6DUnPWn8z8C2EAcqiQ9QBmsWkVmhvMjsrwsMexwiqcW1mdyMZDspQqv6SUQ)",
+				topLevel:   true,
+			},
+			validate: func(wallet Wallet) error {
+				scriptHexExpected := "0014032ef494864b63614b5dc5c1ee23bb620e74cf7f"
+				scripts, err := wallet.Script(nil)
+				if err != nil {
+					return err
+				}
+
+				if hex.EncodeToString(scripts[0].Script) != scriptHexExpected {
+					return errors.New("unexpected script gen")
+				}
+
+				return nil
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

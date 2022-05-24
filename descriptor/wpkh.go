@@ -149,6 +149,21 @@ func (w WpkhWallet) Script(opts *ScriptOpts) ([]ScriptResponse, error) {
 					Script:         script,
 				})
 			}
+		} else {
+			pubKey, err := masterExtKey.ECPubKey()
+			if err != nil {
+				return nil, err
+			}
+
+			script, err := wpkhScriptFromBytes(pubKey.SerializeCompressed())
+			if err != nil {
+				return nil, err
+			}
+
+			response = append(response, ScriptResponse{
+				DerivationPath: w.derivationPath(index),
+				Script:         script,
+			})
 		}
 
 		return response, nil
@@ -159,9 +174,15 @@ func (w WpkhWallet) Script(opts *ScriptOpts) ([]ScriptResponse, error) {
 
 func (w WpkhWallet) derivationPath(index uint32) []uint32 {
 	derivationPath := make([]uint32, 0)
-	derivationPath = append(derivationPath, w.keyInfo.keyOrigin.masterKeyFingerprint)
-	derivationPath = append(derivationPath, w.keyInfo.keyOrigin.path...)
-	derivationPath = append(derivationPath, w.keyInfo.extendedKeyInfo.path...)
+	if w.keyInfo.keyOrigin != nil {
+		derivationPath = append(derivationPath, w.keyInfo.keyOrigin.masterKeyFingerprint)
+		derivationPath = append(derivationPath, w.keyInfo.keyOrigin.path...)
+	}
+	if w.keyInfo.extendedKeyInfo != nil {
+		if len(w.keyInfo.extendedKeyInfo.path) > 0 {
+			derivationPath = append(derivationPath, w.keyInfo.extendedKeyInfo.path...)
+		}
+	}
 	derivationPath = append(derivationPath, index)
 
 	return derivationPath

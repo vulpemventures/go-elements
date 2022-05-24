@@ -22,9 +22,9 @@ import (
 	"io"
 	"sort"
 
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 

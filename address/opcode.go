@@ -209,8 +209,10 @@ var opcodeArray = [256]Opcode{
 	txscript.OP_NOP9:  {txscript.OP_NOP9, "OP_NOP9", 1},
 	txscript.OP_NOP10: {txscript.OP_NOP10, "OP_NOP10", 1},
 
+	// taproot update
+	txscript.OP_CHECKSIGADD: {txscript.OP_CHECKSIGADD, "OP_CHECKSIGADD", 1},
+
 	// Undefined opcodes.
-	txscript.OP_UNKNOWN186: {txscript.OP_UNKNOWN186, "OP_UNKNOWN186", 1},
 	txscript.OP_UNKNOWN187: {txscript.OP_UNKNOWN187, "OP_UNKNOWN187", 1},
 	txscript.OP_UNKNOWN188: {txscript.OP_UNKNOWN188, "OP_UNKNOWN188", 1},
 	txscript.OP_UNKNOWN189: {txscript.OP_UNKNOWN189, "OP_UNKNOWN189", 1},

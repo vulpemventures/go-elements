@@ -13,7 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/confidential"
@@ -90,11 +91,11 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	**/
 
 	// Generating Alices Keys and Address
-	privkeyAlice, err := btcec.NewPrivateKey(btcec.S256())
+	privkeyAlice, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	blindPrivkeyAlice, err := btcec.NewPrivateKey(btcec.S256())
+	blindPrivkeyAlice, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,11 +105,11 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	addressAlice, _ := p2wpkhAlice.ConfidentialWitnessPubKeyHash()
 
 	// Generating Bobs Keys and Address
-	privkeyBob, err := btcec.NewPrivateKey(btcec.S256())
+	privkeyBob, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	blindPrivkeyBob, err := btcec.NewPrivateKey(btcec.S256())
+	blindPrivkeyBob, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +272,7 @@ func TestBroadcastUnblindedTxP2PKH(t *testing.T) {
 	**/
 
 	// Generate sender random key pair.
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +351,7 @@ func TestBroadcastUnblindedTxP2SH_P2WPKH(t *testing.T) {
 	**/
 
 	// Generate sender random key pair.
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +431,7 @@ func TestBroadcastUnblindedTxP2WPKH(t *testing.T) {
 	**/
 
 	// Generate sender random key pair.
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -507,13 +508,13 @@ func TestBroadcastUnblindedTxP2SH_P2MS(t *testing.T) {
 	**/
 
 	// Generate sender random key pair.
-	alice, err := btcec.NewPrivateKey(btcec.S256())
+	alice, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	alicePubkey := alice.PubKey()
 
-	bob, err := btcec.NewPrivateKey(btcec.S256())
+	bob, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -601,13 +602,13 @@ func TestBroadcastUnblindedTxP2WSH_P2MS(t *testing.T) {
 	**/
 
 	// Generate sender random key pair.
-	alice, err := btcec.NewPrivateKey(btcec.S256())
+	alice, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	alicePubkey := alice.PubKey()
 
-	bob, err := btcec.NewPrivateKey(btcec.S256())
+	bob, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -691,7 +692,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	* is for the fees, that in Elements side chains are explicits.
 	**/
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -781,7 +782,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	* change. A 3rd unblinded output is for the fees with empty script.
 	**/
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -837,7 +838,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	inBlindingPrvKeys := [][]byte{{}}
 	outBlindingPrvKeys := make([][]byte, 2)
 	for i := range outBlindingPrvKeys {
-		pk, err := btcec.NewPrivateKey(btcec.S256())
+		pk, err := btcec.NewPrivateKey()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -875,12 +876,12 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	* The 3rd output is for the fees, that in Elements side chains are explicit.
 	**/
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
-	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	blindingPrivateKey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -950,7 +951,7 @@ func TestBroadcastBlindedTxWithBlindedInput(t *testing.T) {
 	inBlindingPrvKeys := [][]byte{blindingPrivateKey.Serialize()}
 	outBlindingPrvKeys := make([][]byte, 2)
 	for i := range outBlindingPrvKeys {
-		pk, err := btcec.NewPrivateKey(btcec.S256())
+		pk, err := btcec.NewPrivateKey()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -986,12 +987,12 @@ func TestBroadcastBlindedTxWithBlindedAndUnblindedOutputs(t *testing.T) {
 	* The 3rd output is for the fees, that in Elements side chains are explicit.
 	**/
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
-	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	blindingPrivateKey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1060,7 +1061,7 @@ func TestBroadcastBlindedTxWithBlindedAndUnblindedOutputs(t *testing.T) {
 	//blind outputs
 	inBlindingPrvKeys := [][]byte{blindingPrivateKey.Serialize()}
 	outBlindingPrvKeys := make(map[int][]byte)
-	pk, err := btcec.NewPrivateKey(btcec.S256())
+	pk, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1097,7 +1098,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	* unblinded output is for the fees, with empty script.
 	**/
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1170,7 +1171,7 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	inBlindingPrvKeys := [][]byte{{}}
 	outBlindingPrvKeys := make([][]byte, 2)
 	for i := range outBlindingPrvKeys {
-		pk, err := btcec.NewPrivateKey(btcec.S256())
+		pk, err := btcec.NewPrivateKey()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1213,13 +1214,13 @@ func TestBroadcastBlindedIssuanceAndReIssuanceTx(t *testing.T) {
 	* unblinded output is for the fees, with empty script.
 	**/
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
 
-	blindPrivkey, err := btcec.NewPrivateKey(btcec.S256())
+	blindPrivkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1306,7 +1307,7 @@ func TestBroadcastBlindedIssuanceAndReIssuanceTx(t *testing.T) {
 	inBlindingPrvKeysForIssuance := [][]byte{blindPrivkey.Serialize()}
 	outBlindingPrvKeysForIssuance := make([][]byte, 2)
 	for i := range outBlindingPrvKeysForIssuance {
-		pk, err := btcec.NewPrivateKey(btcec.S256())
+		pk, err := btcec.NewPrivateKey()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1475,7 +1476,7 @@ func blindTransactionByIndex(
 ) error {
 	outBlindPubKeysMap := make(map[int][]byte)
 	for index, k := range outBlindKeysMap {
-		_, pubkey := btcec.PrivKeyFromBytes(btcec.S256(), k)
+		_, pubkey := btcec.PrivKeyFromBytes(k)
 		outBlindPubKeysMap[index] = pubkey.SerializeCompressed()
 	}
 
@@ -1485,7 +1486,7 @@ func blindTransactionByIndex(
 	}
 
 	for {
-		blindDataLike := make([]BlindingDataLike, len(inBlindKeys), len(inBlindKeys))
+		blindDataLike := make([]BlindingDataLike, len(inBlindKeys))
 		for i, inBlinKey := range inBlindKeys {
 			blindDataLike[i] = PrivateBlindingKey(inBlinKey)
 		}
@@ -1573,10 +1574,7 @@ func signTransaction(
 			}
 		}
 
-		sig, err := prvkey.Sign(sigHash[:])
-		if err != nil {
-			return err
-		}
+		sig := ecdsa.Sign(prvkey, sigHash[:])
 		sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
 
 		var witPubkeyScript []byte

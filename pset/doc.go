@@ -65,7 +65,7 @@ func ROLE_6_Extractor() *PSET_PACKAGE { return nil }
 This is an exemplification on how to perform a P2WPKH transaction using the PSET package
 with the assistance of vulpemventures/nigiri for funding the address, retrieving the UTXOs and broadcasting.
 
-    	privkey, err := btcec.NewPrivateKey(btcec.S256())
+    	privkey, err := btcec.NewPrivateKey( )
 	if err != nil {
 		t.Fatal(err)
 	}

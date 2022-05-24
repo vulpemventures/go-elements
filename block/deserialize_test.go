@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 
@@ -31,7 +31,7 @@ func TestBlockDeserialization(t *testing.T) {
 		t.Fatal(err)
 	}
 	var tests []map[string]interface{}
-	err = json.Unmarshal(file, &tests)
+	json.Unmarshal(file, &tests)
 
 	for _, v := range tests {
 		testName := v["name"].(string)
@@ -51,7 +51,7 @@ func TestBlockDeserialization(t *testing.T) {
 }
 
 func TestBlockDeserializationIntegration(t *testing.T) {
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}

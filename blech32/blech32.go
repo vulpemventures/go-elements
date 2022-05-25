@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+type EncodingType int64
+
+const (
+	BLECH32  EncodingType = 1
+	BLECH32M EncodingType = 0x455972a3350f7a1
+)
+
 const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 //new generators, 7 bytes compared to bech32
@@ -12,7 +19,7 @@ var gen = []int64{0x7d52fba40bd886, 0x5e8dbf1a03950c, 0x1c3a3c74072a18, 0x385d72
 
 // Decode decodes a blech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
-func Decode(blech string) (string, []byte, error) {
+func Decode(blech string, encoding EncodingType) (string, []byte, error) {
 	// The maximum allowed length for a blech32 string is 1000. It must also
 	// be at least 8 characters, since it needs a non-empty HRP, a
 	// separator, and a 12 character checksum.
@@ -60,10 +67,10 @@ func Decode(blech string) (string, []byte, error) {
 			"%v", err)
 	}
 
-	if !blech32VerifyChecksum(hrp, decoded) {
+	if !verifyChecksum(hrp, decoded, encoding) {
 		moreInfo := ""
-		checksum := blech[len(blech)-12:]                                         //6 - 12 compared to bech32  ?
-		expected, err := toChars(blech32Checksum(hrp, decoded[:len(decoded)-12])) //6 - 12 compared to bech32    ?
+		checksum := blech[len(blech)-12:]                                                  //6 - 12 compared to bech32  ?
+		expected, err := toChars(createChecksum(hrp, decoded[:len(decoded)-12], encoding)) //6 - 12 compared to bech32    ?
 		if err == nil {
 			moreInfo = fmt.Sprintf("Expected %v, got %v.", expected, checksum)
 		}
@@ -77,9 +84,9 @@ func Decode(blech string) (string, []byte, error) {
 // Encode encodes a byte slice into a blech32 string with the
 // human-readable part hrb. Note that the bytes must each encode 5 bits
 // (base32).
-func Encode(hrp string, data []byte) (string, error) {
+func Encode(hrp string, data []byte, encoding EncodingType) (string, error) {
 	// Calculate the checksum of the data and append it at the end.
-	checksum := blech32Checksum(hrp, data)
+	checksum := createChecksum(hrp, data, encoding)
 	combined := append(data, checksum...)
 
 	// The resulting blech32 string is the concatenation of the hrp, the
@@ -132,7 +139,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 	var regrouped []byte
 
 	// Keep track of the next byte we create and how many bits we have
-	// added to it out of the toBits goal.
+	// added to it out of the toBits goal.
 	nextByte := byte(0)
 	filledBits := uint8(0)
 
@@ -165,7 +172,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 			filledBits += toExtract
 
 			// If the nextByte is completely filled, we add it to
-			// our regrouped bytes and start on the next byte.
+			// our regrouped bytes and start on the next byte.
 			if filledBits == toBits {
 				regrouped = append(regrouped, nextByte)
 				filledBits = 0
@@ -191,7 +198,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 }
 
 // For more details on the checksum calculation, please refer to BIP 173.
-func blech32Checksum(hrp string, data []byte) []byte {
+func createChecksum(hrp string, data []byte, encoding EncodingType) []byte {
 	// Convert the bytes to list of integers, as this is needed for the
 	// checksum calculation.
 	integers := make([]int, len(data))
@@ -200,7 +207,7 @@ func blech32Checksum(hrp string, data []byte) []byte {
 	}
 	values := append(blech32HrpExpand(hrp), integers...)
 	values = append(values, []int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}...) //6->12 compared to bech32
-	polymod := blech32Polymod(values) ^ 1
+	polymod := blech32Polymod(values) ^ int64(encoding)
 	var res []byte
 	for i := 0; i < 12; i++ { //6 -> 12 compared to bech32
 		res = append(res, byte((polymod>>uint(5*(11-i)))&31)) //5 -> 11 compared to bech32
@@ -237,11 +244,11 @@ func blech32HrpExpand(hrp string) []int {
 }
 
 // For more details on the checksum verification, please refer to BIP 173.
-func blech32VerifyChecksum(hrp string, data []byte) bool {
+func verifyChecksum(hrp string, data []byte, encodingType EncodingType) bool {
 	integers := make([]int, len(data))
 	for i, b := range data {
 		integers[i] = int(b)
 	}
 	concat := append(blech32HrpExpand(hrp), integers...)
-	return blech32Polymod(concat) == 1
+	return blech32Polymod(concat) == int64(encodingType)
 }

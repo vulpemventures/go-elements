@@ -7,10 +7,23 @@ import (
 
 type EncodingType int64
 
+const UnknownVersion byte = 0x02
+
 const (
 	BLECH32  EncodingType = 1
 	BLECH32M EncodingType = 0x455972a3350f7a1
 )
+
+func EncodingTypeFromSegwitVersion(version byte) (EncodingType, error) {
+	switch version {
+	case 0x00:
+		return BLECH32, nil
+	case 0x01:
+		return BLECH32M, nil
+	default:
+		return 0, fmt.Errorf("invalid witness version: %v", version)
+	}
+}
 
 const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
@@ -19,18 +32,18 @@ var gen = []int64{0x7d52fba40bd886, 0x5e8dbf1a03950c, 0x1c3a3c74072a18, 0x385d72
 
 // Decode decodes a blech32 encoded string, returning the human-readable
 // part and the data part excluding the checksum.
-func Decode(blech string, encoding EncodingType) (string, []byte, error) {
+func DecodeGeneric(blech string) (string, []byte, []byte, error) {
 	// The maximum allowed length for a blech32 string is 1000. It must also
 	// be at least 8 characters, since it needs a non-empty HRP, a
 	// separator, and a 12 character checksum.
 	if len(blech) < 8 || len(blech) > 1000 { //90 -> 1000 compared to bech32
-		return "", nil, fmt.Errorf("invalid blech32 string length %d",
+		return "", nil, nil, fmt.Errorf("invalid blech32 string length %d",
 			len(blech))
 	}
 	// Only	ASCII characters between 33 and 126 are allowed.
 	for i := 0; i < len(blech); i++ {
 		if blech[i] < 33 || blech[i] > 126 {
-			return "", nil, fmt.Errorf("invalid character in "+
+			return "", nil, nil, fmt.Errorf("invalid character in "+
 				"string: '%c'", blech[i])
 		}
 	}
@@ -39,7 +52,7 @@ func Decode(blech string, encoding EncodingType) (string, []byte, error) {
 	lower := strings.ToLower(blech)
 	upper := strings.ToUpper(blech)
 	if blech != lower && blech != upper {
-		return "", nil, fmt.Errorf("string not all lowercase or all " +
+		return "", nil, nil, fmt.Errorf("string not all lowercase or all " +
 			"uppercase")
 	}
 
@@ -52,7 +65,7 @@ func Decode(blech string, encoding EncodingType) (string, []byte, error) {
 	// or if the string is more than 1000 characters in total.
 	one := strings.LastIndexByte(blech, '1')
 	if one < 1 || one+13 > len(blech) { //7 -> 13 compared to bech32
-		return "", nil, fmt.Errorf("invalid index of 1")
+		return "", nil, nil, fmt.Errorf("invalid index of 1")
 	}
 
 	// The human-readable part is everything before the last '1'.
@@ -63,22 +76,36 @@ func Decode(blech string, encoding EncodingType) (string, []byte, error) {
 	// 'charset'.
 	decoded, err := toBytes(data)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed converting data to bytes: "+
+		return "", nil, nil, fmt.Errorf("failed converting data to bytes: "+
 			"%v", err)
 	}
 
-	if !verifyChecksum(hrp, decoded, encoding) {
-		moreInfo := ""
-		checksum := blech[len(blech)-12:]                                                  //6 - 12 compared to bech32  ?
-		expected, err := toChars(createChecksum(hrp, decoded[:len(decoded)-12], encoding)) //6 - 12 compared to bech32    ?
-		if err == nil {
-			moreInfo = fmt.Sprintf("Expected %v, got %v.", expected, checksum)
-		}
-		return "", nil, fmt.Errorf("checksum failed. " + moreInfo)
+	// We exclude the last 12 bytes, which is the checksum.
+	return hrp, decoded[:len(decoded)-12], decoded[len(decoded)-12:], nil //6 - 12 compared to bech32
+}
+
+// Decode is like DecodeGeneric but also checks the checksum according to segwit version.
+func Decode(addr string) (string, []byte, error) {
+	hrp, data, checksum, err := DecodeGeneric(addr)
+	if err != nil {
+		return "", nil, err
 	}
 
-	// We exclude the last 12 bytes, which is the checksum.
-	return hrp, decoded[:len(decoded)-12], nil //6 - 12 compared to bech32
+	encoding, err := EncodingTypeFromSegwitVersion(data[0])
+	if err != nil {
+		return hrp, data, err
+	}
+
+	if !verifyChecksum(hrp, data, encoding) {
+		expected, err := toChars(createChecksum(hrp, data, encoding))
+		if err == nil {
+			return hrp, data, fmt.Errorf("expected checksum %v, got %v", expected, checksum)
+		} else {
+			return hrp, data, fmt.Errorf("invalid checksum")
+		}
+	}
+
+	return hrp, data, err
 }
 
 // Encode encodes a byte slice into a blech32 string with the

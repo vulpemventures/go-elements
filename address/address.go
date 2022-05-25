@@ -221,7 +221,7 @@ func FromBlech32(address string) (*Blech32, error) {
 	prefix := hrp[:len(hrp)-1]
 
 	// Decode the bech32 encoded address.
-	_, data, err := blech32.Decode(address, blech32.BLECH32)
+	_, data, err := blech32.Decode(address)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,12 @@ func ToBlech32(bl *Blech32) (string, error) {
 	combined := make([]byte, len(converted)+1)
 	combined[0] = bl.Version
 	copy(combined[1:], converted)
-	blech32Addr, err := blech32.Encode(bl.Prefix, combined, blech32.BLECH32)
+	enc, err := blech32.EncodingTypeFromSegwitVersion(bl.Version)
+	if err != nil {
+		return "", err
+	}
+
+	blech32Addr, err := blech32.Encode(bl.Prefix, combined, enc)
 	if err != nil {
 		return "", err
 	}

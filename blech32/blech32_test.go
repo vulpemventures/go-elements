@@ -1,6 +1,7 @@
 package blech32_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/vulpemventures/go-elements/blech32"
@@ -15,15 +16,24 @@ type fixture struct {
 func makeTest(f fixture, t *testing.T) {
 	for _, s := range f.valid {
 		t.Run(s, func(t *testing.T) {
-			_, _, err := blech32.Decode(s, f.enc)
+			hrp, data, _, err := blech32.DecodeGeneric(s)
 			if err != nil {
 				t.Errorf("%v: %v", s, err)
+			}
+
+			str, err := blech32.Encode(hrp, data, f.enc)
+			if err != nil {
+				t.Errorf("%v: %v", s, err)
+			}
+
+			if str != strings.ToLower(s) {
+				t.Errorf("%v: %v != %v", s, str, s)
 			}
 		})
 	}
 	for _, s := range f.invalid {
 		t.Run(s, func(t *testing.T) {
-			_, _, err := blech32.Decode(s, f.enc)
+			_, _, _, err := blech32.DecodeGeneric(s)
 			if err == nil {
 				t.Errorf("%v: expected error", s)
 			}

@@ -2,8 +2,10 @@ package taproot
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
@@ -24,6 +26,13 @@ const (
 	BaseElementsLeafVersion txscript.TapscriptLeafVersion = 0xc4
 )
 
+const (
+	ControlBlockBaseSize     = txscript.ControlBlockBaseSize
+	ControlBlockNodeSize     = txscript.ControlBlockNodeSize
+	ControlBlockMaxNodeCount = txscript.ControlBlockMaxNodeCount
+	ControlBlockMaxSize      = ControlBlockBaseSize + (ControlBlockNodeSize * ControlBlockMaxNodeCount)
+)
+
 // TapElementsLeaf implements txscript.TapNode interface
 type TapElementsLeaf struct {
 	txscript.TapLeaf
@@ -39,10 +48,14 @@ func (t TapElementsLeaf) TapHash() chainhash.Hash {
 }
 
 // NewTapElementsLeaf overwrite the NewTapLeaf constructor
-func NewTapElementsLeaf(leafVersion txscript.TapscriptLeafVersion, script []byte) txscript.TapNode {
-	return &TapElementsLeaf{
+func NewTapElementsLeaf(leafVersion txscript.TapscriptLeafVersion, script []byte) TapElementsLeaf {
+	return TapElementsLeaf{
 		txscript.NewTapLeaf(leafVersion, script),
 	}
+}
+
+func NewBaseTapElementsLeaf(script []byte) TapElementsLeaf {
+	return NewTapElementsLeaf(BaseElementsLeafVersion, script)
 }
 
 // TapElementsBranch implements txscript.TapNode interface
@@ -63,10 +76,6 @@ func NewTapElementsBranch(l, r txscript.TapNode) TapElementsBranch {
 	}
 }
 
-type TaprootPayment struct {
-	InternalKey *btcec.PublicKey
-}
-
 // tapElementsBranchHash takes the raw tap hashes of the right and left nodes and
 // hashes them into a branch. it uses the elements tag instead of bitcoin one
 func tapElementsBranchHash(l, r []byte) chainhash.Hash {
@@ -79,6 +88,26 @@ func tapElementsBranchHash(l, r []byte) chainhash.Hash {
 	)
 }
 
+// ControlBlock overwrites the RootHash method
+type ControlBlock struct {
+	txscript.ControlBlock
+}
+
+func (c *ControlBlock) RootHash(revealedScript []byte) []byte {
+	merkleAccumulator := NewTapElementsLeaf(c.LeafVersion, revealedScript).TapHash()
+	numNodes := len(c.InclusionProof) / ControlBlockNodeSize
+	for nodeOffset := 0; nodeOffset < numNodes; nodeOffset++ {
+		// Extract the new node using our index to serve as a 32-byte
+		// offset.
+		leafOffset := 32 * nodeOffset
+		nextNode := c.InclusionProof[leafOffset : leafOffset+32]
+
+		merkleAccumulator = tapElementsBranchHash(merkleAccumulator[:], nextNode)
+	}
+
+	return merkleAccumulator[:]
+}
+
 // TapscriptElementsProof overrides the TapscriptProof struct (with elements tapLeaf)
 type TapscriptElementsProof struct {
 	TapElementsLeaf
@@ -88,7 +117,7 @@ type TapscriptElementsProof struct {
 
 // ToControlBlock maps the tapscript proof into a fully valid control block
 // that can be used as a witness item for a tapscript spend.
-func (t *TapscriptElementsProof) ToControlBlock(internalKey *btcec.PublicKey) txscript.ControlBlock {
+func (t *TapscriptElementsProof) ToControlBlock(internalKey *btcec.PublicKey) ControlBlock {
 	// Compute the total level output commitment based on the populated
 	// root node.
 	rootHash := t.RootNode.TapHash()
@@ -103,12 +132,12 @@ func (t *TapscriptElementsProof) ToControlBlock(internalKey *btcec.PublicKey) tx
 		outputKeyYIsOdd = true
 	}
 
-	return txscript.ControlBlock{
+	return ControlBlock{txscript.ControlBlock{
 		InternalKey:     internalKey,
 		OutputKeyYIsOdd: outputKeyYIsOdd,
 		LeafVersion:     t.TapElementsLeaf.LeafVersion,
 		InclusionProof:  t.InclusionProof,
-	}
+	}}
 }
 
 // IndexedTapScriptTree reprints a fully contracted tapscript tree. The
@@ -302,4 +331,100 @@ func leafDescendants(node txscript.TapNode) []txscript.TapNode {
 	rightLeaves := leafDescendants(node.Right())
 
 	return append(leftLeaves, rightLeaves...)
+}
+
+// scriptError creates an Error given a set of arguments.
+func scriptError(c txscript.ErrorCode, desc string) txscript.Error {
+	return txscript.Error{ErrorCode: c, Description: desc}
+}
+
+func VerifyTaprootLeafCommitment(controlBlock *ControlBlock, taprootWitnessProgram []byte, revealedScript []byte) error {
+	// First, we'll calculate the root hash from the given proof and
+	// revealed script.
+	rootHash := controlBlock.RootHash(revealedScript)
+
+	// Next, we'll construct the final commitment (creating the external or
+	// taproot output key) as a function of this commitment and the
+	// included internal key: taprootKey = internalKey + (tPoint*G).
+	taprootKey := ComputeTaprootOutputKey(
+		controlBlock.InternalKey, rootHash,
+	)
+
+	// If we convert the taproot key to a witness program (we just need to
+	// serialize the public key), then it should exactly match the witness
+	// program passed in.
+	expectedWitnessProgram := schnorr.SerializePubKey(taprootKey)
+	if !bytes.Equal(expectedWitnessProgram, taprootWitnessProgram) {
+
+		return scriptError(txscript.ErrTaprootMerkleProofInvalid, "")
+	}
+
+	// Finally, we'll verify that the parity of the y coordinate of the
+	// public key we've derived matches the control block.
+	derivedYIsOdd := (taprootKey.SerializeCompressed()[0] ==
+		secp.PubKeyFormatCompressedOdd)
+	if controlBlock.OutputKeyYIsOdd != derivedYIsOdd {
+		str := fmt.Sprintf("control block y is odd: %v, derived "+
+			"parity is odd: %v", controlBlock.OutputKeyYIsOdd,
+			derivedYIsOdd)
+		return scriptError(txscript.ErrTaprootOutputKeyParityMismatch, str)
+	}
+
+	// Otherwise, if we reach here, the commitment opening is valid and
+	// execution can continue.
+	return nil
+}
+
+// ParseControlBlock reuses the txscript.ParseControlBlock function
+// but use the elements ControlBlock wrapper struct
+func ParseControlBlock(controlBlock []byte) (*ControlBlock, error) {
+	ctrl, err := txscript.ParseControlBlock(controlBlock)
+	if err != nil {
+		return nil, err
+	}
+	return &ControlBlock{*ctrl}, nil
+}
+
+// TweakTaprootPrivKey = txscript.TweakTaprootPrivKey with elements tag
+func TweakTaprootPrivKey(privKey *btcec.PrivateKey, scriptRoot []byte) *btcec.PrivateKey {
+	privKeyScalar := &privKey.Key
+	pubKeyBytes := privKey.PubKey().SerializeCompressed()
+	if pubKeyBytes[0] == secp.PubKeyFormatCompressedOdd {
+		privKeyScalar.Negate()
+	}
+	schnorrKeyBytes := pubKeyBytes[1:]
+	tapTweakHash := chainhash.TaggedHash(
+		TagTapTweakElements, schnorrKeyBytes, scriptRoot,
+	)
+	var tweakScalar btcec.ModNScalar
+	tweakScalar.SetBytes((*[32]byte)(tapTweakHash))
+	privTweak := privKeyScalar.Add(&tweakScalar)
+	return btcec.PrivKeyFromScalar(privTweak)
+}
+
+// ComputeTaprootOutputKey = txscript.ComputeTaprootOutputKey with elements tag
+func ComputeTaprootOutputKey(pubKey *btcec.PublicKey, scriptRoot []byte) *btcec.PublicKey {
+	internalKey, _ := schnorr.ParsePubKey(schnorr.SerializePubKey(pubKey))
+	tapTweakHash := chainhash.TaggedHash(
+		TagTapTweakElements, schnorr.SerializePubKey(internalKey),
+		scriptRoot,
+	)
+
+	var tweakScalar btcec.ModNScalar
+	tweakScalar.SetBytes((*[32]byte)(tapTweakHash))
+
+	var internalPoint btcec.JacobianPoint
+	internalKey.AsJacobian(&internalPoint)
+
+	var tPoint, taprootKey btcec.JacobianPoint
+	btcec.ScalarBaseMultNonConst(&tweakScalar, &tPoint)
+	btcec.AddNonConst(&internalPoint, &tPoint, &taprootKey)
+	taprootKey.ToAffine()
+
+	return btcec.NewPublicKey(&taprootKey.X, &taprootKey.Y)
+}
+
+func ComputeTaprootKeyNoScript(pubkey *btcec.PublicKey) *btcec.PublicKey {
+	fakeScriptroot := []byte{}
+	return ComputeTaprootOutputKey(pubkey, fakeScriptroot)
 }

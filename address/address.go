@@ -28,12 +28,15 @@ const (
 	P2Wsh
 	ConfidentialP2Wpkh
 	ConfidentialP2Wsh
+	P2TR
+	ConfidentialP2TR
 
 	P2PkhScript      = 1
 	P2ShScript       = 2
 	P2MultiSigScript = 3
 	P2WpkhScript     = 4
 	P2WshScript      = 5
+	P2TRScript       = 6
 )
 
 // Base58 type defines the structure of a legacy or wrapped segwit address
@@ -513,11 +516,19 @@ func ToOutputScript(address string) ([]byte, error) {
 // GetScriptType returns the type of the given script (p2pkh, p2sh, etc.)
 func GetScriptType(script []byte) int {
 	switch script[0] {
-	case txscript.OP_0:
-		if len(script[2:]) == 20 {
-			return P2WpkhScript
+	case txscript.OP_0: // segwit
+		version := script[1]
+		switch version {
+		case txscript.OP_0:
+			if len(script[2:]) == 20 {
+				return P2WpkhScript
+			}
+			return P2WshScript
+		case txscript.OP_1:
+			return P2TRScript
+		default:
+			return -1 // unknown
 		}
-		return P2WshScript
 	case txscript.OP_HASH160:
 		return P2ShScript
 	case txscript.OP_DUP:

@@ -504,12 +504,14 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 		return err
 	}
 
-	output := transaction.NewTxOutput(
-		assetHash,
-		issuance.TxIssuance.AssetAmount,
-		script,
-	)
-	p.AddOutput(output)
+	if arg.AssetAmount > 0 {
+		output := transaction.NewTxOutput(
+			assetHash,
+			issuance.TxIssuance.AssetAmount,
+			script,
+		)
+		p.AddOutput(output)
+	}
 
 	if arg.TokenAmount > 0 {
 		tokenHash, err := issuance.GenerateReissuanceToken(arg.tokenFlag())

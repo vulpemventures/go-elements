@@ -125,6 +125,11 @@ func NewTxIssuance(
 	if err != nil {
 		return nil, err
 	}
+
+	if assetAmount == 0 {
+		confAssetAmount = []byte{0}
+	}
+
 	confTokenAmount, err := toConfidentialTokenAmount(
 		tokenAmount,
 	)

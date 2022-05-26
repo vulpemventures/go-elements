@@ -437,7 +437,7 @@ func (arg AddIssuanceArgs) validate() error {
 }
 
 func (arg AddIssuanceArgs) matchAddressTypes() bool {
-	if len(arg.TokenAddress) <= 0 {
+	if len(arg.AssetAddress) <= 0 || len(arg.TokenAddress) <= 0 {
 		return true
 	}
 

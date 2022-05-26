@@ -516,19 +516,13 @@ func ToOutputScript(address string) ([]byte, error) {
 // GetScriptType returns the type of the given script (p2pkh, p2sh, etc.)
 func GetScriptType(script []byte) int {
 	switch script[0] {
-	case txscript.OP_0: // segwit
-		version := script[1]
-		switch version {
-		case txscript.OP_0:
-			if len(script[2:]) == 20 {
-				return P2WpkhScript
-			}
-			return P2WshScript
-		case txscript.OP_1:
-			return P2TRScript
-		default:
-			return -1 // unknown
+	case txscript.OP_0: // segwit v0
+		if len(script[2:]) == 20 {
+			return P2WpkhScript
 		}
+		return P2WshScript
+	case txscript.OP_1: // segwit v1 (taproot)
+		return P2TRScript
 	case txscript.OP_HASH160:
 		return P2ShScript
 	case txscript.OP_DUP:
@@ -564,7 +558,8 @@ func IsConfidential(address string) (bool, error) {
 	isConfidential := (addressType == ConfidentialP2Pkh ||
 		addressType == ConfidentialP2Sh ||
 		addressType == ConfidentialP2Wpkh ||
-		addressType == ConfidentialP2Wsh)
+		addressType == ConfidentialP2Wsh ||
+		addressType == ConfidentialP2TR)
 
 	return isConfidential, nil
 }
@@ -578,14 +573,23 @@ func decodeBlech32(address string, net network.Network) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	switch len(fromBlech32.Program) {
-	case 20:
-		return ConfidentialP2Wpkh, nil
-	case 32:
-		return ConfidentialP2Wsh, nil
-	default:
-		return 0, errors.New("invalid program Length")
+
+	if fromBlech32.Version == 0 {
+		switch len(fromBlech32.Program) {
+		case 20:
+			return ConfidentialP2Wpkh, nil
+		case 32:
+			return ConfidentialP2Wsh, nil
+		default:
+			return 0, errors.New("invalid program Length")
+		}
 	}
+
+	if fromBlech32.Version == 1 {
+		return ConfidentialP2TR, nil
+	}
+
+	return 0, errors.New("invalid segwit version")
 }
 
 func isBech32(address string, net network.Network) bool {
@@ -597,14 +601,23 @@ func decodeBech32(address string, net network.Network) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	switch len(fromBech32.Program) {
-	case 20:
-		return P2Wpkh, nil
-	case 32:
-		return P2Wsh, nil
-	default:
-		return 0, errors.New("invalid program Length")
+
+	if fromBech32.Version == 0 {
+		switch len(fromBech32.Program) {
+		case 20:
+			return P2Wpkh, nil
+		case 32:
+			return P2Wsh, nil
+		default:
+			return 0, errors.New("invalid program Length")
+		}
 	}
+
+	if fromBech32.Version == 1 {
+		return P2TR, nil
+	}
+
+	return 0, errors.New("invalid segwit version")
 }
 
 func decodeBase58(address string, net network.Network) (int, error) {

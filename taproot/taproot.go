@@ -121,13 +121,13 @@ func (t *TapscriptElementsProof) ToControlBlock(internalKey *btcec.PublicKey) Co
 	// Compute the total level output commitment based on the populated
 	// root node.
 	rootHash := t.RootNode.TapHash()
-	taprootKey := txscript.ComputeTaprootOutputKey(
+	taprootKey := ComputeTaprootOutputKey(
 		internalKey, rootHash[:],
 	)
 
 	// With the commitment computed we can obtain the bit that denotes if
 	// the resulting key has an odd y coordinate or not.
-	var outputKeyYIsOdd bool
+	outputKeyYIsOdd := false
 	if taprootKey.SerializeCompressed()[0] == secp.PubKeyFormatCompressedOdd {
 		outputKeyYIsOdd = true
 	}

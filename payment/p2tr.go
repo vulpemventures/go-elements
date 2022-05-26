@@ -11,6 +11,7 @@ import (
 	"github.com/vulpemventures/go-elements/taproot"
 )
 
+// TaprootPaymentData is included in Payment struct to store Taproot-related data
 type TaprootPaymentData struct {
 	XOnlyTweakedKey    []byte
 	XOnlyInternalKey   []byte
@@ -18,7 +19,8 @@ type TaprootPaymentData struct {
 	ScriptTree         *taproot.IndexedElementsTapScriptTree
 }
 
-func FromXOnlyTweakedKey(
+// FromTweakedKey creates a P2TR payment from a tweaked output key
+func FromTweakedKey(
 	tweakedKey *btcec.PublicKey,
 	net *network.Network,
 	blindingKey *btcec.PublicKey,
@@ -35,7 +37,7 @@ func FromXOnlyTweakedKey(
 		Network:     net,
 		BlindingKey: blindingKey,
 		Taproot: &TaprootPaymentData{
-			XOnlyTweakedKey: tweakedKey.SerializeCompressed()[1:],
+			XOnlyTweakedKey: schnorr.SerializePubKey(tweakedKey),
 		},
 	}, nil
 }
@@ -58,7 +60,7 @@ func FromTaprootScriptTreeHash(
 		Network:     net,
 		BlindingKey: blindingKey,
 		Taproot: &TaprootPaymentData{
-			XOnlyInternalKey:   internalKey.SerializeCompressed()[1:],
+			XOnlyInternalKey:   schnorr.SerializePubKey(internalKey),
 			RootScriptTreeHash: rootHash,
 		},
 	}, nil
@@ -82,14 +84,17 @@ func FromTaprootScriptTree(
 		Network:     net,
 		BlindingKey: blindingKey,
 		Taproot: &TaprootPaymentData{
-			XOnlyInternalKey: internalKey.SerializeCompressed()[1:],
+			XOnlyInternalKey: schnorr.SerializePubKey(internalKey),
 			ScriptTree:       tree,
 		},
 	}, nil
 }
 
 func (p *Payment) taprootBech32() (*address.Bech32, error) {
-	payload := &address.Bech32{p.Network.Bech32, 0x01, nil}
+	payload := &address.Bech32{
+		Prefix:  p.Network.Bech32,
+		Version: byte(0x01),
+	}
 	if p.Taproot.XOnlyTweakedKey != nil {
 		payload.Program = p.Taproot.XOnlyTweakedKey
 	} else if p.Taproot.XOnlyInternalKey != nil {
@@ -99,13 +104,13 @@ func (p *Payment) taprootBech32() (*address.Bech32, error) {
 		}
 
 		if p.Taproot.RootScriptTreeHash != nil {
-			payload.Program = taproot.ComputeTaprootOutputKey(internalKey, p.Taproot.RootScriptTreeHash.CloneBytes()).SerializeCompressed()[1:]
+			payload.Program = schnorr.SerializePubKey(taproot.ComputeTaprootOutputKey(internalKey, p.Taproot.RootScriptTreeHash.CloneBytes()))
 		} else {
 			if p.Taproot.ScriptTree == nil {
-				payload.Program = taproot.ComputeTaprootKeyNoScript(internalKey).SerializeCompressed()[1:]
+				payload.Program = schnorr.SerializePubKey(taproot.ComputeTaprootKeyNoScript(internalKey))
 			} else {
 				scriptTreeHash := p.Taproot.ScriptTree.RootNode.TapHash()
-				payload.Program = taproot.ComputeTaprootOutputKey(internalKey, scriptTreeHash.CloneBytes()).SerializeCompressed()[1:]
+				payload.Program = schnorr.SerializePubKey(taproot.ComputeTaprootOutputKey(internalKey, scriptTreeHash.CloneBytes()))
 			}
 		}
 	}
@@ -113,6 +118,11 @@ func (p *Payment) taprootBech32() (*address.Bech32, error) {
 	if payload.Program == nil {
 		return nil, errors.New("unable to compute taproot's tweaked key from payment data")
 	}
+
+	if len(payload.Program) != 32 {
+		return nil, errors.New("taproot's tweaked key has wrong length")
+	}
+
 	return payload, nil
 }
 
@@ -137,8 +147,12 @@ func (p *Payment) ConfidentialTaprootAddress() (string, error) {
 		return "", err
 	}
 
+	if p.BlindingKey == nil {
+		return "", errors.New("blinding key is required to derive confidential address")
+	}
+
 	payload := &address.Blech32{
-		Prefix:    bechTaproot.Prefix,
+		Prefix:    p.Network.Blech32,
 		Version:   bechTaproot.Version,
 		Program:   bechTaproot.Program,
 		PublicKey: p.BlindingKey.SerializeCompressed(),

@@ -37,11 +37,11 @@ var (
 		hdkeychain.HardenedKeyStart,
 	}
 	expectedExternalAddresses = []string{
-		"bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr",
-		"bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh",
+		"bc1p7dc2q9698j9zyy36g0ur7lhuaktjhg00svs2uk8rn9afffjtklls04jm3q",
+		"bc1pcuavrda9rpyeh9jz4mvvlg2a2sq7t0v944mqhymmd9fpc2thytcqpv9pw4",
 	}
 	expectedInternalAddresses = []string{
-		"bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7",
+		"bc1pesnjxgr8yyw57grwp7gmxgtvs06ne8l9a9mgrcqec3lsc5k52u0qv6x3gc",
 	}
 )
 
@@ -352,9 +352,10 @@ func TestTapscriptCommitmentVerification(t *testing.T) {
 				valid := err == nil
 
 				if valid != testCase.valid {
+
 					t.Fatalf("test case mismatch: expected "+
-						"valid=%v, got valid=%v", testCase.valid,
-						valid)
+						"valid=%v, got valid=%v (err: %s)", testCase.valid,
+						valid, err)
 				}
 			}
 

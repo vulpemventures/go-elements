@@ -1,16 +1,15 @@
 package blech32
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 )
 
 type EncodingType int64
 
-const UnknownVersion byte = 0x02
-
 const (
-	BLECH32  EncodingType = 1
+	BLECH32  EncodingType = 0x01
 	BLECH32M EncodingType = 0x455972a3350f7a1
 )
 
@@ -96,10 +95,10 @@ func Decode(addr string) (string, []byte, error) {
 		return hrp, data, err
 	}
 
-	if !verifyChecksum(hrp, data, encoding) {
+	if !verifyChecksum(hrp, append(data, checksum...), encoding) {
 		expected, err := toChars(createChecksum(hrp, data, encoding))
 		if err == nil {
-			return hrp, data, fmt.Errorf("expected checksum %v, got %v", expected, checksum)
+			return hrp, data, fmt.Errorf("expected checksum %v, got %v", expected, hex.EncodeToString(checksum))
 		} else {
 			return hrp, data, fmt.Errorf("invalid checksum")
 		}

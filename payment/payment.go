@@ -160,7 +160,7 @@ func FromScript(
 	case address.P2PkhScript:
 		scriptHash = outputScript[3 : len(outputScript)-2]
 		script = outputScript
-	case address.P2TR:
+	case address.P2TRScript:
 		tweakedKey = outputScript[2:]
 		script = outputScript
 	// multisig, here we do not calculate the hashes because this payment
@@ -275,7 +275,7 @@ func (p *Payment) ConfidentialWitnessPubKeyHash() (string, error) {
 	}
 	addr, err := address.ToBlech32(payload)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return addr, nil
 }

@@ -216,7 +216,7 @@ func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 			}
 
 			var value uint64 = 0
-			if len(input.Issuance.AssetAmount) == 9 {
+			if elementsutil.ValidElementValue(input.Issuance.AssetAmount) {
 				value, _ = elementsutil.ElementsToSatoshiValue(input.Issuance.AssetAmount)
 			}
 
@@ -244,9 +244,9 @@ func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 			// elements format, contains more than one byte. We simply ignore the
 			// token amount for reissuances.
 			if i := input.Issuance; !i.IsReissuance() && i.HasTokenAmount() {
-				value, err := elementsutil.ElementsToSatoshiValue(i.TokenAmount)
-				if err != nil {
-					return nil, err
+				var value uint64 = 0
+				if elementsutil.ValidElementValue(i.TokenAmount) {
+					value, _ = elementsutil.ElementsToSatoshiValue(i.TokenAmount)
 				}
 
 				var tokenFlag uint

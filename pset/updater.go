@@ -408,12 +408,14 @@ func (arg AddIssuanceArgs) validate() error {
 		return err
 	}
 
-	if len(arg.AssetAddress) <= 0 {
-		return errors.New("missing destination address for asset to issue")
-	}
+	if arg.AssetAmount > 0 {
+		if len(arg.AssetAddress) <= 0 {
+			return errors.New("missing destination address for asset to issue")
+		}
 
-	if _, err := address.DecodeType(arg.AssetAddress); err != nil {
-		return err
+		if _, err := address.DecodeType(arg.AssetAddress); err != nil {
+			return err
+		}
 	}
 
 	if arg.TokenAmount > 0 {

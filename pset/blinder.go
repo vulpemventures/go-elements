@@ -215,7 +215,10 @@ func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 				return nil, err
 			}
 
-			value, _ := elementsutil.ElementsToSatoshiValue(input.Issuance.AssetAmount)
+			var value uint64 = 0
+			if elementsutil.ValidElementValue(input.Issuance.AssetAmount) {
+				value, _ = elementsutil.ElementsToSatoshiValue(input.Issuance.AssetAmount)
+			}
 
 			// prepare the random asset and value blinding factors in case the
 			// issuance needs to be blinded, otherwise they're set to the 0 byte array
@@ -241,9 +244,9 @@ func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 			// elements format, contains more than one byte. We simply ignore the
 			// token amount for reissuances.
 			if i := input.Issuance; !i.IsReissuance() && i.HasTokenAmount() {
-				value, err := elementsutil.ElementsToSatoshiValue(i.TokenAmount)
-				if err != nil {
-					return nil, err
+				var value uint64 = 0
+				if elementsutil.ValidElementValue(i.TokenAmount) {
+					value, _ = elementsutil.ElementsToSatoshiValue(i.TokenAmount)
 				}
 
 				var tokenFlag uint
@@ -519,7 +522,6 @@ func (b *Blinder) createBlindedOutputs(
 			ValueBlindFactor:    outVbf,
 			ValueCommit:         valueCommitment[:],
 			ScriptPubkey:        outputScript,
-			MinValue:            1,
 			Exp:                 0,
 			MinBits:             52,
 		}
@@ -573,9 +575,9 @@ func (b *Blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 		return err
 	}
 
-	assetAmountSatoshi, err := elementsutil.ElementsToSatoshiValue(assetAmount)
-	if err != nil {
-		return err
+	var assetAmountSatoshi uint64 = 0
+	if len(assetAmount) == 9 {
+		assetAmountSatoshi, _ = elementsutil.ElementsToSatoshiValue(assetAmount)
 	}
 
 	valueCommitment, err := confidential.ValueCommitment(
@@ -601,7 +603,6 @@ func (b *Blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 		ValueBlindFactor:    vbf32,
 		ValueCommit:         valueCommitment[:],
 		ScriptPubkey:        []byte{},
-		MinValue:            1,
 		Exp:                 0,
 		MinBits:             52,
 	}
@@ -654,7 +655,6 @@ func (b *Blinder) blindToken(index int, token, vbf, abf []byte) error {
 		ValueBlindFactor:    vbf32,
 		ValueCommit:         valueCommitment[:],
 		ScriptPubkey:        []byte{},
-		MinValue:            1,
 		Exp:                 0,
 		MinBits:             52,
 	}

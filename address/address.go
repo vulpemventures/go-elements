@@ -164,9 +164,22 @@ func ToBech32(bc *Bech32) (string, error) {
 	combined := make([]byte, len(converted)+1)
 	combined[0] = bc.Version
 	copy(combined[1:], converted)
-	bech, err := bech32.Encode(bc.Prefix, combined)
-	if err != nil {
-		return "", err
+
+	var bech string
+
+	switch bc.Version {
+	case 0:
+		bech, err = bech32.Encode(bc.Prefix, combined)
+		if err != nil {
+			return "", err
+		}
+	case 1:
+		bech, err = bech32.EncodeM(bc.Prefix, combined)
+		if err != nil {
+			return "", err
+		}
+	default:
+		return "", errors.New("unsupported witness version")
 	}
 
 	return bech, nil

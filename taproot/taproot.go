@@ -22,7 +22,8 @@ var (
 const (
 
 	// BaseElementsLeafVersion defines the base leaf version for elements chains
-	// Bitcoin is using 0xc0
+	// leaf with base leaf version are called "tapscript"
+	// Bitcoin is using 0xc0, Elements is using 0xc4
 	BaseElementsLeafVersion txscript.TapscriptLeafVersion = 0xc4
 )
 

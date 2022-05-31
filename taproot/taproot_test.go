@@ -2,7 +2,6 @@ package taproot_test
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"testing"
 	"testing/quick"
@@ -21,9 +20,6 @@ import (
 )
 
 var (
-	testPubBytes, _ = hex.DecodeString("F9308A019258C31049344F85F89D5229B" +
-		"531C845836F99B08601F113BCE036F9")
-
 	// rootKey is the test root key defined in the test vectors:
 	// https://github.com/bitcoin/bips/blob/master/bip-0086.mediawiki
 	rootKey, _ = hdkeychain.NewKeyFromString(

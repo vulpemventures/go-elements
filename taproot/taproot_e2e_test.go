@@ -57,7 +57,169 @@ func TestKeyPathSpend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
+
+	faucetTx, err := fetchTx(txID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var utxo *transaction.TxOutput
+	var vout int
+	for index, out := range faucetTx.Outputs {
+		if bytes.Equal(out.Script, taprootScript) {
+			utxo = out
+			vout = index
+			break
+		}
+	}
+
+	if utxo == nil {
+		t.Fatal("could not find utxo")
+	}
+
+	lbtc, _ := hex.DecodeString(
+		"5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225",
+	)
+	lbtc = append([]byte{0x01}, elementsutil.ReverseBytes(lbtc)...)
+
+	hash := faucetTx.TxHash()
+	txInput := transaction.NewTxInput(hash[:], uint32(vout))
+
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
+	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
+	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
+
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], taprootScript) // address reuse here (change = input's script)
+
+	feeScript := []byte{}
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
+
+	p, _ := pset.New([]*transaction.TxInput{txInput}, []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}, 2, 0)
+
+	updater, err := pset.NewUpdater(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updater.AddInSighashType(txscript.SigHashDefault, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updater.AddInWitnessUtxo(utxo, 0)
+
+	blindDataLike := make([]pset.BlindingDataLike, 1)
+	blindDataLike[0] = pset.PrivateBlindingKey(blindingKey.Serialize())
+
+	outputPubKeyByIndex := make(map[int][]byte)
+	outputPubKeyByIndex[0] = blindingKey.PubKey().SerializeCompressed()
+	outputPubKeyByIndex[1] = blindingKey.PubKey().SerializeCompressed()
+
+	blinder, _ := pset.NewBlinder(
+		p,
+		blindDataLike,
+		outputPubKeyByIndex,
+		nil,
+		nil,
+	)
+
+	err = blinder.Blind()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unsignedTx := p.UnsignedTx
+	// Sign step
+
+	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
+
+	prevoutAssetValue := []struct {
+		Asset []byte
+		Value []byte
+	}{
+		{
+			Asset: utxo.Asset,
+			Value: utxo.Value,
+		},
+	}
+
+	sighash := unsignedTx.HashForWitnessV1(
+		0,
+		[][]byte{
+			utxo.Script,
+		},
+		prevoutAssetValue,
+		txscript.SigHashDefault,
+		genesisBlockhash,
+		nil,
+		nil,
+	)
+
+	tweakedPrivKey := taproot.TweakTaprootPrivKey(privateKey, []byte{})
+
+	sig, err := schnorr.Sign(tweakedPrivKey, sighash[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unsignedTx.Inputs[0].Witness = transaction.TxWitness{
+		sig.Serialize(),
+	}
+
+	signed, err := unsignedTx.ToHex()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = broadcast(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.NotEmpty(t, txID)
+}
+
+func TestTapscriptSpend(t *testing.T) {
+	privateKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blindingKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checksigSchnorrScript, err := txscript.NewScriptBuilder().AddData(schnorr.SerializePubKey(privateKey.PubKey())).AddOp(txscript.OP_CHECKSIG).Script()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tree := taproot.AssembleTaprootScriptTree(taproot.NewBaseTapElementsLeaf(checksigSchnorrScript))
+
+	taprootPay, err := payment.FromTaprootScriptTree(privateKey.PubKey(), tree, &network.Regtest, blindingKey.PubKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := taprootPay.ConfidentialTaprootAddress()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	taprootScript, err := address.ToOutputScript(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txID, err := faucet(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(5 * time.Second)
 
 	faucetTx, err := fetchTx(txID)
 	if err != nil {
@@ -134,7 +296,6 @@ func TestKeyPathSpend(t *testing.T) {
 	unsignedTx := p.UnsignedTx
 
 	// Sign step
-
 	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
 
 	prevoutAssetValue := []struct {
@@ -147,6 +308,9 @@ func TestKeyPathSpend(t *testing.T) {
 		},
 	}
 
+	leafProof := tree.LeafMerkleProofs[0]
+	leafHash := leafProof.TapHash()
+
 	sighash := unsignedTx.HashForWitnessV1(
 		0,
 		[][]byte{
@@ -155,23 +319,25 @@ func TestKeyPathSpend(t *testing.T) {
 		prevoutAssetValue,
 		txscript.SigHashDefault,
 		genesisBlockhash,
-		nil,
+		&leafHash,
 		nil,
 	)
 
-	tweakedPrivKey := taproot.TweakTaprootPrivKey(privateKey, nil)
-
-	sig, err := schnorr.Sign(tweakedPrivKey, sighash[:])
+	sig, err := schnorr.Sign(privateKey, sighash[:])
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sig.Verify(sighash[:], privateKey.PubKey()) {
-		t.Fatal("invalid schnorr signature")
+	controlBlock := leafProof.ToControlBlock(privateKey.PubKey())
+	controlBlockBytes, err := controlBlock.ToBytes()
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	unsignedTx.Inputs[0].Witness = transaction.TxWitness{
 		sig.Serialize(),
+		leafProof.Script,
+		controlBlockBytes,
 	}
 
 	signed, err := unsignedTx.ToHex()
@@ -246,44 +412,6 @@ func apiBaseUrl() (string, error) {
 		return "", errors.New("API_URL environment variable is not set")
 	}
 	return u, nil
-}
-
-func unspents(address string) ([]map[string]interface{}, error) {
-	getUtxos := func(address string) ([]interface{}, error) {
-		baseUrl, err := apiBaseUrl()
-		if err != nil {
-			return nil, err
-		}
-		url := fmt.Sprintf("%s/address/%s/utxo", baseUrl, address)
-		resp, err := http.Get(url)
-		if err != nil {
-			return nil, err
-		}
-		data, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		var respBody interface{}
-		if err := json.Unmarshal(data, &respBody); err != nil {
-			return nil, err
-		}
-		return respBody.([]interface{}), nil
-	}
-
-	utxos := []map[string]interface{}{}
-	for len(utxos) <= 0 {
-		time.Sleep(1 * time.Second)
-		u, err := getUtxos(address)
-		if err != nil {
-			return nil, err
-		}
-		for _, unspent := range u {
-			utxo := unspent.(map[string]interface{})
-			utxos = append(utxos, utxo)
-		}
-	}
-
-	return utxos, nil
 }
 
 func fetchTx(txId string) (*transaction.Transaction, error) {

@@ -11,6 +11,10 @@ import (
 	"github.com/vulpemventures/go-elements/taproot"
 )
 
+const (
+	segwitVersion = byte(0x01)
+)
+
 // TaprootPaymentData is included in Payment struct to store Taproot-related data
 type TaprootPaymentData struct {
 	XOnlyTweakedKey    []byte
@@ -93,7 +97,7 @@ func FromTaprootScriptTree(
 func (p *Payment) taprootBech32() (*address.Bech32, error) {
 	payload := &address.Bech32{
 		Prefix:  p.Network.Bech32,
-		Version: byte(0x01),
+		Version: segwitVersion,
 	}
 	if p.Taproot.XOnlyTweakedKey != nil {
 		payload.Program = p.Taproot.XOnlyTweakedKey

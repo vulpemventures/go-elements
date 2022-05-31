@@ -941,7 +941,7 @@ func calcTxIssuancesHash(ins []*TxInput) [32]byte {
 
 func calcTxIssuancesSingleHash(ins []*TxInput) [32]byte {
 	s := serializeIssuances(ins)
-	return chainhash.DoubleHashH(s.Bytes())
+	return chainhash.HashH(s.Bytes())
 }
 
 func serializeOutputs(outs []*TxOutput) *bufferutil.Serializer {
@@ -1003,13 +1003,13 @@ func calcIssuanceProofsSingleHash(ins []*TxInput) [32]byte {
 		if in.IssuanceRangeProof != nil {
 			s.WriteVarSlice(in.IssuanceRangeProof)
 		} else {
-			s.WriteVarSlice([]byte{0x00})
+			s.WriteVarSlice([]byte{})
 		}
 
 		if in.InflationRangeProof != nil {
 			s.WriteVarSlice(in.InflationRangeProof)
 		} else {
-			s.WriteVarSlice([]byte{0x00})
+			s.WriteVarSlice([]byte{})
 		}
 	}
 	return chainhash.HashH(s.Bytes())
@@ -1021,13 +1021,13 @@ func calcOutputWitnessesSingleHash(outs []*TxOutput) [32]byte {
 		if out.SurjectionProof != nil {
 			s.WriteVarSlice(out.SurjectionProof)
 		} else {
-			s.WriteVarSlice([]byte{0x00})
+			s.WriteVarSlice([]byte{})
 		}
 
 		if out.RangeProof != nil {
 			s.WriteVarSlice(out.RangeProof)
 		} else {
-			s.WriteVarSlice([]byte{0x00})
+			s.WriteVarSlice([]byte{})
 		}
 	}
 	return chainhash.HashH(s.Bytes())

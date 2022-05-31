@@ -490,22 +490,34 @@ func ToOutputScript(address string) ([]byte, error) {
 			AddData(scriptHash).
 			AddOp(txscript.OP_EQUAL).
 			Script()
-	case P2Wpkh, P2Wsh:
+	case P2Wpkh, P2Wsh, P2TR:
 		fromBech32, err := FromBech32(address)
 		if err != nil {
 			return nil, err
 		}
+
+		versionOpcode := byte(txscript.OP_0)
+		if fromBech32.Version == 1 {
+			versionOpcode = txscript.OP_1
+		}
+
 		return txscript.NewScriptBuilder().
-			AddOp(txscript.OP_0).
+			AddOp(versionOpcode).
 			AddData(fromBech32.Program).
 			Script()
-	case ConfidentialP2Wpkh, ConfidentialP2Wsh:
+	case ConfidentialP2Wpkh, ConfidentialP2Wsh, ConfidentialP2TR:
 		fromBlech32, err := FromBlech32(address)
 		if err != nil {
 			return nil, err
 		}
+
+		versionOpcode := byte(txscript.OP_0)
+		if fromBlech32.Version == 1 {
+			versionOpcode = txscript.OP_1
+		}
+
 		return txscript.NewScriptBuilder().
-			AddOp(txscript.OP_0).
+			AddOp(versionOpcode).
 			AddData(fromBlech32.Program).
 			Script()
 	default:

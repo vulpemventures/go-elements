@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/elementsutil"
 )
@@ -201,6 +202,54 @@ func TestHashForWitnessV0(t *testing.T) {
 		value, _ := elementsutil.SatoshiToElementsValue(uint64(testVector["amount"].(float64)))
 
 		hash := tx.HashForWitnessV0(inIndex, script, value[:], hashType)
+		expectedHash := testVector["expectedHash"].(string)
+		if res := hex.EncodeToString(hash[:]); res != expectedHash {
+			t.Fatalf("Got: %s, expected: %s", res, expectedHash)
+		}
+	}
+}
+
+func TestHashForWitnessV1(t *testing.T) {
+	file, err := ioutil.ReadFile("data/tx_valid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests map[string]interface{}
+	json.Unmarshal(file, &tests)
+
+	for _, v := range tests["txHashForWitnessV1"].([]interface{}) {
+		testVector := v.(map[string]interface{})
+		tx, err := NewTxFromHex(testVector["txHex"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		scripts := make([][]byte, 0)
+		assetValuePairs := make([]struct {
+			Asset []byte
+			Value []byte
+		}, 0)
+
+		prevouts := testVector["prevouts"].([]interface{})
+		for _, prevout := range prevouts {
+			prev := prevout.(map[string]interface{})
+			scriptBytes, _ := hex.DecodeString(prev["script"].(string))
+			valueBytes, _ := hex.DecodeString(prev["value"].(string))
+			assetBytes, _ := hex.DecodeString(prev["asset"].(string))
+			scripts = append(scripts, scriptBytes)
+			assetValuePairs = append(assetValuePairs, struct {
+				Asset []byte
+				Value []byte
+			}{
+				Asset: assetBytes,
+				Value: valueBytes,
+			})
+		}
+
+		inIndex := testVector["inIndex"].(float64)
+		genesisHash, _ := chainhash.NewHashFromStr(testVector["genesisHash"].(string))
+
+		hash := tx.HashForWitnessV1(int(inIndex), scripts, assetValuePairs, txscript.SigHashDefault, genesisHash, nil, nil)
 		expectedHash := testVector["expectedHash"].(string)
 		if res := hex.EncodeToString(hash[:]); res != expectedHash {
 			t.Fatalf("Got: %s, expected: %s", res, expectedHash)

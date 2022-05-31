@@ -21,6 +21,9 @@ const (
 	advancedTransactionFlag   = uint8(0x01)
 	advancedTransactionMarker = uint8(0x00)
 	defaultTxInOutAlloc       = 15
+
+	sighashInputMask  = uint8(0x80)
+	sighashOutputMask = uint8(0x03)
 )
 
 var (
@@ -653,6 +656,11 @@ func (tx *Transaction) HashForWitnessV1(
 	leafHash *chainhash.Hash,
 	annex []byte, // for future tapscript update
 ) [32]byte {
+	extflag := 0x00
+	if leafHash != nil {
+		extflag = 0x01
+	}
+
 	hashInputs := Zero
 	hashSequences := Zero
 	hashIssuances := Zero
@@ -664,16 +672,6 @@ func (tx *Transaction) HashForWitnessV1(
 	hashIssuancesProofs := Zero  // issuance proofs
 	hashOutputsWitnesses := Zero // blinding witnesses
 	hashSpentAssetValues := Zero
-
-	// spend type determine which type of taproot redeem is used
-	spendType := 0
-	if leafHash != nil {
-		spendType = 2
-	}
-
-	if annex != nil {
-		spendType += 1
-	}
 
 	// Inputs
 	if (hashType & txscript.SigHashAnyOneCanPay) == 0 {
@@ -703,6 +701,15 @@ func (tx *Transaction) HashForWitnessV1(
 		}
 	}
 
+	var inputType, outputType uint8
+
+	inputType = uint8(hashType) & sighashInputMask
+	if hashType == txscript.SigHashDefault {
+		outputType = uint8(txscript.SigHashAll)
+	} else {
+		outputType = uint8(hashType) & sighashOutputMask
+	}
+
 	s, _ := bufferutil.NewSerializer(nil)
 	input := tx.Inputs[inIndex]
 
@@ -713,7 +720,7 @@ func (tx *Transaction) HashForWitnessV1(
 	s.WriteUint32(uint32(tx.Version))
 	s.WriteUint32(tx.Locktime)
 
-	if (hashType & txscript.SigHashAnyOneCanPay) == 0 {
+	if inputType != uint8(txscript.SigHashAnyOneCanPay) {
 		s.WriteSlice(hashOutpointsFlag[:])
 		s.WriteSlice(hashInputs[:])
 		s.WriteSlice(hashSpentAssetValues[:])
@@ -723,14 +730,19 @@ func (tx *Transaction) HashForWitnessV1(
 		s.WriteSlice(hashIssuancesProofs[:])
 	}
 
-	if (hashType&0x1f) != txscript.SigHashSingle &&
-		(hashType&0x1f) != txscript.SigHashNone {
+	if txscript.SigHashType(outputType) != txscript.SigHashSingle &&
+		txscript.SigHashType(outputType) != txscript.SigHashNone {
 		s.WriteSlice(hashOutputs[:])
 		s.WriteSlice(hashOutputsWitnesses[:])
 	}
 
+	spendType := extflag << 1
+	if annex != nil {
+		spendType |= 1
+	}
 	s.WriteUint8(uint8(spendType))
-	if (hashType & txscript.SigHashAnyOneCanPay) != 0 {
+
+	if txscript.SigHashType(inputType) == txscript.SigHashAnyOneCanPay {
 		s.WriteUint8(calcInputFlag(input))
 		s.WriteSlice(input.Hash)
 		s.WriteUint32(input.Index)
@@ -760,15 +772,10 @@ func (tx *Transaction) HashForWitnessV1(
 		s.WriteSlice(singlehash[:])
 	}
 
-	// is single
-	if (hashType & 0x1f) == txscript.SigHashSingle {
-		s.WriteSlice(hashOutputs[:])
-	}
-
 	if leafHash != nil {
 		s.WriteSlice(leafHash[:])
-		s.WriteUint8(0)
-		s.WriteUint32(0xffffffff)
+		s.WriteUint8(0)           // key version (XOnly 32 bytes now) - may change in future update
+		s.WriteUint32(0xffffffff) // constant separator
 	}
 
 	return *chainhash.TaggedHash(taproot.TagTapSighashElements, s.Bytes())
@@ -945,7 +952,7 @@ func serializeIssuances(ins []*TxInput) *bufferutil.Serializer {
 			s.WriteSlice(iss.AssetAmount)
 			s.WriteSlice(iss.TokenAmount)
 		} else {
-			s.WriteSlice([]byte{0x00})
+			s.WriteUint8(0x00)
 		}
 	}
 	return s

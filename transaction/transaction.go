@@ -661,46 +661,6 @@ func (tx *Transaction) HashForWitnessV1(
 		extflag = 0x01
 	}
 
-	hashInputs := Zero
-	hashSequences := Zero
-	hashIssuances := Zero
-	hashOutputs := Zero
-	hashScriptPubKeys := Zero // new from taproot update
-
-	// elements add additionnal data to the hash
-	hashOutpointsFlag := Zero    // pegin & issuance flags
-	hashIssuancesProofs := Zero  // issuance proofs
-	hashOutputsWitnesses := Zero // blinding witnesses
-	hashSpentAssetValues := Zero
-
-	// Inputs
-	if (hashType & txscript.SigHashAnyOneCanPay) == 0 {
-		hashInputs = calcTxInputsSingleHash(tx.Inputs)
-		hashScriptPubKeys = calcScriptPubKeysSingleHash(prevoutsScripts)
-		hashOutpointsFlag = calcOutpointsFlagsSingleHash(tx.Inputs)
-		hashSpentAssetValues = calcAssetAmountSingleHash(prevoutsAssetValues)
-		hashIssuances = calcTxIssuancesSingleHash(tx.Inputs)
-		hashIssuancesProofs = calcIssuanceProofsSingleHash(tx.Inputs)
-	}
-	// Sequences
-	if (hashType&txscript.SigHashAnyOneCanPay) == 0 &&
-		(hashType&0x1f) != txscript.SigHashSingle &&
-		(hashType&0x1f) != txscript.SigHashNone {
-		hashSequences = calcTxSequencesSingleHash(tx.Inputs)
-	}
-
-	// Outputs
-	if (hashType&0x1f) != txscript.SigHashSingle &&
-		(hashType&0x1f) != txscript.SigHashNone {
-		hashOutputs = calcTxOutputsSingleHash(tx.Outputs)
-		hashOutputsWitnesses = calcOutputWitnessesSingleHash(tx.Outputs)
-	} else {
-		if (hashType&0x1f) == txscript.SigHashSingle && inIndex < len(tx.Outputs) {
-			hashOutputs = calcTxOutputsSingleHash([]*TxOutput{tx.Outputs[inIndex]})
-			hashOutputsWitnesses = calcOutputWitnessesSingleHash([]*TxOutput{tx.Outputs[inIndex]})
-		}
-	}
-
 	var inputType, outputType uint8
 
 	inputType = uint8(hashType) & sighashInputMask
@@ -713,14 +673,22 @@ func (tx *Transaction) HashForWitnessV1(
 	s, _ := bufferutil.NewSerializer(nil)
 	input := tx.Inputs[inIndex]
 
-	s.WriteSlice(genesisBlockHash[:])
-	s.WriteSlice(genesisBlockHash[:])
+	s.WriteSlice(genesisBlockHash.CloneBytes())
+	s.WriteSlice(genesisBlockHash.CloneBytes())
 	s.WriteUint8(uint8(hashType))
 
 	s.WriteUint32(uint32(tx.Version))
 	s.WriteUint32(tx.Locktime)
 
 	if inputType != uint8(txscript.SigHashAnyOneCanPay) {
+		hashInputs := calcTxInputsSingleHash(tx.Inputs)
+		hashScriptPubKeys := calcScriptPubKeysSingleHash(prevoutsScripts)
+		hashOutpointsFlag := calcOutpointsFlagsSingleHash(tx.Inputs)
+		hashSpentAssetValues := calcAssetAmountSingleHash(prevoutsAssetValues)
+		hashSequences := calcTxSequencesSingleHash(tx.Inputs)
+		hashIssuances := calcTxIssuancesSingleHash(tx.Inputs)
+		hashIssuancesProofs := calcIssuanceProofsSingleHash(tx.Inputs)
+
 		s.WriteSlice(hashOutpointsFlag[:])
 		s.WriteSlice(hashInputs[:])
 		s.WriteSlice(hashSpentAssetValues[:])
@@ -730,8 +698,16 @@ func (tx *Transaction) HashForWitnessV1(
 		s.WriteSlice(hashIssuancesProofs[:])
 	}
 
-	if txscript.SigHashType(outputType) != txscript.SigHashSingle &&
-		txscript.SigHashType(outputType) != txscript.SigHashNone {
+	if outputType == uint8(txscript.SigHashAll) {
+		hashOutputs := calcTxOutputsSingleHash(tx.Outputs)
+		hashOutputsWitnesses := calcOutputWitnessesSingleHash(tx.Outputs)
+		s.WriteSlice(hashOutputs[:])
+		s.WriteSlice(hashOutputsWitnesses[:])
+	}
+
+	if outputType == uint8(txscript.SigHashSingle) && inIndex < len(tx.Outputs) {
+		hashOutputs := calcTxOutputsSingleHash([]*TxOutput{tx.Outputs[inIndex]})
+		hashOutputsWitnesses := calcOutputWitnessesSingleHash([]*TxOutput{tx.Outputs[inIndex]})
 		s.WriteSlice(hashOutputs[:])
 		s.WriteSlice(hashOutputsWitnesses[:])
 	}
@@ -742,7 +718,7 @@ func (tx *Transaction) HashForWitnessV1(
 	}
 	s.WriteUint8(uint8(spendType))
 
-	if txscript.SigHashType(inputType) == txscript.SigHashAnyOneCanPay {
+	if inputType == uint8(txscript.SigHashAnyOneCanPay) {
 		s.WriteUint8(calcInputFlag(input))
 		s.WriteSlice(input.Hash)
 		s.WriteUint32(input.Index)
@@ -991,6 +967,7 @@ func calcTxOutputsSingleHash(outs []*TxOutput) [32]byte {
 
 func calcInputFlag(i *TxInput) uint8 {
 	flag := uint8(0)
+
 	if i.Issuance != nil {
 		flag |= OutpointIssuanceFlag >> 24
 	}

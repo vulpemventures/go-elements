@@ -4,8 +4,14 @@ import (
 	"crypto/sha256"
 	"errors"
 
+	"github.com/btcsuite/btcd/txscript"
+
 	"github.com/vulpemventures/go-elements/transaction"
 	"github.com/vulpemventures/go-secp256k1-zkp"
+)
+
+const (
+	maxScriptSize = 10000
 )
 
 // NonceHash method generates hashed secret based on ecdh.
@@ -107,16 +113,21 @@ type RangeProofArgs struct {
 	ValueBlindFactor    [32]byte
 	ValueCommit         []byte
 	ScriptPubkey        []byte
-	MinValue            uint64
 	Exp                 int
 	MinBits             int
 }
 
 func (a RangeProofArgs) minValue() uint64 {
-	if a.MinValue <= 0 {
-		return 1
+	if isUnSpendable(a.ScriptPubkey) {
+		return 0
 	}
-	return a.MinValue
+
+	return 1
+}
+
+func isUnSpendable(script []byte) bool {
+	return (len(script) > 0 && script[0] == txscript.OP_RETURN) ||
+		(len(script) > maxScriptSize) || (len(script) == 0)
 }
 
 func (a RangeProofArgs) exp() int {

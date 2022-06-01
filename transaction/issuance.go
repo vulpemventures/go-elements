@@ -119,13 +119,14 @@ func NewTxIssuance(
 		contractHash = chainhash.HashB(tmp)
 	}
 
-	confAssetAmount, err := toConfidentialAssetAmount(
+	confAssetAmount, err := toConfidentialIssuanceAmount(
 		assetAmount,
 	)
 	if err != nil {
 		return nil, err
 	}
-	confTokenAmount, err := toConfidentialTokenAmount(
+
+	confTokenAmount, err := toConfidentialIssuanceAmount(
 		tokenAmount,
 	)
 	if err != nil {
@@ -204,15 +205,7 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 	return token[:], nil
 }
 
-func toConfidentialAssetAmount(assetAmount uint64) ([]byte, error) {
-	confAmount, err := elementsutil.SatoshiToElementsValue(assetAmount)
-	if err != nil {
-		return nil, err
-	}
-	return confAmount[:], nil
-}
-
-func toConfidentialTokenAmount(tokenAmount uint64) ([]byte, error) {
+func toConfidentialIssuanceAmount(tokenAmount uint64) ([]byte, error) {
 	if tokenAmount == 0 {
 		return []byte{0x00}, nil
 	}

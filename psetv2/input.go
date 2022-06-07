@@ -984,7 +984,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					if i.IssuanceBlindingNonce != nil {
 						return ErrDuplicateKey
 					}
-					if len(kp.Value) != 33 {
+					if len(kp.Value) != 32 {
 						return ErrInInvalidIssuanceBlindingNonce
 					}
 					i.IssuanceBlindingNonce = kp.Value

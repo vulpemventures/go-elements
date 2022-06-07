@@ -43,27 +43,29 @@ func NewSigner(pset *Pset) (*Signer, error) {
 func (s *Signer) SignInput(
 	inIndex int, sig, pubKey, redeemScript, witnessScript []byte,
 ) error {
-	if inIndex > len(s.Pset.Inputs)-1 {
+	if inIndex < 0 || inIndex >= int(s.Pset.Global.InputCount) {
 		return ErrInputIndexOutOfRange
 	}
 
 	p := s.Pset.Copy()
-	u := Updater{p}
+	input := s.Pset.Inputs[inIndex]
 
 	if isFinalized(p, inIndex) {
 		return nil
 	}
 
-	for _, out := range p.Outputs {
-		if out.IsBlinded() && !out.IsFullyBlinded() {
-			return ErrSignerForbiddenSigning
+	if (input.SigHashType & 0x1f) == txscript.SigHashAll {
+		for _, out := range p.Outputs {
+			if out.IsBlinded() && !out.IsFullyBlinded() {
+				return ErrSignerForbiddenSigning
+			}
 		}
 	}
 
 	// Add the witnessScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if witnessScript != nil {
-		if err := u.AddInWitnessScript(witnessScript, inIndex); err != nil {
+		if err := s.AddInWitnessScript(witnessScript, inIndex); err != nil {
 			return fmt.Errorf("failed to add input witness script: %s", err)
 		}
 	}
@@ -71,7 +73,7 @@ func (s *Signer) SignInput(
 	// Add the redeemScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if redeemScript != nil {
-		if err := u.AddInRedeemScript(redeemScript, inIndex); err != nil {
+		if err := s.AddInRedeemScript(redeemScript, inIndex); err != nil {
 			return fmt.Errorf("failed to add input redeem script: %s", err)
 		}
 	}
@@ -84,7 +86,7 @@ func (s *Signer) SignInput(
 	switch {
 	case p.Inputs[inIndex].WitnessScript != nil:
 		if p.Inputs[inIndex].WitnessUtxo == nil {
-			if err := u.nonWitnessToWitness(inIndex); err != nil {
+			if err := s.nonWitnessToWitness(inIndex); err != nil {
 				return fmt.Errorf(
 					"failed to parse non-witness to witness utxo: %s", err,
 				)
@@ -99,7 +101,7 @@ func (s *Signer) SignInput(
 		// we check the redeemScript content.
 		if txscript.IsWitnessProgram(redeemScript) {
 			if p.Inputs[inIndex].WitnessUtxo == nil {
-				if err := u.nonWitnessToWitness(inIndex); err != nil {
+				if err := s.nonWitnessToWitness(inIndex); err != nil {
 					return fmt.Errorf(
 						"failed to parse non-witness to witness utxo: %s", err,
 					)
@@ -116,7 +118,7 @@ func (s *Signer) SignInput(
 			script := s.Pset.Inputs[inIndex].NonWitnessUtxo.Outputs[outIndex].Script
 
 			if txscript.IsWitnessProgram(script) {
-				if err := u.nonWitnessToWitness(inIndex); err != nil {
+				if err := s.nonWitnessToWitness(inIndex); err != nil {
 					return fmt.Errorf(
 						"failed to parse non-witness to witness utxo: %s", err,
 					)
@@ -125,7 +127,7 @@ func (s *Signer) SignInput(
 		}
 	}
 
-	if err := u.addPartialSignature(inIndex, sig, pubKey); err != nil {
+	if err := s.addPartialSignature(inIndex, sig, pubKey); err != nil {
 		return fmt.Errorf("failed to add signature for input %d: %s", inIndex, err)
 	}
 

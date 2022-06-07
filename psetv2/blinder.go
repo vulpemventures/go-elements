@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+
+	"github.com/vulpemventures/go-elements/elementsutil"
 )
 
 const (
@@ -61,7 +63,8 @@ var (
 	// Blinder errors
 	ErrBlinderForbiddenBlinding  = fmt.Errorf("provided pset does not need to be blinded")
 	ErrBlinderMissingOwnedInputs = fmt.Errorf("missing list of owned inputs")
-	ErrBlinderMissingHandler     = fmt.Errorf("missing blinder handler")
+	ErrBlinderMissingValidator   = fmt.Errorf("missing blinding validator")
+	ErrBlinderMissingGenerator   = fmt.Errorf("missing blinding generator")
 )
 
 type OutputBlindingArgs struct {
@@ -259,13 +262,21 @@ func (i OwnedInput) validate(p *Pset) error {
 	return nil
 }
 
-type BlinderHandler interface {
-	// Checkers
-	// TODO: add methods for verification of range and surjection proofs
+type BlindingValidator interface {
+	VerifyValueRangeProof(
+		valueCommitment, assetCommitment, script, proof []byte,
+	) bool
+	VerifyAssetSurjectionProof(
+		inAssets, inAssetBlinders [][]byte,
+		outAsset, outAssetBlinder, proof []byte,
+	) bool
 	VerifyBlindValueProof(
 		value uint64, valueCommitment, assetCommitment, proof []byte,
 	) bool
 	VerifyBlindAssetProof(asset, assetCommitment, proof []byte) bool
+}
+
+type BlindingGenerator interface {
 	// Scalar methods
 	ComputeAndAddToScalarOffset(
 		scalar []byte, value uint64, assetBlinder, valueBlinder []byte,
@@ -283,13 +294,15 @@ type BlinderHandler interface {
 }
 
 type Blinder struct {
-	Pset           *Pset
-	OwnedInputs    []OwnedInput
-	blinderHandler BlinderHandler
+	Pset        *Pset
+	OwnedInputs []OwnedInput
+	validator   BlindingValidator
+	generator   BlindingGenerator
 }
 
 func NewBlinder(
-	p *Pset, ownedInputs []OwnedInput, blinderHandler BlinderHandler,
+	p *Pset, ownedInputs []OwnedInput,
+	validator BlindingValidator, generator BlindingGenerator,
 ) (*Blinder, error) {
 	if err := p.SanityCheck(); err != nil {
 		return nil, fmt.Errorf("invalid pset: %s", err)
@@ -307,11 +320,14 @@ func NewBlinder(
 		}
 	}
 
-	if blinderHandler == nil {
-		return nil, ErrBlinderMissingHandler
+	if validator == nil {
+		return nil, ErrBlinderMissingValidator
+	}
+	if generator == nil {
+		return nil, ErrBlinderMissingGenerator
 	}
 
-	return &Blinder{p, ownedInputs, blinderHandler}, nil
+	return &Blinder{p, ownedInputs, validator, generator}, nil
 }
 
 func (b *Blinder) BlindNonLast(
@@ -343,45 +359,22 @@ func (b *Blinder) blind(
 		}
 	}
 
+	// Make sure blinding args are ordered by index before validating.
+	sort.Slice(outBlindingArgs, func(i, j int) bool {
+		return outBlindingArgs[i].Index < outBlindingArgs[j].Index
+	})
 	// Validate output blinding args
 	for i, args := range outBlindingArgs {
 		isLastOuptut := isLastBlinder && i == len(outBlindingArgs)-1
 		if err := args.validate(b.Pset, isLastOuptut); err != nil {
 			return fmt.Errorf("invalid output blinding args %d: %s", i, err)
 		}
-		// Check that output can be blinded by the blinder
-		out := b.Pset.Outputs[args.Index]
-		if !b.ownOutput(out.BlinderIndex) {
-			return fmt.Errorf("cannot blind output %d not owned by us", args.Index)
-		}
-		if !b.blinderHandler.VerifyBlindAssetProof(
-			out.Asset, args.AssetCommitment, args.AssetBlindProof,
-		) {
-			return fmt.Errorf(
-				"invalid output blinding args %d: failed to verify blind asset proof",
-				i,
-			)
-		}
-		if len(args.ValueBlindProof) > 0 {
-			if !b.blinderHandler.VerifyBlindValueProof(
-				out.Value, args.ValueCommitment, args.AssetCommitment,
-				args.ValueBlindProof,
-			) {
-				return fmt.Errorf(
-					"invalid output blinding args %d: failed to verify blind value "+
-						"proof", i,
-				)
-			}
-		}
 	}
 
-	// Make sure the blinding args are sorted by output index
-	if !sort.SliceIsSorted(outBlindingArgs, func(i, j int) bool {
-		return outBlindingArgs[i].Index < outBlindingArgs[j].Index
-	}) {
-		sort.Slice(outBlindingArgs, func(i, j int) bool {
-			return outBlindingArgs[i].Index < outBlindingArgs[j].Index
-		})
+	if err := b.validateBlindingArgs(
+		isLastBlinder, inIssuanceBlindingArgs, outBlindingArgs,
+	); err != nil {
+		return err
 	}
 
 	inputScalar, err := b.calculateInputScalar(inIssuanceBlindingArgs)
@@ -419,20 +412,20 @@ func (b *Blinder) blind(
 		valueRangeProof := a.ValueRangeProof
 		valueBlindProof := a.ValueBlindProof
 		if isLastBlinder && i == len(outBlindingArgs)-1 {
-			valueCommitment, err = b.blinderHandler.LastValueCommitment(
+			valueCommitment, err = b.generator.LastValueCommitment(
 				out.Value, a.AssetCommitment, lastValueBlinder,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to generate last value commitment: %s", err)
 			}
-			valueRangeProof, err = b.blinderHandler.LastValueRangeProof(
+			valueRangeProof, err = b.generator.LastValueRangeProof(
 				out.Value, out.Asset, a.AssetBlinder, valueCommitment,
 				lastValueBlinder, out.Script, a.Nonce,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to generate last value range proof: %s", err)
 			}
-			valueBlindProof, err = b.blinderHandler.LastBlindValueProof(
+			valueBlindProof, err = b.generator.LastBlindValueProof(
 				out.Value, valueCommitment, a.AssetCommitment, lastValueBlinder,
 			)
 			if err != nil {
@@ -471,6 +464,105 @@ func (b *Blinder) ownOutput(blinderIndex uint32) bool {
 	return false
 }
 
+func (b *Blinder) validateBlindingArgs(
+	isLastBlinder bool, inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
+	outBlindingArgs []OutputBlindingArgs,
+) error {
+	isOwnedInput := func(index int) *OwnedInput {
+		for _, ownedIn := range b.OwnedInputs {
+			if ownedIn.Index == uint32(index) {
+				return &ownedIn
+			}
+		}
+		return nil
+	}
+	isBlindedIssuance := func(index int) bool {
+		for _, args := range inIssuanceBlindingArgs {
+			if args.Index == uint32(index) {
+				return true
+			}
+		}
+		return false
+	}
+
+	inAssets := make([][]byte, 0, b.Pset.Global.InputCount)
+	inAssetBlinders := make([][]byte, 0, b.Pset.Global.InputCount)
+	inIssuanceAssets := make([][]byte, 0, b.Pset.Global.InputCount)
+	inIssuanceAssetBlinders := make([][]byte, 0, b.Pset.Global.InputCount)
+	for i, in := range b.Pset.Inputs {
+		var asset, assetBlinder []byte
+		if ownedIn := isOwnedInput(i); ownedIn != nil {
+			buf, _ := elementsutil.AssetHashToBytes(ownedIn.Asset)
+			asset = buf[1:]
+			assetBlinder = ownedIn.AssetBlinder
+		} else {
+			asset = in.GetUtxo().Asset
+			assetBlinder = zeroBlinder
+		}
+		inAssets = append(inAssets, asset)
+		inAssetBlinders = append(inAssetBlinders, assetBlinder)
+
+		if in.HasIssuance() {
+			inIssuanceAssets = append(inIssuanceAssets, in.GetIssuanceAssetHash())
+			inIssuanceAssetBlinders = append(inIssuanceAssetBlinders, zeroBlinder)
+			if in.IssuanceInflationKeys > 0 {
+				inIssuanceAssets = append(inIssuanceAssets, in.GetIssuanceInflationKeysHash(isBlindedIssuance(i)))
+				inIssuanceAssetBlinders = append(inIssuanceAssetBlinders, zeroBlinder)
+			}
+		}
+	}
+
+	inAssets = append(inAssets, inIssuanceAssets...)
+	inAssetBlinders = append(inAssetBlinders, inIssuanceAssetBlinders...)
+
+	for i, args := range outBlindingArgs {
+		// Check that output can be blinded by the blinder
+		out := b.Pset.Outputs[args.Index]
+		if !b.ownOutput(out.BlinderIndex) {
+			return fmt.Errorf("cannot blind output %d not owned by us", args.Index)
+		}
+		if !b.validator.VerifyAssetSurjectionProof(
+			inAssets, inAssetBlinders, out.Asset, args.AssetBlinder,
+			args.AssetSurjectionProof,
+		) {
+			return fmt.Errorf(
+				"invalid output %d blinding args: failed to verify asset surjection "+
+					"proof", args.Index,
+			)
+		}
+		if !b.validator.VerifyBlindAssetProof(
+			out.Asset, args.AssetCommitment, args.AssetBlindProof,
+		) {
+			return fmt.Errorf(
+				"invalid output %d blinding args: failed to verify blind asset proof",
+				args.Index,
+			)
+		}
+		lastBlindingArgs := isLastBlinder && i == len(outBlindingArgs)-1
+		if !lastBlindingArgs {
+			if !b.validator.VerifyValueRangeProof(
+				args.ValueCommitment, args.AssetCommitment, out.Script, args.ValueRangeProof,
+			) {
+				return fmt.Errorf(
+					"invalid output %d blinding args: failed to verify value range proof",
+					args.Index,
+				)
+			}
+			if !b.validator.VerifyBlindValueProof(
+				out.Value, args.ValueCommitment, args.AssetCommitment,
+				args.ValueBlindProof,
+			) {
+				return fmt.Errorf(
+					"invalid output %d blinding args: failed to verify blind value "+
+						"proof", args.Index,
+				)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (b *Blinder) calculateInputScalar(
 	args []InputIssuanceBlindingArgs,
 ) ([]byte, error) {
@@ -486,7 +578,7 @@ func (b *Blinder) calculateInputScalar(
 	}
 
 	for _, ownedIn := range b.OwnedInputs {
-		scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(
+		scalar, err = b.generator.ComputeAndAddToScalarOffset(
 			scalar, ownedIn.Value, ownedIn.AssetBlinder, ownedIn.ValueBlinder,
 		)
 		if err != nil {
@@ -495,13 +587,13 @@ func (b *Blinder) calculateInputScalar(
 		in := b.Pset.Inputs[ownedIn.Index]
 		if in.HasIssuance() {
 			if issuance := maybeGetIssuanceArgs(ownedIn.Index); issuance != nil {
-				scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(
+				scalar, err = b.generator.ComputeAndAddToScalarOffset(
 					scalar, in.IssuanceValue, zeroBlinder, issuance.valueBlinder())
 				if err != nil {
 					return nil, err
 				}
 				if in.IssuanceInflationKeys > 0 {
-					scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(
+					scalar, err = b.generator.ComputeAndAddToScalarOffset(
 						scalar, in.IssuanceInflationKeys, zeroBlinder, issuance.tokenBlinder())
 					if err != nil {
 						return nil, err
@@ -521,7 +613,7 @@ func (b *Blinder) calculateOutputScalar(
 	var err error
 	for _, a := range args {
 		out := b.Pset.Outputs[a.Index]
-		scalar, err = b.blinderHandler.ComputeAndAddToScalarOffset(scalar, out.Value, a.AssetBlinder, a.ValueBlinder)
+		scalar, err = b.generator.ComputeAndAddToScalarOffset(scalar, out.Value, a.AssetBlinder, a.ValueBlinder)
 		if err != nil {
 			return nil, err
 		}
@@ -529,7 +621,7 @@ func (b *Blinder) calculateOutputScalar(
 	if !lastBlinder {
 		return scalar, nil
 	}
-	return b.blinderHandler.SubtractScalars(scalar, inputScalar)
+	return b.generator.SubtractScalars(scalar, inputScalar)
 }
 
 func (b *Blinder) calculateLastValueBlinder(
@@ -539,12 +631,12 @@ func (b *Blinder) calculateLastValueBlinder(
 		return nil, nil
 	}
 
-	lastBlinder, err := b.blinderHandler.SubtractScalars(args.ValueBlinder, outputScalar)
+	lastBlinder, err := b.generator.SubtractScalars(args.ValueBlinder, outputScalar)
 	if err != nil {
 		return nil, err
 	}
 	for _, s := range b.Pset.Global.Scalars {
-		lastBlinder, err = b.blinderHandler.SubtractScalars(lastBlinder, s)
+		lastBlinder, err = b.generator.SubtractScalars(lastBlinder, s)
 		if err != nil {
 			return nil, err
 		}

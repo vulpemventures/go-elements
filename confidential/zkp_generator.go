@@ -14,20 +14,20 @@ import (
 
 type RandomNumberGenerator func() ([]byte, error)
 
-type BlinderHandler struct {
+type zkpGenerator struct {
 	masterBlindingKey *slip77.Slip77
 	inBlindingKeys    [][]byte
 	rng               RandomNumberGenerator
 	ownedInputs       map[uint32]psetv2.OwnedInput
 }
 
-type BlinderHandlerOpts struct {
+type ZKPGeneratorOpts struct {
 	Rng RandomNumberGenerator
 }
 
-func NewBlinderHandlerFromMasterBlindingKey(
-	masterBlindingKey []byte, opts *BlinderHandlerOpts,
-) (*BlinderHandler, error) {
+func NewZKPGeneratorFromMasterBlindingKey(
+	masterBlindingKey []byte, opts *ZKPGeneratorOpts,
+) (*zkpGenerator, error) {
 	masterKey, err := slip77.FromMasterKey(masterBlindingKey)
 	if err != nil {
 		return nil, err
@@ -39,30 +39,30 @@ func NewBlinderHandlerFromMasterBlindingKey(
 		}
 	}
 
-	return &BlinderHandler{
+	return &zkpGenerator{
 		masterBlindingKey: masterKey,
 		rng:               rng,
 	}, nil
 }
 
-func NewBlinderHandlerFromBlindingKeys(
-	inBlindingKeys [][]byte, opts *BlinderHandlerOpts,
-) *BlinderHandler {
+func NewZKPGeneratorFromBlindingKeys(
+	inBlindingKeys [][]byte, opts *ZKPGeneratorOpts,
+) *zkpGenerator {
 	rng := generateRandomNumber
 	if opts != nil {
 		if opts.Rng != nil {
 			rng = opts.Rng
 		}
 	}
-	return &BlinderHandler{
+	return &zkpGenerator{
 		inBlindingKeys: inBlindingKeys,
 		rng:            rng,
 	}
 }
 
-func NewBlinderHandlerFromOwnedInputs(
-	ownedInputs map[uint32]psetv2.OwnedInput, opts *BlinderHandlerOpts,
-) (*BlinderHandler, error) {
+func NewZKPGeneratorFromOwnedInputs(
+	ownedInputs map[uint32]psetv2.OwnedInput, opts *ZKPGeneratorOpts,
+) (*zkpGenerator, error) {
 	for i, ownedIn := range ownedInputs {
 		if i != ownedIn.Index {
 			return nil, fmt.Errorf(
@@ -80,49 +80,37 @@ func NewBlinderHandlerFromOwnedInputs(
 		}
 	}
 
-	return &BlinderHandler{
+	return &zkpGenerator{
 		ownedInputs: ownedInputs,
 		rng:         rng,
 	}, nil
 }
 
-func (h *BlinderHandler) VerifyBlindValueProof(
-	value uint64, valueCommitment, assetCommitment, proof []byte,
-) bool {
-	return VerifyBlindValueProof(value, valueCommitment, assetCommitment, proof)
-}
-
-func (h *BlinderHandler) VerifyBlindAssetProof(
-	asset, assetCommitment, proof []byte,
-) bool {
-	return VerifyBlindAssetProof(asset, assetCommitment, proof)
-}
-
-func (h *BlinderHandler) ComputeAndAddToScalarOffset(
+func (g *zkpGenerator) ComputeAndAddToScalarOffset(
 	scalar []byte, value uint64, assetBlinder, valueBlinder []byte,
 ) ([]byte, error) {
 	return ComputeAndAddToScalarOffset(scalar, value, assetBlinder, valueBlinder)
 }
 
-func (h *BlinderHandler) SubtractScalars(a, b []byte) ([]byte, error) {
+func (g *zkpGenerator) SubtractScalars(a, b []byte) ([]byte, error) {
 	return SubtractScalars(a, b)
 }
 
-func (h *BlinderHandler) LastValueCommitment(
+func (g *zkpGenerator) LastValueCommitment(
 	value uint64, asset, blinder []byte,
 ) ([]byte, error) {
 	return ValueCommitment(value, asset, blinder)
 }
 
-func (h *BlinderHandler) LastBlindValueProof(
+func (g *zkpGenerator) LastBlindValueProof(
 	value uint64, valueCommitment, assetCommitment, blinder []byte,
 ) ([]byte, error) {
 	return CreateBlindValueProof(
-		h.rng, blinder, value, valueCommitment, assetCommitment,
+		g.rng, blinder, value, valueCommitment, assetCommitment,
 	)
 }
 
-func (h *BlinderHandler) LastValueRangeProof(
+func (g *zkpGenerator) LastValueRangeProof(
 	value uint64, asset, assetBlinder, valueCommitment, valueBlinder,
 	scriptPubkey, nonce []byte,
 ) ([]byte, error) {
@@ -143,7 +131,7 @@ func (h *BlinderHandler) LastValueRangeProof(
 	})
 }
 
-func (h *BlinderHandler) UnblindInputs(
+func (g *zkpGenerator) UnblindInputs(
 	p *psetv2.Pset, inputIndexes []uint32,
 ) ([]psetv2.OwnedInput, error) {
 	if err := validatePset(p); err != nil {
@@ -159,10 +147,10 @@ func (h *BlinderHandler) UnblindInputs(
 		}
 	}
 
-	if len(h.ownedInputs) > 0 {
+	if len(g.ownedInputs) > 0 {
 		ownedIns := make([]psetv2.OwnedInput, 0, len(inputIndexes))
 		for _, i := range inputIndexes {
-			if ownedIn, ok := h.ownedInputs[i]; ok {
+			if ownedIn, ok := g.ownedInputs[i]; ok {
 				ownedIns = append(ownedIns, ownedIn)
 			}
 		}
@@ -173,7 +161,7 @@ func (h *BlinderHandler) UnblindInputs(
 	for _, i := range inputIndexes {
 		in := p.Inputs[i]
 		prevout := in.GetUtxo()
-		revealedInput, err := h.unblindOutput(prevout)
+		revealedInput, err := g.unblindOutput(prevout)
 		if err != nil {
 			return nil, fmt.Errorf("input %d: %s", i, err)
 		}
@@ -184,7 +172,7 @@ func (h *BlinderHandler) UnblindInputs(
 	return revealedInputs, nil
 }
 
-func (h *BlinderHandler) BlindIssuances(
+func (g *zkpGenerator) BlindIssuances(
 	p *psetv2.Pset, blindingKeysByIndex map[uint32][]byte,
 ) ([]psetv2.InputIssuanceBlindingArgs, error) {
 	if err := validatePset(p); err != nil {
@@ -204,7 +192,7 @@ func (h *BlinderHandler) BlindIssuances(
 			tokenRangeProof, valueBlindProof, tokenBlindProof, valueBlinder,
 			tokenBlinder []byte
 		if in.IssuanceValue > 0 {
-			valueBlinder, err = h.rng()
+			valueBlinder, err = g.rng()
 			if err != nil {
 				return nil, fmt.Errorf(
 					"failed to generate value blinder for issuance of input %d: %s",
@@ -229,7 +217,7 @@ func (h *BlinderHandler) BlindIssuances(
 			}
 
 			valueBlindProof, err = CreateBlindValueProof(
-				h.rng, valueBlinder, in.IssuanceValue, valueCommitment,
+				g.rng, valueBlinder, in.IssuanceValue, valueCommitment,
 				assetCommitment,
 			)
 			if err != nil {
@@ -264,7 +252,7 @@ func (h *BlinderHandler) BlindIssuances(
 
 		if in.IssuanceInflationKeys > 0 {
 			token = in.GetIssuanceInflationKeysHash(true)
-			tokenBlinder, err = h.rng()
+			tokenBlinder, err = g.rng()
 			if err != nil {
 				return nil, fmt.Errorf(
 					"failed to generate value blinder for issuance of input %d: %s",
@@ -289,7 +277,7 @@ func (h *BlinderHandler) BlindIssuances(
 			}
 
 			tokenBlindProof, err = CreateBlindValueProof(
-				h.rng, tokenBlinder, in.IssuanceInflationKeys, tokenCommitment,
+				g.rng, tokenBlinder, in.IssuanceInflationKeys, tokenCommitment,
 				assetCommitment,
 			)
 			if err != nil {
@@ -340,7 +328,7 @@ func (h *BlinderHandler) BlindIssuances(
 	return blindingArgs, nil
 }
 
-func (h *BlinderHandler) BlindOutputs(
+func (g *zkpGenerator) BlindOutputs(
 	p *psetv2.Pset, outputIndexes []uint32,
 	inIssuances []psetv2.InputIssuanceBlindingArgs,
 ) ([]psetv2.OutputBlindingArgs, error) {
@@ -359,7 +347,7 @@ func (h *BlinderHandler) BlindOutputs(
 		}
 	}
 
-	maybeUnblindedIns := h.revealInputs(p.Inputs)
+	maybeUnblindedIns := g.revealInputs(p.Inputs)
 	inputAssets, inputAssetBlinders := maybeUnblindedIns.assetsAndBlinders()
 	for _, i := range inIssuances {
 		inputAssets = append(inputAssets, i.IssuanceAsset)
@@ -373,19 +361,19 @@ func (h *BlinderHandler) BlindOutputs(
 	blindedOutputs := make([]psetv2.OutputBlindingArgs, 0)
 	for _, i := range outputIndexes {
 		out := p.Outputs[i]
-		assetBlinder, err := h.rng()
+		assetBlinder, err := g.rng()
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to generate asset blinder for output %d: %s", i, err,
 			)
 		}
-		valueBlinder, err := h.rng()
+		valueBlinder, err := g.rng()
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to generate value blinder for output %d: %s", i, err,
 			)
 		}
-		seed, err := h.rng()
+		seed, err := g.rng()
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to generate random seed for output %d: %s", i, err,
@@ -457,7 +445,7 @@ func (h *BlinderHandler) BlindOutputs(
 		}
 
 		valueBlindProof, err := CreateBlindValueProof(
-			h.rng, valueBlinder, out.Value, valueCommitment, assetCommitment,
+			g.rng, valueBlinder, out.Value, valueCommitment, assetCommitment,
 		)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -492,7 +480,7 @@ func (h *BlinderHandler) BlindOutputs(
 	return blindedOutputs, nil
 }
 
-func (h *BlinderHandler) unblindOutput(
+func (g *zkpGenerator) unblindOutput(
 	out *transaction.TxOutput,
 ) (*psetv2.OwnedInput, error) {
 	if !out.IsConfidential() {
@@ -506,9 +494,9 @@ func (h *BlinderHandler) unblindOutput(
 		}, nil
 	}
 
-	blindingkeys := h.inBlindingKeys
-	if h.masterBlindingKey != nil {
-		blindingPrvkey, _, _ := h.masterBlindingKey.DeriveKey(out.Script)
+	blindingkeys := g.inBlindingKeys
+	if g.masterBlindingKey != nil {
+		blindingPrvkey, _, _ := g.masterBlindingKey.DeriveKey(out.Script)
 		blindingkeys = [][]byte{blindingPrvkey.Serialize()}
 	}
 
@@ -542,14 +530,14 @@ func (outs unblindedOuts) assetsAndBlinders() ([][]byte, [][]byte) {
 	return assets, assetBlinders
 }
 
-func (h *BlinderHandler) revealInputs(ins []psetv2.Input) unblindedOuts {
-	if len(h.ownedInputs) > 0 {
-		return sortUnblindedOuts(ins, h.ownedInputs)
+func (g *zkpGenerator) revealInputs(ins []psetv2.Input) unblindedOuts {
+	if len(g.ownedInputs) > 0 {
+		return sortUnblindedOuts(ins, g.ownedInputs)
 	}
-	return h.tryUnblindInputs(ins)
+	return g.tryUnblindInputs(ins)
 }
 
-func (h *BlinderHandler) tryUnblindInputs(ins []psetv2.Input) unblindedOuts {
+func (g *zkpGenerator) tryUnblindInputs(ins []psetv2.Input) unblindedOuts {
 	unblindedOuts := make(unblindedOuts, 0, len(ins))
 	for _, in := range ins {
 		prevout := in.GetUtxo()
@@ -558,9 +546,9 @@ func (h *BlinderHandler) tryUnblindInputs(ins []psetv2.Input) unblindedOuts {
 			AssetBlindingFactor: Zero,
 		}
 
-		blindingkeys := h.inBlindingKeys
-		if h.masterBlindingKey != nil {
-			blindingPrvkey, _, _ := h.masterBlindingKey.DeriveKey(prevout.Script)
+		blindingkeys := g.inBlindingKeys
+		if g.masterBlindingKey != nil {
+			blindingPrvkey, _, _ := g.masterBlindingKey.DeriveKey(prevout.Script)
 			blindingkeys = [][]byte{blindingPrvkey.Serialize()}
 		}
 

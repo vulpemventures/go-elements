@@ -172,6 +172,10 @@ func RangeProof(args RangeProofArgs) ([]byte, error) {
 	return rangeProof(args)
 }
 
+func VerifyRangeProof(valueCommitment, assetCommitment, script, proof []byte) bool {
+	return verifyRangeProof(valueCommitment, assetCommitment, script, proof)
+}
+
 type SurjectionProofArgs struct {
 	OutputAsset               []byte
 	OutputAssetBlindingFactor []byte
@@ -800,6 +804,23 @@ func rangeProof(args RangeProofArgs) ([]byte, error) {
 		args.exp(), args.minBits(), args.Value, message, args.ScriptPubkey,
 		generator,
 	)
+}
+
+func verifyRangeProof(valueCommitment, assetCommitment, script, proof []byte) bool {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	commit, err := secp256k1.CommitmentParse(ctx, valueCommitment)
+	if err != nil {
+		return false
+	}
+	gen, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	if err != nil {
+		return false
+	}
+
+	verified, _, _ := secp256k1.RangeProofVerify(ctx, proof, commit, script, gen)
+	return verified
 }
 
 func surjectionProof(args SurjectionProofArgs) ([]byte, bool) {

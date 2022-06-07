@@ -245,18 +245,21 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	require.NoError(t, err)
 
-	handler := confidential.NewBlinderHandlerFromBlindingKeys(
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
 	)
 
-	ownedInputs, err := handler.UnblindInputs(ptx, nil)
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
 	require.NoError(t, err)
 
-	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, handler)
+	blinder, err := psetv2.NewBlinder(
+		ptx, ownedInputs, zkpValidator, zkpGenerator,
+	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := handler.BlindOutputs(ptx, []uint32{1}, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{1}, nil)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -354,18 +357,21 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	require.NoError(t, err)
 
-	handler := confidential.NewBlinderHandlerFromBlindingKeys(
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
 	)
 
-	ownedInputs, err := handler.UnblindInputs(ptx, nil)
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
 	require.NoError(t, err)
 
-	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, handler)
+	blinder, err := psetv2.NewBlinder(
+		ptx, ownedInputs, zkpValidator, zkpGenerator,
+	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := handler.BlindOutputs(ptx, []uint32{2}, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{2}, nil)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -466,19 +472,24 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := confidential.NewBlinderHandlerFromBlindingKeys(
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
 	)
 
-	ownedInputs, err := handler.UnblindInputs(ptx, nil)
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
 	require.NoError(t, err)
 
-	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, handler)
+	blinder, err := psetv2.NewBlinder(
+		ptx, ownedInputs, zkpValidator, zkpGenerator,
+	)
 	require.NoError(t, err)
 
 	// For unblinded issuances is enough to specify input index and
-	// issuance asset and token (if token amount > 0, like in this case)
+	// issuance asset and token (if token amount > 0, like in this case).
+	// These are needed only to generate output blinding args.
+	// They won't be passed to the blinder role
 	inIssuanceBlindingArgs := []psetv2.InputIssuanceBlindingArgs{
 		{
 			Index:         0,
@@ -486,11 +497,10 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 			IssuanceToken: ptx.Inputs[0].GetIssuanceInflationKeysHash(false),
 		},
 	}
-
-	outBlindingArgs, err := handler.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
 	require.NoError(t, err)
 
-	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
+	err = blinder.BlindLast(nil, outBlindingArgs)
 	require.NoError(t, err)
 
 	prvKeys := []*btcec.PrivateKey{privkey}
@@ -579,24 +589,25 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := confidential.NewBlinderHandlerFromBlindingKeys(
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
 	)
 
-	ownedInputs, err := handler.UnblindInputs(ptx, nil)
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
 	require.NoError(t, err)
 
-	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, handler)
+	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, zkpValidator, zkpGenerator)
 	require.NoError(t, err)
 
 	issuanceKeysByIndex := map[uint32][]byte{
 		0: blindingPrivateKey.Serialize(),
 	}
-	inIssuanceBlindingArgs, err := handler.BlindIssuances(ptx, issuanceKeysByIndex)
+	inIssuanceBlindingArgs, err := zkpGenerator.BlindIssuances(ptx, issuanceKeysByIndex)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := handler.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
@@ -754,19 +765,23 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	require.NoError(t, err)
 
 	// Bob can now blind all outputs with his and alice's blinding private keys.
-	handler := confidential.NewBlinderHandlerFromBlindingKeys(
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
 		[][]byte{
 			aliceBlindingPrivateKey.Serialize(), bobBlindingPrivateKey.Serialize(),
-		}, nil,
+		},
+		nil,
 	)
 
-	ownedInputs, err := handler.UnblindInputs(ptx, nil)
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
 	require.NoError(t, err)
 
-	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, handler)
+	blinder, err := psetv2.NewBlinder(
+		ptx, ownedInputs, zkpValidator, zkpGenerator,
+	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := handler.BlindOutputs(ptx, nil, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, nil)
 	require.NoError(t, err)
 
 	// Bob blinds the pset as last blinder.

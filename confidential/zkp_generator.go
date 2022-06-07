@@ -125,7 +125,6 @@ func (g *zkpGenerator) LastValueRangeProof(
 		ValueBlindFactor:    valueBlinder32,
 		ValueCommit:         valueCommitment,
 		ScriptPubkey:        scriptPubkey,
-		MinValue:            1,
 		Exp:                 0,
 		MinBits:             52,
 	})
@@ -238,7 +237,6 @@ func (g *zkpGenerator) BlindIssuances(
 				ValueBlindFactor:    valueBlinder32,
 				ValueCommit:         valueCommitment,
 				ScriptPubkey:        make([]byte, 0),
-				MinValue:            1,
 				Exp:                 0,
 				MinBits:             52,
 			})
@@ -298,7 +296,6 @@ func (g *zkpGenerator) BlindIssuances(
 				ValueBlindFactor:    tokenBlinder32,
 				ValueCommit:         tokenCommitment,
 				ScriptPubkey:        make([]byte, 0),
-				MinValue:            1,
 				Exp:                 0,
 				MinBits:             52,
 			})
@@ -421,7 +418,6 @@ func (g *zkpGenerator) BlindOutputs(
 			ValueBlindFactor:    valueBlinder32,
 			ValueCommit:         valueCommitment,
 			ScriptPubkey:        out.Script,
-			MinValue:            1,
 			Exp:                 0,
 			MinBits:             52,
 		})

@@ -808,11 +808,11 @@ func TestBroadcastUnblindedZeroAssetValueIssuanceTx(t *testing.T) {
 	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
 
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := elementsutil.SatoshiToElementsValue(99999500)
+	changeValue, _ := elementsutil.ValueToBytes(99999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
 
 	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.ValueToBytes(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
 
 	// Create a new pset.
@@ -848,7 +848,7 @@ func TestBroadcastUnblindedZeroAssetValueIssuanceTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witValue, _ := elementsutil.ValueToBytes(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.WitnessScript)
 	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
 		t.Fatal(err)
@@ -1377,7 +1377,7 @@ func TestBroadcastBlindedZeroAssetValueIssuanceTx(t *testing.T) {
 
 	// Add change and fees
 	changeScriptForIssuanceTx := p2wpkh.WitnessScript
-	changeValueForIssuanceTx, _ := elementsutil.SatoshiToElementsValue(99996000)
+	changeValueForIssuanceTx, _ := elementsutil.ValueToBytes(99996000)
 	changeOutputForIssuanceTx := transaction.NewTxOutput(
 		lbtc,
 		changeValueForIssuanceTx,

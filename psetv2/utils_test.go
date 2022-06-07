@@ -19,18 +19,27 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 
 	"github.com/vulpemventures/go-elements/psetv2"
-	"github.com/vulpemventures/go-elements/transaction"
 )
 
 var lbtc = network.Regtest.AssetID
 
-func faucet(address string) (string, error) {
+func faucet(address string, args ...interface{}) (string, error) {
 	baseURL, err := apiBaseUrl()
 	if err != nil {
 		return "", err
 	}
 	url := fmt.Sprintf("%s/faucet", baseURL)
-	payload := map[string]string{"address": address}
+	payload := map[string]interface{}{"address": address, "amount": 1}
+	if len(args) > 0 {
+		for _, arg := range args {
+			if amount, ok := arg.(float64); ok {
+				payload["amount"] = amount
+			}
+			if asset, ok := arg.(string); ok {
+				payload["asset"] = asset
+			}
+		}
+	}
 	body, _ := json.Marshal(payload)
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
@@ -170,28 +179,27 @@ type signOpts struct {
 }
 
 func signTransaction(
-	p *psetv2.Pset,
-	privKeys []*btcec.PrivateKey,
-	scripts [][]byte,
-	forWitness bool,
-	opts *signOpts,
+	p *psetv2.Pset, privKeys []*btcec.PrivateKey, scripts [][]byte,
+	forWitness bool, sighashType txscript.SigHashType, opts *signOpts,
 ) error {
 	signer, err := psetv2.NewSigner(p)
 	if err != nil {
 		return err
 	}
 
-	for k, v := range p.Inputs {
-		if err := signer.AddInSighashType(
-			txscript.SigHashAll|transaction.SighashRangeproof, 0,
-		); err != nil {
+	for i, in := range p.Inputs {
+		if len(in.PartialSigs) > 0 {
+			continue
+		}
+
+		if err := signer.AddInSighashType(sighashType, i); err != nil {
 			return err
 		}
 
-		prevout := v.GetUtxo()
-		prvkey := privKeys[k]
+		prevout := in.GetUtxo()
+		prvkey := privKeys[i]
 		pubkey := prvkey.PubKey()
-		script := scripts[k]
+		script := scripts[i]
 
 		var sigHash [32]byte
 		tx, err := p.UnsignedTx()
@@ -200,14 +208,9 @@ func signTransaction(
 		}
 
 		if forWitness {
-			sigHash = tx.HashForWitnessV0(
-				k,
-				script,
-				prevout.Value,
-				txscript.SigHashAll|transaction.SighashRangeproof,
-			)
+			sigHash = tx.HashForWitnessV0(i, script, prevout.Value, sighashType)
 		} else {
-			sigHash, err = tx.HashForSignature(k, script, txscript.SigHashAll|transaction.SighashRangeproof)
+			sigHash, err = tx.HashForSignature(i, script, sighashType)
 			if err != nil {
 				return err
 			}
@@ -217,7 +220,7 @@ func signTransaction(
 		if err != nil {
 			return err
 		}
-		sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll|transaction.SighashRangeproof))
+		sigWithHashType := append(sig.Serialize(), byte(sighashType))
 
 		var witPubkeyScript, witScript []byte
 		if opts != nil {
@@ -226,11 +229,8 @@ func signTransaction(
 		}
 
 		if err := signer.SignInput(
-			k,
-			sigWithHashType,
-			pubkey.SerializeCompressed(),
-			witPubkeyScript,
-			witScript,
+			i, sigWithHashType, pubkey.SerializeCompressed(),
+			witPubkeyScript, witScript,
 		); err != nil {
 			return err
 		}
@@ -242,6 +242,72 @@ func signTransaction(
 	}
 	if !valid {
 		return fmt.Errorf("invalid signatures")
+	}
+
+	return nil
+}
+
+func signInput(
+	p *psetv2.Pset, inIndex int, prvkey *btcec.PrivateKey, script []byte,
+	forWitness bool, sighashType txscript.SigHashType, opts *signOpts,
+) error {
+	signer, err := psetv2.NewSigner(p)
+	if err != nil {
+		return err
+	}
+
+	in := p.Inputs[inIndex]
+	if len(in.PartialSigs) > 0 {
+		return nil
+	}
+
+	if err := signer.AddInSighashType(sighashType, inIndex); err != nil {
+		return err
+	}
+
+	prevout := in.GetUtxo()
+	pubkey := prvkey.PubKey()
+
+	var sigHash [32]byte
+	tx, err := p.UnsignedTx()
+	if err != nil {
+		return err
+	}
+
+	if forWitness {
+		sigHash = tx.HashForWitnessV0(inIndex, script, prevout.Value, sighashType)
+	} else {
+		sigHash, err = tx.HashForSignature(inIndex, script, sighashType)
+		if err != nil {
+			return err
+		}
+	}
+
+	sig, err := prvkey.Sign(sigHash[:])
+	if err != nil {
+		return err
+	}
+	sigWithHashType := append(sig.Serialize(), byte(sighashType))
+
+	var witPubkeyScript, witScript []byte
+	if opts != nil {
+		witPubkeyScript = opts.pubkeyScript
+		witScript = opts.script
+	}
+
+	if err := signer.SignInput(
+		inIndex, sigWithHashType, pubkey.SerializeCompressed(),
+		witPubkeyScript, witScript,
+	); err != nil {
+		return err
+	}
+
+	valid, err := p.ValidateInputSignatures(inIndex)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return fmt.Errorf("invalid signature")
 	}
 
 	return nil

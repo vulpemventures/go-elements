@@ -19,6 +19,10 @@ import (
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
+var (
+	sighashAll = txscript.SigHashAll | transaction.SighashRangeproof
+)
+
 func TestRoundTrip(t *testing.T) {
 	file, _ := ioutil.ReadFile("testdata/roundtrip.json")
 	var tests []map[string]interface{}
@@ -97,7 +101,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 
 	prvKeys := []*btcec.PrivateKey{privkey}
 	scripts := [][]byte{p2wpkh.Script}
-	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
 	_, err = broadcastTransaction(ptx)
@@ -166,7 +170,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 
 	prvKeys := []*btcec.PrivateKey{privkey}
 	scripts := [][]byte{p2wpkh.Script}
-	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
 	_, err = broadcastTransaction(ptx)
@@ -241,11 +245,6 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	require.NoError(t, err)
 
-	err = updater.AddInSighashType(
-		txscript.SigHashAll|transaction.SighashRangeproof, 0,
-	)
-	require.NoError(t, err)
-
 	handler := confidential.NewBlinderHandlerFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
@@ -274,7 +273,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 
 	prvKeys := []*btcec.PrivateKey{privkey}
 	scripts := [][]byte{p2wpkh.Script}
-	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
 	_, err = broadcastTransaction(ptx)
@@ -355,11 +354,6 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
 	require.NoError(t, err)
 
-	err = updater.AddInSighashType(
-		txscript.SigHashAll|transaction.SighashRangeproof, 0,
-	)
-	require.NoError(t, err)
-
 	handler := confidential.NewBlinderHandlerFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
@@ -388,7 +382,7 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 
 	prvKeys := []*btcec.PrivateKey{privkey}
 	scripts := [][]byte{p2wpkh.Script}
-	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
 	_, err = broadcastTransaction(ptx)
@@ -472,11 +466,6 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = updater.AddInSighashType(
-		txscript.SigHashAll|transaction.SighashRangeproof, 0,
-	)
-	require.NoError(t, err)
-
 	handler := confidential.NewBlinderHandlerFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
@@ -506,7 +495,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 
 	prvKeys := []*btcec.PrivateKey{privkey}
 	scripts := [][]byte{p2wpkh.Script}
-	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
 	_, err = broadcastTransaction(ptx)
@@ -590,11 +579,6 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = updater.AddInSighashType(
-		txscript.SigHashAll|transaction.SighashRangeproof, 0,
-	)
-	require.NoError(t, err)
-
 	handler := confidential.NewBlinderHandlerFromBlindingKeys(
 		[][]byte{blindingPrivateKey.Serialize()},
 		nil,
@@ -620,7 +604,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 
 	prvKeys := []*btcec.PrivateKey{privkey}
 	scripts := [][]byte{p2wpkh.Script}
-	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
 	_, err = broadcastTransaction(ptx)
@@ -719,11 +703,6 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	err = updater.AddInWitnessUtxo(aliceWitnessUtxo, 0)
 	require.NoError(t, err)
 
-	err = updater.AddInSighashType(
-		txscript.SigHashAll|transaction.SighashRangeproof, 0,
-	)
-	require.NoError(t, err)
-
 	// Now it's bob's turn to add his input and outputs.
 	bobPrevoutIndex := uint32(bobUtxos[0]["vout"].(float64))
 	bobPrevoutTxid := bobUtxos[0]["txid"].(string)
@@ -774,11 +753,6 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	err = updater.AddInWitnessUtxo(bobWitnessUtxo, 1)
 	require.NoError(t, err)
 
-	err = updater.AddInSighashType(
-		txscript.SigHashAll|transaction.SighashRangeproof, 1,
-	)
-	require.NoError(t, err)
-
 	// Bob can now blind all outputs with his and alice's blinding private keys.
 	handler := confidential.NewBlinderHandlerFromBlindingKeys(
 		[][]byte{
@@ -802,7 +776,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	// Now that blinding is complete, both parties can sign the pset...
 	prvKeys := []*btcec.PrivateKey{alicePrivkey, bobPrivkey}
 	scripts := [][]byte{aliceP2wpkh.Script, bobP2wpkh.Script}
-	err = signTransaction(ptx, prvKeys, scripts, true, nil)
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
 	// ...and broadcast the confidential swap tx to the network.

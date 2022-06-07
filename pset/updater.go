@@ -408,12 +408,14 @@ func (arg AddIssuanceArgs) validate() error {
 		return err
 	}
 
-	if len(arg.AssetAddress) <= 0 {
-		return errors.New("missing destination address for asset to issue")
-	}
+	if arg.AssetAmount > 0 {
+		if len(arg.AssetAddress) <= 0 {
+			return errors.New("missing destination address for asset to issue")
+		}
 
-	if _, err := address.DecodeType(arg.AssetAddress); err != nil {
-		return err
+		if _, err := address.DecodeType(arg.AssetAddress); err != nil {
+			return err
+		}
 	}
 
 	if arg.TokenAmount > 0 {
@@ -435,7 +437,7 @@ func (arg AddIssuanceArgs) validate() error {
 }
 
 func (arg AddIssuanceArgs) matchAddressTypes() bool {
-	if len(arg.TokenAddress) <= 0 {
+	if len(arg.AssetAddress) <= 0 || len(arg.TokenAddress) <= 0 {
 		return true
 	}
 
@@ -504,12 +506,14 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 		return err
 	}
 
-	output := transaction.NewTxOutput(
-		assetHash,
-		issuance.TxIssuance.AssetAmount,
-		script,
-	)
-	p.AddOutput(output)
+	if arg.AssetAmount > 0 {
+		output := transaction.NewTxOutput(
+			assetHash,
+			issuance.TxIssuance.AssetAmount,
+			script,
+		)
+		p.AddOutput(output)
+	}
 
 	if arg.TokenAmount > 0 {
 		tokenHash, err := issuance.GenerateReissuanceToken(arg.tokenFlag())

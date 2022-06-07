@@ -773,6 +773,98 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	}
 }
 
+func TestBroadcastUnblindedZeroAssetValueIssuanceTx(t *testing.T) {
+	/**
+	* This test attempts to broadcast an issuance transaction composed by 1
+	* P2WPKH input and 3 outputs. The input of the transaction will contain a new
+	* unblinded asset issuance with a defined reissuance token. The outputs will
+	* be a p2wpkh for both the asset and the relative token and another p2wpkh
+	* for the change (same of the sender for simplicity). A 4th unblinded output
+	* is for the fees, that in Elements side chains are explicits.
+	**/
+
+	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubkey := privkey.PubKey()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, nil)
+	address, _ := p2wpkh.WitnessPubKeyHash()
+
+	// Fund sender address.
+	if _, err := faucet(address); err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The transaction will have 1 input and 3 outputs.
+	txInputHash := elementsutil.ReverseBytes(h2b(utxos[0]["txid"].(string)))
+	txInputIndex := uint32(utxos[0]["vout"].(float64))
+	txInput := transaction.NewTxInput(txInputHash, txInputIndex)
+
+	changeScript := p2wpkh.WitnessScript
+	changeValue, _ := elementsutil.SatoshiToElementsValue(99999500)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue, changeScript)
+
+	feeScript := []byte{}
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeOutput := transaction.NewTxOutput(lbtc, feeValue, feeScript)
+
+	// Create a new pset.
+	inputs := []*transaction.TxInput{txInput}
+	outputs := []*transaction.TxOutput{changeOutput, feeOutput}
+	p, err := New(inputs, outputs, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updater, err := NewUpdater(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	arg := AddIssuanceArgs{
+		Precision: 0,
+		Contract: &transaction.IssuanceContract{
+			Name:      "Test",
+			Ticker:    "TST",
+			Version:   0,
+			Precision: 0,
+			Entity: transaction.IssuanceEntity{
+				Domain: "test.io",
+			},
+		},
+		AssetAmount:  0,
+		TokenAmount:  1,
+		AssetAddress: address,
+		TokenAddress: address,
+	}
+	if err := updater.AddIssuance(arg); err != nil {
+		t.Fatal(err)
+	}
+
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witnessUtxo := transaction.NewTxOutput(lbtc, witValue, p2wpkh.WitnessScript)
+	if err := updater.AddInWitnessUtxo(witnessUtxo, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(p, prvKeys, scripts, true, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := broadcastTransaction(p); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBroadcastBlindedTx(t *testing.T) {
 	/**
 	* This test attempts to broadcast a confidential transaction composed by 1
@@ -1199,6 +1291,141 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 	}
 
 	if _, err := broadcastTransaction(p); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBroadcastBlindedZeroAssetValueIssuanceTx(t *testing.T) {
+	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubkey := privkey.PubKey()
+
+	blindPrivkey, err := btcec.NewPrivateKey(btcec.S256())
+	if err != nil {
+		t.Fatal(err)
+	}
+	blindPubkey := blindPrivkey.PubKey()
+
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindPubkey)
+	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
+
+	// Fund sender address.
+	if _, err := faucet(address); err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve sender utxos.
+	utxosForIssuanceTx, err := unspents(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The transaction will have 1 input and 2 outputs.
+	txInputHashForIssuanceTx := elementsutil.ReverseBytes(
+		h2b(utxosForIssuanceTx[0]["txid"].(string)),
+	)
+	txInputIndexForIssuanceTx := uint32(utxosForIssuanceTx[0]["vout"].(float64))
+	txInputForIssuanceTx := transaction.NewTxInput(
+		txInputHashForIssuanceTx,
+		txInputIndexForIssuanceTx,
+	)
+
+	// Create a new pset.
+	inputsForIssuanceTx := []*transaction.TxInput{txInputForIssuanceTx}
+	outputsForIssuanceTx := []*transaction.TxOutput{}
+	issuancePset, err := New(inputsForIssuanceTx, outputsForIssuanceTx, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updater, err := NewUpdater(issuancePset)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issuanceArgs := AddIssuanceArgs{
+		Precision:    0,
+		AssetAmount:  0,
+		TokenAmount:  1,
+		AssetAddress: address,
+		TokenAddress: address,
+	}
+	if err := updater.AddIssuance(issuanceArgs); err != nil {
+		t.Fatal(err)
+	}
+
+	txHex, err := fetchTx(utxosForIssuanceTx[0]["txid"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, _ := transaction.NewTxFromHex(txHex)
+	assetCommitmentForIssuanceTx := h2b(utxosForIssuanceTx[0]["assetcommitment"].(string))
+	valueCommitmentForIssuanceTx := h2b(utxosForIssuanceTx[0]["valuecommitment"].(string))
+	witnessUtxoForIssuanceTx := &transaction.TxOutput{
+		Asset:           assetCommitmentForIssuanceTx,
+		Value:           valueCommitmentForIssuanceTx,
+		Script:          p2wpkh.WitnessScript,
+		Nonce:           tx.Outputs[txInputIndexForIssuanceTx].Nonce,
+		RangeProof:      tx.Outputs[txInputIndexForIssuanceTx].RangeProof,
+		SurjectionProof: tx.Outputs[txInputIndexForIssuanceTx].SurjectionProof,
+	}
+	if err := updater.AddInWitnessUtxo(witnessUtxoForIssuanceTx, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add change and fees
+	changeScriptForIssuanceTx := p2wpkh.WitnessScript
+	changeValueForIssuanceTx, _ := elementsutil.SatoshiToElementsValue(99996000)
+	changeOutputForIssuanceTx := transaction.NewTxOutput(
+		lbtc,
+		changeValueForIssuanceTx,
+		changeScriptForIssuanceTx,
+	)
+	updater.AddOutput(changeOutputForIssuanceTx)
+
+	//blind outputs
+	inBlindingPrvKeysForIssuance := [][]byte{blindPrivkey.Serialize()}
+	outBlindingPrvKeysForIssuance := make([][]byte, 2)
+	for i := range outBlindingPrvKeysForIssuance {
+		pk, err := btcec.NewPrivateKey(btcec.S256())
+		if err != nil {
+			t.Fatal(err)
+		}
+		outBlindingPrvKeysForIssuance[i] = pk.Serialize()
+	}
+	outBlindingPrvKeysForIssuance = append(
+		[][]byte{outBlindingPrvKeysForIssuance[0]},
+		outBlindingPrvKeysForIssuance...,
+	)
+
+	issuanceBlindPrvKeys := []IssuanceBlindingPrivateKeys{
+		{
+			AssetKey: outBlindingPrvKeysForIssuance[1],
+			TokenKey: outBlindingPrvKeysForIssuance[2],
+		},
+	}
+
+	if err := blindTransaction(
+		issuancePset,
+		inBlindingPrvKeysForIssuance,
+		outBlindingPrvKeysForIssuance,
+		issuanceBlindPrvKeys,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	addFeesToTransaction(issuancePset, 4000)
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	if err := signTransaction(issuancePset, prvKeys, scripts, true, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = broadcastTransaction(issuancePset)
+	if err != nil {
 		t.Fatal(err)
 	}
 }

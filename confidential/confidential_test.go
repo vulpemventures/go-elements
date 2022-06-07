@@ -285,7 +285,6 @@ func TestRangeProof(t *testing.T) {
 			ValueBlindFactor:    valueBlindingFactor32,
 			ValueCommit:         valueCommitment,
 			ScriptPubkey:        scriptPubkey,
-			MinValue:            1,
 			Exp:                 0,
 			MinBits:             36,
 		}

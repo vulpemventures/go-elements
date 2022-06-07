@@ -81,3 +81,7 @@ func ReverseBytes(buf []byte) []byte {
 	}
 	return tmp
 }
+
+func ValidElementValue(val []byte) bool {
+	return len(val) == 9 && val[0] == byte(1)
+}

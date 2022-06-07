@@ -241,10 +241,7 @@ func (b *Blinder) unblindInputsToIssuanceBlindingData() (
 			// elements format, contains more than one byte. We simply ignore the
 			// token amount for reissuances.
 			if i := input.Issuance; !i.IsReissuance() && i.HasTokenAmount() {
-				value, err := elementsutil.ValueFromBytes(i.TokenAmount)
-				if err != nil {
-					return nil, err
-				}
+				value, _ := elementsutil.ValueFromBytes(i.TokenAmount)
 
 				var tokenFlag uint
 				if b.issuanceBlindingPrivateKeys != nil && len(b.issuanceBlindingPrivateKeys) > 0 {
@@ -519,7 +516,6 @@ func (b *Blinder) createBlindedOutputs(
 			ValueBlindFactor:    outVbf,
 			ValueCommit:         valueCommitment[:],
 			ScriptPubkey:        outputScript,
-			MinValue:            1,
 			Exp:                 0,
 			MinBits:             52,
 		}
@@ -573,7 +569,7 @@ func (b *Blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 		return err
 	}
 
-	assetAmountSatoshi, err := elementsutil.ValueFromBytes(assetAmount)
+	assetAmountSatoshi, _ := elementsutil.ValueFromBytes(assetAmount)
 	if err != nil {
 		return err
 	}
@@ -601,7 +597,6 @@ func (b *Blinder) blindAsset(index int, asset, vbf, abf []byte) error {
 		ValueBlindFactor:    vbf32,
 		ValueCommit:         valueCommitment[:],
 		ScriptPubkey:        []byte{},
-		MinValue:            1,
 		Exp:                 0,
 		MinBits:             52,
 	}
@@ -654,7 +649,6 @@ func (b *Blinder) blindToken(index int, token, vbf, abf []byte) error {
 		ValueBlindFactor:    vbf32,
 		ValueCommit:         valueCommitment[:],
 		ScriptPubkey:        []byte{},
-		MinValue:            1,
 		Exp:                 0,
 		MinBits:             52,
 	}

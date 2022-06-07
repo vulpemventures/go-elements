@@ -24,7 +24,7 @@ func Extract(p *Pset) (*transaction.Transaction, error) {
 	if !p.IsComplete() {
 		return nil, ErrExtractorForbiddenExtraction
 	}
-	tx := transaction.NewTx(int32(p.Global.Version))
+	tx := transaction.NewTx(int32(p.Global.TxVersion))
 	tx.Locktime = p.Locktime()
 
 	for _, in := range p.Inputs {

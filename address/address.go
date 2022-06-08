@@ -351,7 +351,7 @@ func FromConfidential(address string) (*ConfidentialAddress, error) {
 			Address:     addr,
 			BlindingKey: fromBase58.PublicKey,
 		}, nil
-	case ConfidentialP2Wpkh, ConfidentialP2Wsh:
+	case ConfidentialP2Wpkh, ConfidentialP2Wsh, ConfidentialP2TR:
 		fromBlech32, err := FromBlech32(address)
 		if err != nil {
 			return nil, err

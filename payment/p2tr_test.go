@@ -62,6 +62,14 @@ func TestFromTaprootScriptTreeHash(t *testing.T) {
 		t.Error(err)
 	}
 
+	unconf, err := p2tr.TaprootAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(unconf)
+	t.Log(addr)
+
 	typeOfAddr, err := address.DecodeType(addr)
 	if err != nil {
 		t.Error(err)

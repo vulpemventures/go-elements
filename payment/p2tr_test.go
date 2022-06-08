@@ -62,14 +62,6 @@ func TestFromTaprootScriptTreeHash(t *testing.T) {
 		t.Error(err)
 	}
 
-	unconf, err := p2tr.TaprootAddress()
-	if err != nil {
-		t.Error(err)
-	}
-
-	t.Log(unconf)
-	t.Log(addr)
-
 	typeOfAddr, err := address.DecodeType(addr)
 	if err != nil {
 		t.Error(err)
@@ -120,5 +112,43 @@ func TestFromTaprootScriptTree(t *testing.T) {
 
 	if expectedAddr != addr {
 		t.Errorf("Expected address %s, got %s", expectedAddr, addr)
+	}
+}
+
+func TestTaprootAddressWithNonTaprootPayment(t *testing.T) {
+	pay := payment.Payment{
+		Network:     &network.Regtest,
+		BlindingKey: expected.BlindingKey,
+		Taproot:     nil,
+	}
+
+	_, err := pay.ConfidentialTaprootAddress()
+	if err != payment.ErrTaprootDataIsNil {
+		t.Errorf("Expected ErrTaprootDataIsNil, got %v", err)
+	}
+
+	_, err = pay.TaprootAddress()
+	if err != payment.ErrTaprootDataIsNil {
+		t.Errorf("Expected ErrTaprootDataIsNil, got %v", err)
+	}
+}
+
+func TestTaprootAddressWithoutNetwork(t *testing.T) {
+	p2tr, err := payment.FromTaprootScriptTree(
+		internalKey.PubKey(),
+		testTree,
+		nil,
+		blindingKey.PubKey(),
+	)
+
+	p2tr.Network = nil
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = p2tr.ConfidentialTaprootAddress()
+	if err != payment.ErrNetworkIsNil {
+		t.Errorf("Expected ErrNetworkIsNil, got %v", err)
 	}
 }

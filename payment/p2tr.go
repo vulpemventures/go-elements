@@ -12,7 +12,12 @@ import (
 )
 
 const (
-	segwitVersion = byte(0x01)
+	taprootSegwitVersion = byte(0x01)
+)
+
+var (
+	ErrTaprootDataIsNil = errors.New("taproot payment data is required to derive taproot addresses")
+	ErrNetworkIsNil     = errors.New("network is required to derive taproot addresses")
 )
 
 // TaprootPaymentData is included in Payment struct to store Taproot-related data
@@ -95,10 +100,19 @@ func FromTaprootScriptTree(
 }
 
 func (p *Payment) taprootBech32() (*address.Bech32, error) {
+	if p.Taproot == nil {
+		return nil, ErrTaprootDataIsNil
+	}
+
+	if p.Network == nil {
+		return nil, ErrNetworkIsNil
+	}
+
 	payload := &address.Bech32{
 		Prefix:  p.Network.Bech32,
-		Version: segwitVersion,
+		Version: taprootSegwitVersion,
 	}
+
 	if p.Taproot.XOnlyTweakedKey != nil {
 		payload.Program = p.Taproot.XOnlyTweakedKey
 	} else if p.Taproot.XOnlyInternalKey != nil {
@@ -146,13 +160,13 @@ func (p *Payment) TaprootAddress() (string, error) {
 // ConfidentialWitnessScriptHash is a method of the Payment struct to derive
 //a confidential blech32 p2wsh address
 func (p *Payment) ConfidentialTaprootAddress() (string, error) {
+	if p.BlindingKey == nil {
+		return "", errors.New("blinding key is required to derive confidential address")
+	}
+
 	bechTaproot, err := p.taprootBech32()
 	if err != nil {
 		return "", err
-	}
-
-	if p.BlindingKey == nil {
-		return "", errors.New("blinding key is required to derive confidential address")
 	}
 
 	payload := &address.Blech32{

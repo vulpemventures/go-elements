@@ -42,13 +42,19 @@ func FromTweakedKey(
 		net = &network.Liquid
 	}
 
-	return &Payment{
+	p2tr := &Payment{
 		Network:     net,
 		BlindingKey: blindingKey,
 		Taproot: &TaprootPaymentData{
 			XOnlyTweakedKey: schnorr.SerializePubKey(tweakedKey),
 		},
-	}, nil
+	}
+
+	if err := p2tr.setP2TRScript(); err != nil {
+		return nil, err
+	}
+
+	return p2tr, nil
 }
 
 // FromTaprootScriptTreeHash creates a taproot payment from a merkle script tree hash and internal key
@@ -66,14 +72,20 @@ func FromTaprootScriptTreeHash(
 		net = &network.Liquid
 	}
 
-	return &Payment{
+	p2tr := &Payment{
 		Network:     net,
 		BlindingKey: blindingKey,
 		Taproot: &TaprootPaymentData{
 			XOnlyInternalKey:   schnorr.SerializePubKey(internalKey),
 			RootScriptTreeHash: rootHash,
 		},
-	}, nil
+	}
+
+	if err := p2tr.setP2TRScript(); err != nil {
+		return nil, err
+	}
+
+	return p2tr, nil
 }
 
 // FromTaprootScriptTree creates a taproot payment from a merkle script tree and internal key
@@ -91,14 +103,35 @@ func FromTaprootScriptTree(
 		net = &network.Liquid
 	}
 
-	return &Payment{
+	p2tr := &Payment{
 		Network:     net,
 		BlindingKey: blindingKey,
 		Taproot: &TaprootPaymentData{
 			XOnlyInternalKey: schnorr.SerializePubKey(internalKey),
 			ScriptTree:       tree,
 		},
-	}, nil
+	}
+
+	if err := p2tr.setP2TRScript(); err != nil {
+		return nil, err
+	}
+
+	return p2tr, nil
+}
+
+func (p2tr *Payment) setP2TRScript() error {
+	addr, err := p2tr.TaprootAddress()
+	if err != nil {
+		return err
+	}
+
+	script, err := address.ToOutputScript(addr)
+	if err != nil {
+		return err
+	}
+
+	p2tr.Script = script
+	return nil
 }
 
 func (p *Payment) taprootBech32() (*address.Bech32, error) {

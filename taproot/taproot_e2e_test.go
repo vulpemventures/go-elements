@@ -205,11 +205,6 @@ func TestTapscriptSpend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	taprootScript, err := address.ToOutputScript(addr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	txID, err := faucet(addr)
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +219,7 @@ func TestTapscriptSpend(t *testing.T) {
 	var utxo *transaction.TxOutput
 	var vout int
 	for index, out := range faucetTx.Outputs {
-		if bytes.Equal(out.Script, taprootScript) {
+		if bytes.Equal(out.Script, taprootPay.Script) {
 			utxo = out
 			vout = index
 			break
@@ -248,7 +243,7 @@ func TestTapscriptSpend(t *testing.T) {
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
 	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
-	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], taprootScript) // address reuse here (change = input's script)
+	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], taprootPay.Script) // address reuse here (change = input's script)
 
 	feeScript := []byte{}
 	feeValue, _ := elementsutil.SatoshiToElementsValue(500)

@@ -82,7 +82,6 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestBroadcastBlindedSwapTx(t *testing.T) {
-	t.Skip()
 	/**
 	* This test attempts to broadcast a confidential swap transaction
 	* composed by 2 P2WPKH confidential input and 3 confidential outputs. The

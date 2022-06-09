@@ -647,10 +647,8 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 func (tx *Transaction) HashForWitnessV1(
 	inIndex int,
 	prevoutsScripts [][]byte,
-	prevoutsAssetValues []struct {
-		Asset []byte
-		Value []byte
-	},
+	prevoutsAssets [][]byte,
+	prevoutsValues [][]byte,
 	hashType txscript.SigHashType,
 	genesisBlockHash *chainhash.Hash,
 	leafHash *chainhash.Hash,
@@ -684,8 +682,9 @@ func (tx *Transaction) HashForWitnessV1(
 		hashInputs := calcTxInputsSingleHash(tx.Inputs)
 		hashScriptPubKeys := calcScriptPubKeysSingleHash(prevoutsScripts)
 		hashOutpointsFlag := calcOutpointsFlagsSingleHash(tx.Inputs)
-		hashSpentAssetValues := calcAssetAmountSingleHash(prevoutsAssetValues)
+		hashSpentAssetValues := calcAssetAmountSingleHash(prevoutsAssets, prevoutsValues)
 		hashSequences := calcTxSequencesSingleHash(tx.Inputs)
+
 		hashIssuances := calcTxIssuancesSingleHash(tx.Inputs)
 		hashIssuancesProofs := calcIssuanceProofsSingleHash(tx.Inputs)
 
@@ -698,16 +697,9 @@ func (tx *Transaction) HashForWitnessV1(
 		s.WriteSlice(hashIssuancesProofs[:])
 	}
 
-	if outputType == uint8(txscript.SigHashAll) {
+	if outputType != uint8(txscript.SigHashNone) && outputType != uint8(txscript.SigHashSingle) {
 		hashOutputs := calcTxOutputsSingleHash(tx.Outputs)
 		hashOutputsWitnesses := calcOutputWitnessesSingleHash(tx.Outputs)
-		s.WriteSlice(hashOutputs[:])
-		s.WriteSlice(hashOutputsWitnesses[:])
-	}
-
-	if outputType == uint8(txscript.SigHashSingle) && inIndex < len(tx.Outputs) {
-		hashOutputs := calcTxOutputsSingleHash([]*TxOutput{tx.Outputs[inIndex]})
-		hashOutputsWitnesses := calcOutputWitnessesSingleHash([]*TxOutput{tx.Outputs[inIndex]})
 		s.WriteSlice(hashOutputs[:])
 		s.WriteSlice(hashOutputsWitnesses[:])
 	}
@@ -722,8 +714,8 @@ func (tx *Transaction) HashForWitnessV1(
 		s.WriteUint8(calcInputFlag(input))
 		s.WriteSlice(input.Hash)
 		s.WriteUint32(input.Index)
-		s.WriteSlice(prevoutsAssetValues[inIndex].Asset)
-		s.WriteSlice(prevoutsAssetValues[inIndex].Value)
+		s.WriteSlice(prevoutsAssets[inIndex])
+		s.WriteSlice(prevoutsValues[inIndex])
 		s.WriteVarSlice(prevoutsScripts[inIndex])
 		s.WriteUint32(input.Sequence)
 
@@ -746,6 +738,13 @@ func (tx *Transaction) HashForWitnessV1(
 		buf.WriteVarSlice(annex)
 		singlehash := chainhash.HashH(buf.Bytes())
 		s.WriteSlice(singlehash[:])
+	}
+
+	if outputType == uint8(txscript.SigHashSingle) && inIndex < len(tx.Outputs) {
+		hashOutputs := calcTxOutputsSingleHash([]*TxOutput{tx.Outputs[inIndex]})
+		hashOutputsWitnesses := calcOutputWitnessesSingleHash([]*TxOutput{tx.Outputs[inIndex]})
+		s.WriteSlice(hashOutputs[:])
+		s.WriteSlice(hashOutputsWitnesses[:])
 	}
 
 	if leafHash != nil {
@@ -985,14 +984,12 @@ func calcOutpointsFlagsSingleHash(ins []*TxInput) [32]byte {
 	return chainhash.HashH(s.Bytes())
 }
 
-func calcAssetAmountSingleHash(pairs []struct {
-	Asset []byte
-	Value []byte
-}) [32]byte {
+func calcAssetAmountSingleHash(prevoutAssets [][]byte, prevoutValues [][]byte) [32]byte {
 	s, _ := bufferutil.NewSerializer(nil)
-	for _, p := range pairs {
-		s.WriteSlice(p.Asset)
-		s.WriteSlice(p.Value)
+
+	for i := 0; i < len(prevoutAssets); i++ {
+		s.WriteSlice(prevoutAssets[i])
+		s.WriteSlice(prevoutValues[i])
 	}
 	return chainhash.HashH(s.Bytes())
 }

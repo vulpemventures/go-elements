@@ -881,44 +881,44 @@ func (tx *Transaction) serialize(buf *bytes.Buffer, allowWitness, zeroFlag, forS
 	return s.Bytes(), nil
 }
 
-func serializeInputsHashIndex(ins []*TxInput) *bufferutil.Serializer {
+func serializeInputs(ins []*TxInput) []byte {
 	s, _ := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteSlice(in.Hash)
 		s.WriteUint32(in.Index)
 	}
-	return s
+	return s.Bytes()
 }
 
 func calcTxInputsHash(ins []*TxInput) [32]byte {
-	s := serializeInputsHashIndex(ins)
-	return chainhash.DoubleHashH(s.Bytes())
+	b := serializeInputs(ins)
+	return chainhash.DoubleHashH(b)
 }
 
 func calcTxInputsSingleHash(ins []*TxInput) [32]byte {
-	s := serializeInputsHashIndex(ins)
-	return chainhash.HashH(s.Bytes())
+	b := serializeInputs(ins)
+	return chainhash.HashH(b)
 }
 
-func serializeSequences(ins []*TxInput) *bufferutil.Serializer {
+func serializeSequences(ins []*TxInput) []byte {
 	s, _ := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteUint32(in.Sequence)
 	}
-	return s
+	return s.Bytes()
 }
 
 func calcTxSequencesHash(ins []*TxInput) [32]byte {
-	s := serializeSequences(ins)
-	return chainhash.DoubleHashH(s.Bytes())
+	b := serializeSequences(ins)
+	return chainhash.DoubleHashH(b)
 }
 
 func calcTxSequencesSingleHash(ins []*TxInput) [32]byte {
-	s := serializeSequences(ins)
-	return chainhash.HashH(s.Bytes())
+	b := serializeSequences(ins)
+	return chainhash.HashH(b)
 }
 
-func serializeIssuances(ins []*TxInput) *bufferutil.Serializer {
+func serializeIssuances(ins []*TxInput) []byte {
 	s, _ := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		if iss := in.Issuance; iss != nil {
@@ -930,20 +930,20 @@ func serializeIssuances(ins []*TxInput) *bufferutil.Serializer {
 			s.WriteUint8(0x00)
 		}
 	}
-	return s
+	return s.Bytes()
 }
 
 func calcTxIssuancesHash(ins []*TxInput) [32]byte {
-	s := serializeIssuances(ins)
-	return chainhash.DoubleHashH(s.Bytes())
+	b := serializeIssuances(ins)
+	return chainhash.DoubleHashH(b)
 }
 
 func calcTxIssuancesSingleHash(ins []*TxInput) [32]byte {
 	s := serializeIssuances(ins)
-	return chainhash.HashH(s.Bytes())
+	return chainhash.HashH(s)
 }
 
-func serializeOutputs(outs []*TxOutput) *bufferutil.Serializer {
+func serializeOutputs(outs []*TxOutput) []byte {
 	s, _ := bufferutil.NewSerializer(nil)
 	for _, out := range outs {
 		s.WriteSlice(out.Asset)
@@ -951,17 +951,17 @@ func serializeOutputs(outs []*TxOutput) *bufferutil.Serializer {
 		s.WriteSlice(out.Nonce)
 		s.WriteVarSlice(out.Script)
 	}
-	return s
+	return s.Bytes()
 }
 
 func calcTxOutputsHash(outs []*TxOutput) [32]byte {
-	s := serializeOutputs(outs)
-	return chainhash.DoubleHashH(s.Bytes())
+	b := serializeOutputs(outs)
+	return chainhash.DoubleHashH(b)
 }
 
 func calcTxOutputsSingleHash(outs []*TxOutput) [32]byte {
-	s := serializeOutputs(outs)
-	return chainhash.HashH(s.Bytes())
+	b := serializeOutputs(outs)
+	return chainhash.HashH(b)
 }
 
 func calcInputFlag(i *TxInput) uint8 {

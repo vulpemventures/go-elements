@@ -136,22 +136,17 @@ func TestKeyPathSpend(t *testing.T) {
 
 	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
 
-	prevoutAssetValue := []struct {
-		Asset []byte
-		Value []byte
-	}{
-		{
-			Asset: utxo.Asset,
-			Value: utxo.Value,
-		},
-	}
-
 	sighash := unsignedTx.HashForWitnessV1(
 		0,
 		[][]byte{
 			utxo.Script,
 		},
-		prevoutAssetValue,
+		[][]byte{
+			utxo.Asset,
+		},
+		[][]byte{
+			utxo.Value,
+		},
 		txscript.SigHashDefault,
 		genesisBlockhash,
 		nil,
@@ -298,16 +293,6 @@ func TestTapscriptSpend(t *testing.T) {
 	// Sign step
 	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
 
-	prevoutAssetValue := []struct {
-		Asset []byte
-		Value []byte
-	}{
-		{
-			Asset: utxo.Asset,
-			Value: utxo.Value,
-		},
-	}
-
 	leafProof := tree.LeafMerkleProofs[0]
 	leafHash := leafProof.TapHash()
 
@@ -316,7 +301,12 @@ func TestTapscriptSpend(t *testing.T) {
 		[][]byte{
 			utxo.Script,
 		},
-		prevoutAssetValue,
+		[][]byte{
+			utxo.Asset,
+		},
+		[][]byte{
+			utxo.Value,
+		},
 		txscript.SigHashDefault,
 		genesisBlockhash,
 		&leafHash,

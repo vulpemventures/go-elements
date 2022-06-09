@@ -80,12 +80,12 @@ func NewTapElementsBranch(l, r txscript.TapNode) TapElementsBranch {
 // tapElementsBranchHash takes the raw tap hashes of the right and left nodes and
 // hashes them into a branch. it uses the elements tag instead of bitcoin one
 func tapElementsBranchHash(l, r []byte) chainhash.Hash {
-	if bytes.Compare(l[:], r[:]) > 0 {
+	if bytes.Compare(l, r) > 0 {
 		l, r = r, l
 	}
 
 	return *chainhash.TaggedHash(
-		TagTapBranchElements, l[:], r[:],
+		TagTapBranchElements, l, r,
 	)
 }
 
@@ -141,7 +141,7 @@ func (t *TapscriptElementsProof) ToControlBlock(internalKey *btcec.PublicKey) Co
 	}}
 }
 
-// IndexedTapScriptTree reprints a fully contracted tapscript tree. The
+// IndexedElementsTapScriptTree reprints a fully contracted tapscript tree. The
 // RootNode can be used to traverse down the full tree. In addition, complete
 // inclusion proofs for each leaf are included as well, with an index into the
 // slice of proof based on the tap leaf hash of a given leaf.
@@ -151,7 +151,7 @@ type IndexedElementsTapScriptTree struct {
 	LeafProofIndex   map[chainhash.Hash]int
 }
 
-// NewIndexedTapScriptTree creates a new empty tapscript tree that has enough
+// NewIndexedElementsTapScriptTree creates a new empty tapscript tree that has enough
 // space to hold information for the specified amount of leaves.
 func NewIndexedElementsTapScriptTree(numLeaves int) *IndexedElementsTapScriptTree {
 	return &IndexedElementsTapScriptTree{

@@ -51,6 +51,7 @@ func FromTweakedKey(
 	}, nil
 }
 
+// FromTaprootScriptTreeHash creates a taproot payment from a merkle script tree hash and internal key
 func FromTaprootScriptTreeHash(
 	internalKey *btcec.PublicKey,
 	rootHash *chainhash.Hash,
@@ -75,6 +76,7 @@ func FromTaprootScriptTreeHash(
 	}, nil
 }
 
+// FromTaprootScriptTree creates a taproot payment from a merkle script tree and internal key
 func FromTaprootScriptTree(
 	internalKey *btcec.PublicKey,
 	tree *taproot.IndexedElementsTapScriptTree,
@@ -144,7 +146,7 @@ func (p *Payment) taprootBech32() (*address.Bech32, error) {
 	return payload, nil
 }
 
-// WitnessScriptHash is a method of the Payment struct to derive a base58 p2wsh address
+// TaprootAddress derives the unconditional Taproot address from the payment data
 func (p *Payment) TaprootAddress() (string, error) {
 	payload, err := p.taprootBech32()
 	if err != nil {
@@ -157,8 +159,7 @@ func (p *Payment) TaprootAddress() (string, error) {
 	return addr, nil
 }
 
-// ConfidentialWitnessScriptHash is a method of the Payment struct to derive
-//a confidential blech32 p2wsh address
+// ConfidentialTaprootAddress derives a confidential segwit v1 address from the payment taproot data
 func (p *Payment) ConfidentialTaprootAddress() (string, error) {
 	if p.BlindingKey == nil {
 		return "", errors.New("blinding key is required to derive confidential address")

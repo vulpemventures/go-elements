@@ -267,7 +267,7 @@ func (p *Payment) ConfidentialWitnessPubKeyHash() (string, error) {
 	}
 	addr, err := address.ToBlech32(payload)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return addr, nil
 }

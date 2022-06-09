@@ -91,7 +91,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	**/
 
 	// Generating Alices Keys and Address
-	privkeyAlice, err := btcec.NewPrivateKey()
+	privatekeyAlice, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pubkeyAlice := privkeyAlice.PubKey()
+	pubkeyAlice := privatekeyAlice.PubKey()
 	blindPubkeyAlice := blindPrivkeyAlice.PubKey()
 	p2wpkhAlice := payment.FromPublicKey(pubkeyAlice, &network.Regtest, blindPubkeyAlice)
 	addressAlice, _ := p2wpkhAlice.ConfidentialWitnessPubKeyHash()
@@ -247,7 +247,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	addFeesToTransaction(p, 500)
 
 	prvKeys := []*btcec.PrivateKey{
-		privkeyAlice,
+		privatekeyAlice,
 		privkeyBob,
 	}
 	scripts := [][]byte{

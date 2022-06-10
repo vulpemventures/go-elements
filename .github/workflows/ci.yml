@@ -24,7 +24,10 @@ jobs:
 
       - name: Run Nigiri
         uses: vulpemventures/nigiri-github-action@v1
-          
+
+      - name: Go mod tidy
+        run: go mod tidy
+
       - name: Get dependencies
         run: go get -v -t -d ./...
 

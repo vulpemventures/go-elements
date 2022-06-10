@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/elementsutil"
 )
@@ -205,5 +206,61 @@ func TestHashForWitnessV0(t *testing.T) {
 		if res := hex.EncodeToString(hash[:]); res != expectedHash {
 			t.Fatalf("Got: %s, expected: %s", res, expectedHash)
 		}
+	}
+}
+
+func TestHashForWitnessV1(t *testing.T) {
+	file, err := ioutil.ReadFile("data/tx_valid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests map[string]interface{}
+	json.Unmarshal(file, &tests)
+
+	for _, v := range tests["txHashForWitnessV1"].([]interface{}) {
+		testVector := v.(map[string]interface{})
+		t.Run(testVector["description"].(string), func(tt *testing.T) {
+			tx, err := NewTxFromHex(testVector["txHex"].(string))
+			if err != nil {
+				tt.Fatal(err)
+			}
+
+			scripts := make([][]byte, 0)
+			assets := make([][]byte, 0)
+			values := make([][]byte, 0)
+
+			prevouts := testVector["prevouts"].([]interface{})
+			for _, prevout := range prevouts {
+				prev := prevout.(map[string]interface{})
+				scriptBytes, _ := hex.DecodeString(prev["script"].(string))
+				valueBytes, _ := hex.DecodeString(prev["value"].(string))
+				assetBytes, _ := hex.DecodeString(prev["asset"].(string))
+				prefix := byte(0x01)
+				if len(valueBytes) != 9 {
+					prefix = 0x0a
+				}
+
+				assetBytes = append([]byte{prefix}, elementsutil.ReverseBytes(assetBytes)...)
+				scripts = append(scripts, scriptBytes)
+				assets = append(assets, assetBytes)
+				values = append(values, valueBytes)
+			}
+
+			inIndex := testVector["inIndex"].(float64)
+			genesisHash, _ := chainhash.NewHashFromStr(testVector["genesisHash"].(string))
+
+			hashType := txscript.SigHashType(testVector["type"].(float64))
+			var leafHash *chainhash.Hash = nil
+			if testVector["leafHash"] != nil {
+				leafHashBytes, _ := hex.DecodeString(testVector["leafHash"].(string))
+				leafHash, _ = chainhash.NewHash(leafHashBytes)
+			}
+
+			hash := tx.HashForWitnessV1(int(inIndex), scripts, assets, values, hashType, genesisHash, leafHash, nil)
+			expectedHash := testVector["expectedHash"].(string)
+			if res := hex.EncodeToString(hash[:]); res != expectedHash {
+				tt.Fatalf("Got: %s, expected: %s", res, expectedHash)
+			}
+		})
 	}
 }

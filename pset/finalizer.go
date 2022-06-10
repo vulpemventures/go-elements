@@ -12,8 +12,8 @@ package pset
 // multisig and no other custom script.
 
 import (
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcutil/psbt"
 )
 
 // isFinalized considers this input finalized if it contains at least one of

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/btcsuite/btcd/btcutil/base58"
+	"github.com/btcsuite/btcd/btcutil/bech32"
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/btcsuite/btcutil/bech32"
 	"github.com/vulpemventures/go-elements/blech32"
 	"github.com/vulpemventures/go-elements/network"
 	"golang.org/x/crypto/ripemd160"
@@ -28,12 +28,15 @@ const (
 	P2Wsh
 	ConfidentialP2Wpkh
 	ConfidentialP2Wsh
+	P2TR
+	ConfidentialP2TR
 
 	P2PkhScript      = 1
 	P2ShScript       = 2
 	P2MultiSigScript = 3
 	P2WpkhScript     = 4
 	P2WshScript      = 5
+	P2TRScript       = 6
 )
 
 // Base58 type defines the structure of a legacy or wrapped segwit address
@@ -161,9 +164,22 @@ func ToBech32(bc *Bech32) (string, error) {
 	combined := make([]byte, len(converted)+1)
 	combined[0] = bc.Version
 	copy(combined[1:], converted)
-	bech, err := bech32.Encode(bc.Prefix, combined)
-	if err != nil {
-		return "", err
+
+	var bech string
+
+	switch bc.Version {
+	case 0:
+		bech, err = bech32.Encode(bc.Prefix, combined)
+		if err != nil {
+			return "", err
+		}
+	case 1:
+		bech, err = bech32.EncodeM(bc.Prefix, combined)
+		if err != nil {
+			return "", err
+		}
+	default:
+		return "", errors.New("unsupported witness version")
 	}
 
 	return bech, nil
@@ -283,7 +299,12 @@ func ToBlech32(bl *Blech32) (string, error) {
 	combined := make([]byte, len(converted)+1)
 	combined[0] = bl.Version
 	copy(combined[1:], converted)
-	blech32Addr, err := blech32.Encode(bl.Prefix, combined)
+	enc, err := blech32.EncodingTypeFromSegwitVersion(bl.Version)
+	if err != nil {
+		return "", err
+	}
+
+	blech32Addr, err := blech32.Encode(bl.Prefix, combined, enc)
 	if err != nil {
 		return "", err
 	}
@@ -330,7 +351,7 @@ func FromConfidential(address string) (*ConfidentialAddress, error) {
 			Address:     addr,
 			BlindingKey: fromBase58.PublicKey,
 		}, nil
-	case ConfidentialP2Wpkh, ConfidentialP2Wsh:
+	case ConfidentialP2Wpkh, ConfidentialP2Wsh, ConfidentialP2TR:
 		fromBlech32, err := FromBlech32(address)
 		if err != nil {
 			return nil, err
@@ -482,22 +503,34 @@ func ToOutputScript(address string) ([]byte, error) {
 			AddData(scriptHash).
 			AddOp(txscript.OP_EQUAL).
 			Script()
-	case P2Wpkh, P2Wsh:
+	case P2Wpkh, P2Wsh, P2TR:
 		fromBech32, err := FromBech32(address)
 		if err != nil {
 			return nil, err
 		}
+
+		versionOpcode := byte(txscript.OP_0)
+		if fromBech32.Version == 1 {
+			versionOpcode = txscript.OP_1
+		}
+
 		return txscript.NewScriptBuilder().
-			AddOp(txscript.OP_0).
+			AddOp(versionOpcode).
 			AddData(fromBech32.Program).
 			Script()
-	case ConfidentialP2Wpkh, ConfidentialP2Wsh:
+	case ConfidentialP2Wpkh, ConfidentialP2Wsh, ConfidentialP2TR:
 		fromBlech32, err := FromBlech32(address)
 		if err != nil {
 			return nil, err
 		}
+
+		versionOpcode := byte(txscript.OP_0)
+		if fromBlech32.Version == 1 {
+			versionOpcode = txscript.OP_1
+		}
+
 		return txscript.NewScriptBuilder().
-			AddOp(txscript.OP_0).
+			AddOp(versionOpcode).
 			AddData(fromBlech32.Program).
 			Script()
 	default:
@@ -508,11 +541,13 @@ func ToOutputScript(address string) ([]byte, error) {
 // GetScriptType returns the type of the given script (p2pkh, p2sh, etc.)
 func GetScriptType(script []byte) int {
 	switch script[0] {
-	case txscript.OP_0:
+	case txscript.OP_0: // segwit v0
 		if len(script[2:]) == 20 {
 			return P2WpkhScript
 		}
 		return P2WshScript
+	case txscript.OP_1: // segwit v1 (taproot)
+		return P2TRScript
 	case txscript.OP_HASH160:
 		return P2ShScript
 	case txscript.OP_DUP:
@@ -548,7 +583,8 @@ func IsConfidential(address string) (bool, error) {
 	isConfidential := (addressType == ConfidentialP2Pkh ||
 		addressType == ConfidentialP2Sh ||
 		addressType == ConfidentialP2Wpkh ||
-		addressType == ConfidentialP2Wsh)
+		addressType == ConfidentialP2Wsh ||
+		addressType == ConfidentialP2TR)
 
 	return isConfidential, nil
 }
@@ -562,14 +598,23 @@ func decodeBlech32(address string, net network.Network) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	switch len(fromBlech32.Program) {
-	case 20:
-		return ConfidentialP2Wpkh, nil
-	case 32:
-		return ConfidentialP2Wsh, nil
-	default:
-		return 0, errors.New("invalid program Length")
+
+	if fromBlech32.Version == 0 {
+		switch len(fromBlech32.Program) {
+		case 20:
+			return ConfidentialP2Wpkh, nil
+		case 32:
+			return ConfidentialP2Wsh, nil
+		default:
+			return 0, errors.New("invalid program Length")
+		}
 	}
+
+	if fromBlech32.Version == 1 {
+		return ConfidentialP2TR, nil
+	}
+
+	return 0, errors.New("invalid segwit version")
 }
 
 func isBech32(address string, net network.Network) bool {
@@ -581,14 +626,23 @@ func decodeBech32(address string, net network.Network) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	switch len(fromBech32.Program) {
-	case 20:
-		return P2Wpkh, nil
-	case 32:
-		return P2Wsh, nil
-	default:
-		return 0, errors.New("invalid program Length")
+
+	if fromBech32.Version == 0 {
+		switch len(fromBech32.Program) {
+		case 20:
+			return P2Wpkh, nil
+		case 32:
+			return P2Wsh, nil
+		default:
+			return 0, errors.New("invalid program Length")
+		}
 	}
+
+	if fromBech32.Version == 1 {
+		return P2TR, nil
+	}
+
+	return 0, errors.New("invalid segwit version")
 }
 
 func decodeBase58(address string, net network.Network) (int, error) {

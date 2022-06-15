@@ -784,7 +784,7 @@ func TestBroadcastUnblindedZeroAssetValueIssuanceTx(t *testing.T) {
 	* is for the fees, that in Elements side chains are explicits.
 	**/
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1297,13 +1297,13 @@ func TestBroadcastIssuanceTxWithBlindedOutput(t *testing.T) {
 }
 
 func TestBroadcastBlindedZeroAssetValueIssuanceTx(t *testing.T) {
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	pubkey := privkey.PubKey()
 
-	blindPrivkey, err := btcec.NewPrivateKey(btcec.S256())
+	blindPrivkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1390,7 +1390,7 @@ func TestBroadcastBlindedZeroAssetValueIssuanceTx(t *testing.T) {
 	inBlindingPrvKeysForIssuance := [][]byte{blindPrivkey.Serialize()}
 	outBlindingPrvKeysForIssuance := make([][]byte, 2)
 	for i := range outBlindingPrvKeysForIssuance {
-		pk, err := btcec.NewPrivateKey(btcec.S256())
+		pk, err := btcec.NewPrivateKey()
 		if err != nil {
 			t.Fatal(err)
 		}

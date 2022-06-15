@@ -25,7 +25,7 @@ jobs:
           # work-around an issue where wrong a commit is being checked out.
           # For more details, see:
           # https://github.com/actions/checkout/issues/299.
-          ref: ${{ github.event.pull_request.head.sha }}
+          # ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Get dependencies
         run: go get -v -t -d ./...

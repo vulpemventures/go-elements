@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
@@ -19,7 +19,7 @@ var privateKeyBytes1, _ = hex.DecodeString(privKeyHex1)
 var privateKeyBytes2, _ = hex.DecodeString(privKeyHex2)
 
 func TestLegacyPubkeyHash(t *testing.T) {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
+	_, publicKey := btcec.PrivKeyFromBytes(privateKeyBytes1)
 
 	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	addr, err := pay.PubKeyHash()
@@ -31,7 +31,7 @@ func TestLegacyPubkeyHash(t *testing.T) {
 }
 
 func TestSegwitPubkeyHash(t *testing.T) {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
+	_, publicKey := btcec.PrivKeyFromBytes(privateKeyBytes1)
 
 	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	addr, err := pay.WitnessPubKeyHash()
@@ -43,7 +43,7 @@ func TestSegwitPubkeyHash(t *testing.T) {
 }
 
 func TestLegacyScriptHash(t *testing.T) {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
+	_, publicKey := btcec.PrivKeyFromBytes(privateKeyBytes1)
 	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 
 	p2sh, err := payment.FromPayment(p2wpkh)
@@ -94,8 +94,8 @@ func TestSegwitScriptHash(t *testing.T) {
 }
 
 func TestMultisig(t *testing.T) {
-	_, publicKey1 := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes1)
-	_, publicKey2 := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes2)
+	_, publicKey1 := btcec.PrivKeyFromBytes(privateKeyBytes1)
+	_, publicKey2 := btcec.PrivKeyFromBytes(privateKeyBytes2)
 
 	p2ms, err := payment.FromPublicKeys(
 		[]*btcec.PublicKey{publicKey1, publicKey2},
@@ -132,7 +132,7 @@ func TestLegacyPubKeyHashConfidential(t *testing.T) {
 	pubkeyBytes, _ := hex.DecodeString(
 		"030000000000000000000000000000000000000000000000000000000000000001",
 	)
-	pubkey, err := btcec.ParsePubKey(pubkeyBytes, btcec.S256())
+	pubkey, err := btcec.ParsePubKey(pubkeyBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestLegacyScriptHashConfidential(t *testing.T) {
 	pubkeyBytes, _ := hex.DecodeString(
 		"030000000000000000000000000000000000000000000000000000000000000001",
 	)
-	blindingKey, err := btcec.ParsePubKey(pubkeyBytes, btcec.S256())
+	blindingKey, err := btcec.ParsePubKey(pubkeyBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestLegacyScriptHashConfidential(t *testing.T) {
 
 func TestSegwitPubKeyHashConfidential(t *testing.T) {
 	pubkeyBytes, _ := hex.DecodeString("030000000000000000000000000000000000000000000000000000000000000001")
-	pubkey, err := btcec.ParsePubKey(pubkeyBytes, btcec.S256())
+	pubkey, err := btcec.ParsePubKey(pubkeyBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestSegwitScriptHashConfidential(t *testing.T) {
 	pubkeyBytes, _ := hex.DecodeString(
 		"030000000000000000000000000000000000000000000000000000000000000001",
 	)
-	blindingKey, err := btcec.ParsePubKey(pubkeyBytes, btcec.S256())
+	blindingKey, err := btcec.ParsePubKey(pubkeyBytes)
 	if err != nil {
 		t.Fatal(err)
 	}

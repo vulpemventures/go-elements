@@ -65,7 +65,7 @@ func ROLE_6_Extractor() *PSET_PACKAGE { return nil }
 This is an exemplification on how to perform a P2WPKH transaction using the PSET package
 with the assistance of vulpemventures/nigiri for funding the address, retrieving the UTXOs and broadcasting.
 
-    	privkey, err := btcec.NewPrivateKey(btcec.S256())
+    privkey, err := btcec.NewPrivateKey( )
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,16 +96,16 @@ with the assistance of vulpemventures/nigiri for funding the address, retrieving
 	)
 	lbtc = append([]byte{0x01}, elementsutil.ReverseBytes(lbtc)...)
 
-	receiverValue, _ := confidential.SatoshiToElementsValue(60000000)
+	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
 	changeScript := p2wpkh.WitnessScript
-	changeValue, _ := confidential.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], changeScript)
 
 	feeScript := []byte{}
-	feeValue, _ := confidential.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
 	// Create a new pset.
@@ -126,7 +126,7 @@ with the assistance of vulpemventures/nigiri for funding the address, retrieving
 	if err != nil {
 		t.Fatal(err)
 	}
-	witValue, _ := confidential.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
+	witValue, _ := elementsutil.SatoshiToElementsValue(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(lbtc, witValue[:], p2wpkh.WitnessScript)
 	updater.AddInWitnessUtxo(witnessUtxo, 0)
 

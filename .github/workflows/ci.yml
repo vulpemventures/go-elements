@@ -11,20 +11,27 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.14.x
+      - name: Set up Go 1.17.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.17
         id: go
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          # Check out pull request's HEAD commit instead of the merge commit to
+          # work-around an issue where wrong a commit is being checked out.
+          # For more details, see:
+          # https://github.com/actions/checkout/issues/299.
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get dependencies
+        run: go get -v -t -d ./...
 
       - name: Run Nigiri
         uses: vulpemventures/nigiri-github-action@v1
-          
-      - name: Get dependencies
-        run: go get -v -t -d ./...
 
       - name: Test
         run: make test

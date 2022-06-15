@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"hash"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/network"
 	"golang.org/x/crypto/ripemd160"
@@ -24,6 +24,7 @@ type Payment struct {
 	PublicKey     *btcec.PublicKey
 	BlindingKey   *btcec.PublicKey
 	Network       *network.Network
+	Taproot       *TaprootPaymentData
 }
 
 // FromPublicKey creates a Payment struct from a btcec.publicKey
@@ -122,6 +123,7 @@ func FromPayment(payment *Payment) (*Payment, error) {
 		Redeem:        redeem,
 		Network:       redeem.Network,
 		BlindingKey:   redeem.BlindingKey,
+		Taproot:       redeem.Taproot,
 	}, nil
 }
 
@@ -142,7 +144,7 @@ func FromScript(
 		tmpNet = net
 	}
 
-	var script, scriptHash, witnessScript, witnessScriptHash []byte
+	var script, scriptHash, witnessScript, witnessScriptHash, tweakedKey []byte
 	switch address.GetScriptType(outputScript) {
 	case address.P2WpkhScript:
 		scriptHash = outputScript[2:]
@@ -158,6 +160,9 @@ func FromScript(
 	case address.P2PkhScript:
 		scriptHash = outputScript[3 : len(outputScript)-2]
 		script = outputScript
+	case address.P2TRScript:
+		tweakedKey = outputScript[2:]
+		script = outputScript
 	// multisig, here we do not calculate the hashes because this payment
 	// must be wrapped into another one
 	default:
@@ -171,6 +176,9 @@ func FromScript(
 		WitnessScript: witnessScript,
 		Network:       tmpNet,
 		BlindingKey:   blindingKey,
+		Taproot: &TaprootPaymentData{
+			XOnlyTweakedKey: tweakedKey,
+		},
 	}, nil
 }
 

@@ -23,10 +23,11 @@ import (
 	"io"
 	"sort"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
@@ -365,22 +366,16 @@ func writeTxOut(txout *transaction.TxOutput) ([]byte, error) {
 // validatePubkey checks if pubKey is *any* valid pubKey serialization in a
 // Bitcoin context (compressed/uncomp. OK).
 func validatePubkey(pubKey []byte) bool {
-	_, err := btcec.ParsePubKey(pubKey, btcec.S256())
-	if err != nil {
-		return false
-	}
-	return true
+	_, err := btcec.ParsePubKey(pubKey)
+	return err == nil
 }
 
 // validateSignature checks that the passed byte slice is a valid DER-encoded
 // ECDSA signature, including the sighash flag.  It does *not* of course
 // validate the signature against any message or public key.
 func validateSignature(sig []byte) bool {
-	_, err := btcec.ParseDERSignature(sig, btcec.S256())
-	if err != nil {
-		return false
-	}
-	return true
+	_, err := ecdsa.ParseDERSignature(sig)
+	return err == nil
 }
 
 // checkValid checks that both the pbukey and sig are valid. See the methods

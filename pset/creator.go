@@ -5,7 +5,7 @@
 package pset
 
 import (
-	"github.com/btcsuite/btcutil/psbt"
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 

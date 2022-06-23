@@ -11,11 +11,11 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/btcsuite/btcutil/hdkeychain"
+	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 
-	"github.com/btcsuite/btcutil"
+	"github.com/btcsuite/btcd/btcutil"
 )
 
 const (
@@ -342,12 +342,8 @@ func isPubKey(pubKey string) bool {
 		return false
 	}
 
-	_, err = btcec.ParsePubKey(pubKeyBytes, btcec.S256())
-	if err != nil {
-		return false
-	}
-
-	return true
+	_, err = btcec.ParsePubKey(pubKeyBytes)
+	return err == nil
 }
 
 func isWif(wif string) bool {

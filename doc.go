@@ -11,7 +11,7 @@ Check its behaviour on Nigiri's Esplora (http://localhost:5001/).
   $ go test ./pset -v -count 1 -run TestBroadcastBlindedTx
 
 First, we will need a Private Key and derive a Public key from it. We'll follow by generating a P2WPKH address.
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey( )
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,13 +82,13 @@ necessary to unblind all the confidential inputs used must be provided.
 	blindingPrivKeys := [][]byte{{}}
 
 	blindingPubKeys := make([][]byte, 0)
-	pk, err := btcec.NewPrivateKey(btcec.S256())
+	pk, err := btcec.NewPrivateKey( )
 	if err != nil {
 		t.Fatal(err)
 	}
 	blindingpubkey := pk.PubKey().SerializeCompressed()
 	blindingPubKeys = append(blindingPubKeys, blindingpubkey)
-	pk1, err := btcec.NewPrivateKey(btcec.S256())
+	pk1, err := btcec.NewPrivateKey( )
 	if err != nil {
 		t.Fatal(err)
 	}

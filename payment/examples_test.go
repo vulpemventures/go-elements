@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 )
@@ -17,7 +17,7 @@ var privateKeyBytes, _ = hex.DecodeString(privateKeyHex)
 
 //This examples shows how standard P2PKH address can be created
 func ExampleFromPublicKey() {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
+	_, publicKey := btcec.PrivKeyFromBytes(privateKeyBytes)
 	pay := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	addr, _ := pay.PubKeyHash()
 	fmt.Printf("P2PKH address %v\n:", addr)
@@ -25,7 +25,7 @@ func ExampleFromPublicKey() {
 
 //This examples shows how nested payment can be done in order to create non native SegWit(P2SH-P2WPKH) address
 func ExampleFromPayment() {
-	_, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyBytes)
+	_, publicKey := btcec.PrivKeyFromBytes(privateKeyBytes)
 	p2wpkh := payment.FromPublicKey(publicKey, &network.Regtest, nil)
 	pay, err := payment.FromPayment(p2wpkh)
 	p2sh, err := pay.ScriptHash()
@@ -36,13 +36,13 @@ func ExampleFromPayment() {
 }
 
 func ExampleConfidentialWitnessPubKeyHash() {
-	pk, err := btcec.NewPrivateKey(btcec.S256())
+	pk, err := btcec.NewPrivateKey()
 	if err != nil {
 		fmt.Println(err)
 	}
 	blindingKey := pk.PubKey()
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	if err != nil {
 		fmt.Println(err)
 	}

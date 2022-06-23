@@ -10,7 +10,7 @@ import (
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 
-	"github.com/btcsuite/btcutil"
+	"github.com/btcsuite/btcd/btcutil"
 
 	"github.com/btcsuite/btcd/txscript"
 
@@ -21,7 +21,7 @@ import (
 
 	"github.com/vulpemventures/go-elements/address"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 )
 
 type AddressInfo struct {
@@ -80,7 +80,7 @@ func ClaimWitnessScript(
 	net *network.Network,
 ) ([]byte, error) {
 
-	publicKey, err := btcec.ParsePubKey(publicKeyBytes, btcec.S256())
+	publicKey, err := btcec.ParsePubKey(publicKeyBytes)
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,7 @@ import (
 	"crypto/sha512"
 	"errors"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 )
 
 var (
@@ -63,7 +63,7 @@ func (s *Slip77) DeriveKey(script []byte) (*btcec.PrivateKey, *btcec.PublicKey, 
 	hmacKey.Write(script)
 	key := hmacKey.Sum(nil)
 
-	privateKey, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), key)
+	privateKey, publicKey := btcec.PrivKeyFromBytes(key)
 
 	return privateKey, publicKey, nil
 }

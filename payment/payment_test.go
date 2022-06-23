@@ -216,3 +216,151 @@ func TestSegwitScriptHashConfidential(t *testing.T) {
 		"rzmrq2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hq6f9r3gz0h4tn"
 	assert.Equal(t, expected, addr)
 }
+
+func TestFromOutputScript(t *testing.T) {
+	privKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blindPrivKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redeemScript := "52410479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959" +
+		"f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d0" +
+		"8ffb10d4b84104c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09" +
+		"b95c709ee51ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950" +
+		"cfe52a52ae"
+	redeemScriptBytes, err := hex.DecodeString(redeemScript)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//p2pkh
+	p2pkh := payment.FromPublicKey(
+		privKey.PubKey(),
+		&network.Regtest,
+		blindPrivKey.PubKey(),
+	)
+
+	p2pkhAddress, err := p2pkh.ConfidentialPubKeyHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p2pkhAddress1, err := payment.FromOutputScript(
+		&network.Regtest,
+		p2pkh.Script,
+		blindPrivKey.PubKey(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, p2pkhAddress, p2pkhAddress1)
+
+	//p2sh
+	p2ms, err := payment.FromScript(
+		redeemScriptBytes,
+		&network.Regtest,
+		blindPrivKey.PubKey(),
+	)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2sh, err := payment.FromPayment(p2ms)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2shAddress, err := p2sh.ConfidentialScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2shAddress1, err := payment.FromOutputScript(
+		&network.Regtest,
+		p2sh.Script,
+		blindPrivKey.PubKey(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, p2shAddress, p2shAddress1)
+	//p2wpkh
+	p2wpkh := payment.FromPublicKey(
+		privKey.PubKey(),
+		&network.Regtest,
+		blindPrivKey.PubKey(),
+	)
+
+	p2wpkhAddress, err := p2wpkh.ConfidentialWitnessPubKeyHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p2wpkhAddress1, err := payment.FromOutputScript(
+		&network.Regtest,
+		p2wpkh.WitnessScript,
+		blindPrivKey.PubKey(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, p2wpkhAddress, p2wpkhAddress1)
+
+	//p2wsh
+	p2wsh, err := payment.FromPayment(p2ms)
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2wshAddress, err := p2wsh.ConfidentialWitnessScriptHash()
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2wshAddress1, err := payment.FromOutputScript(
+		&network.Regtest,
+		p2wsh.WitnessScript,
+		blindPrivKey.PubKey(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, p2wshAddress, p2wshAddress1)
+
+	//p2tr
+	p2tr, err := payment.FromTaprootScriptTreeHash(
+		privKey.PubKey(),
+		nil,
+		&network.Regtest,
+		blindingKey.PubKey(),
+	)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2trAddress, err := p2tr.ConfidentialTaprootAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	p2trAddress1, err := payment.FromOutputScript(
+		&network.Regtest,
+		p2tr.Script,
+		blindPrivKey.PubKey(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, p2trAddress, p2trAddress1)
+}

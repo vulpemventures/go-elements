@@ -13,7 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/assert"
@@ -39,7 +40,7 @@ func TestClaimPegin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	privateKey, err := btcec.NewPrivateKey(btcec.S256())
+	privateKey, err := btcec.NewPrivateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,10 +150,7 @@ func TestClaimPegin(t *testing.T) {
 		finalValue,
 		txscript.SigHashAll,
 	)
-	sig, err := privateKey.Sign(sigHash[:])
-	if err != nil {
-		t.Fatal(err)
-	}
+	sig := ecdsa.Sign(privateKey, sigHash[:])
 
 	sigWithHashType := append(sig.Serialize(), byte(txscript.SigHashAll))
 	witness := make([][]byte, 0)

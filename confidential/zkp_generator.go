@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/psetv2"
 	"github.com/vulpemventures/go-elements/slip77"
@@ -393,7 +393,7 @@ func (g *zkpGenerator) BlindOutputs(
 			)
 		}
 
-		ephemeralPrivKey, err := btcec.NewPrivateKey(btcec.S256())
+		ephemeralPrivKey, err := btcec.NewPrivateKey()
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to generate ephemeral key for ecdh nonce for output %d: %s",

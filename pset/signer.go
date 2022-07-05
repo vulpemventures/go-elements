@@ -10,8 +10,8 @@ package pset
 // is in the correct state.
 
 import (
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcutil/psbt"
 )
 
 // Sign allows the caller to sign a PSBT at a particular input; they

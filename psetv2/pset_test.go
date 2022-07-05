@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/require"
 
@@ -50,7 +50,7 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestBroadcastUnblindedTx(t *testing.T) {
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	pubkey := privkey.PubKey()
@@ -116,7 +116,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 }
 
 func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	pubkey := privkey.PubKey()
@@ -185,12 +185,12 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 }
 
 func TestBroadcastBlindedTx(t *testing.T) {
-	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	blindingPrivateKey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	blindingPublicKey := blindingPrivateKey.PubKey()
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	pubkey := privkey.PubKey()
@@ -291,12 +291,12 @@ func TestBroadcastBlindedTx(t *testing.T) {
 }
 
 func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
-	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	blindingPrivateKey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	blindingPublicKey := blindingPrivateKey.PubKey()
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	pubkey := privkey.PubKey()
@@ -403,12 +403,12 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 }
 
 func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
-	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	blindingPrivateKey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	blindingPublicKey := blindingPrivateKey.PubKey()
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	pubkey := privkey.PubKey()
@@ -520,12 +520,12 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 }
 
 func TestBroadcastBlindedIssuanceTx(t *testing.T) {
-	blindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	blindingPrivateKey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	blindingPublicKey := blindingPrivateKey.PubKey()
 
-	privkey, err := btcec.NewPrivateKey(btcec.S256())
+	privkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	pubkey := privkey.PubKey()
@@ -632,9 +632,9 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 // This test shows how 2 parties can create a confiendital swap transaction
 // by sharing the blinding private keys.
 func TestBroadcastBlindedSwapTx(t *testing.T) {
-	aliceBlindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	aliceBlindingPrivateKey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
-	alicePrivkey, err := btcec.NewPrivateKey(btcec.S256())
+	alicePrivkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	aliceBlindingPublicKey := aliceBlindingPrivateKey.PubKey()
@@ -642,9 +642,9 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	aliceP2wpkh := payment.FromPublicKey(alicePubkey, &network.Regtest, aliceBlindingPublicKey)
 	aliceAddress, _ := aliceP2wpkh.ConfidentialWitnessPubKeyHash()
 
-	bobBlindingPrivateKey, err := btcec.NewPrivateKey(btcec.S256())
+	bobBlindingPrivateKey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
-	bobPrivkey, err := btcec.NewPrivateKey(btcec.S256())
+	bobPrivkey, err := btcec.NewPrivateKey()
 	require.NoError(t, err)
 
 	bobBlindingPublicKey := bobBlindingPrivateKey.PubKey()

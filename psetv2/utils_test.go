@@ -15,7 +15,8 @@ import (
 
 	"github.com/vulpemventures/go-elements/network"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/txscript"
 
 	"github.com/vulpemventures/go-elements/psetv2"
@@ -216,10 +217,7 @@ func signTransaction(
 			}
 		}
 
-		sig, err := prvkey.Sign(sigHash[:])
-		if err != nil {
-			return err
-		}
+		sig := ecdsa.Sign(prvkey, sigHash[:])
 		sigWithHashType := append(sig.Serialize(), byte(sighashType))
 
 		var witPubkeyScript, witScript []byte
@@ -283,10 +281,7 @@ func signInput(
 		}
 	}
 
-	sig, err := prvkey.Sign(sigHash[:])
-	if err != nil {
-		return err
-	}
+	sig := ecdsa.Sign(prvkey, sigHash[:])
 	sigWithHashType := append(sig.Serialize(), byte(sighashType))
 
 	var witPubkeyScript, witScript []byte

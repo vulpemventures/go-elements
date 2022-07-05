@@ -83,6 +83,7 @@ func TestConfidential(t *testing.T) {
 		"AzppxC5RDs8yB8mabhwS13y4WbsWoS41fLV8GKM4woLUJB5RxNBVfK6wdVX4QVoubRXFKKfbPhEKKTKc",
 		"el1qqw3e3mk4ng3ks43mh54udznuekaadh9lgwef3mwgzrfzakmdwcvqpe4ppdaa3t44v3zv2u6w56pv6tc666fvgzaclqjnkz0sd",
 		"el1qqw3e3mk4ng3ks43mh54udznuekaadh9lgwef3mwgzrfzakmdwcvqqve2xzutyaf7vjcap67f28q90uxec2ve95g3rpu5crapcmfr2l9xl5jzazvcpysz",
+		"el1pqganzlzf78m05czqv9he0pl9gyryvvqxnr6fdk8rj9u40arvcepvanayxug6fkddlywsp2lgh4e9ypyucu8nhlf5tf8lwqypanv8qwjtr8cgsld44ygt",
 	}
 
 	for _, addr := range addresses {
@@ -134,6 +135,14 @@ func TestDecodeAddressType(t *testing.T) {
 		{
 			address:      "lq1qq2akvug2el2rg6lt6aewh9rzy7dglf9ajdmrkknnwwl3jwxgfkh985x3lrzmrq2mc3c6aa85wgxxfm9v8r062qwq4ty579p54pn2q2hqnhgwv394ycf8",
 			expectedType: ConfidentialP2Wsh,
+		},
+		{
+			address:      "el1pqgm2ru230fmqsw9j9q99992rgh7mresgaegyf79predtczelp0nt7e64ytjvjzt8lraeva72tw6gs6snfr2643hlxpgrmcfl96nmhep072dde867cx4u",
+			expectedType: ConfidentialP2TR,
+		},
+		{
+			address:      "ert1pe7jrwydymxklj8gq405t6ujjqjwvwreml5695nlhqzq7ekrs8f9sclaudg",
+			expectedType: P2TR,
 		},
 	}
 

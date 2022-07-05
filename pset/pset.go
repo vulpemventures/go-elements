@@ -24,10 +24,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil/psbt"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -350,12 +351,12 @@ func (p *Pset) validatePartialSignature(
 		return false, nil
 	}
 
-	pSig, err := btcec.ParseDERSignature(signatureDer, btcec.S256())
+	pSig, err := ecdsa.ParseDERSignature(signatureDer)
 	if err != nil {
 		return false, nil
 	}
 
-	pubKey, err := btcec.ParsePubKey(partialSignature.PubKey, btcec.S256())
+	pubKey, err := btcec.ParsePubKey(partialSignature.PubKey)
 	if err != nil {
 		return false, nil
 	}
@@ -479,7 +480,7 @@ func (p *Pset) verifyScriptForPubKey(
 	pubKey []byte,
 ) (bool, error) {
 
-	pk, err := btcec.ParsePubKey(pubKey, btcec.S256())
+	pk, err := btcec.ParsePubKey(pubKey)
 	if err != nil {
 		return false, err
 	}

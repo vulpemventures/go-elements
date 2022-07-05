@@ -12,7 +12,8 @@ import (
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-elements/payment"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/txscript"
 
 	"github.com/vulpemventures/go-elements/transaction"
@@ -400,12 +401,12 @@ func (p *Pset) validatePartialSignature(
 		return false, nil
 	}
 
-	pSig, err := btcec.ParseDERSignature(signatureDer, btcec.S256())
+	pSig, err := ecdsa.ParseDERSignature(signatureDer)
 	if err != nil {
 		return false, nil
 	}
 
-	pubKey, err := btcec.ParsePubKey(partialSignature.PubKey, btcec.S256())
+	pubKey, err := btcec.ParsePubKey(partialSignature.PubKey)
 	if err != nil {
 		return false, nil
 	}
@@ -505,7 +506,7 @@ func (p *Pset) getHashAndScriptForSignature(
 }
 
 func (p *Pset) verifyScriptForPubKey(script, pubKey []byte) (bool, error) {
-	pk, err := btcec.ParsePubKey(pubKey, btcec.S256())
+	pk, err := btcec.ParsePubKey(pubKey)
 	if err != nil {
 		return false, err
 	}

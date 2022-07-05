@@ -3,7 +3,8 @@ package psetv2
 import (
 	"bytes"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 )
 
 //TODO add ref to btcutil
@@ -32,7 +33,7 @@ func (s PartialSigSorter) Less(i, j int) bool {
 // validatePubkey checks if pubKey is *any* valid pubKey serialization in a
 // Bitcoin context (compressed/uncomp. OK).
 func validatePubkey(pubKey []byte) bool {
-	_, err := btcec.ParsePubKey(pubKey, btcec.S256())
+	_, err := btcec.ParsePubKey(pubKey)
 	return err == nil
 }
 
@@ -40,7 +41,7 @@ func validatePubkey(pubKey []byte) bool {
 // ECDSA signature, including the sighash flag.  It does *not* of course
 // validate the signature against any message or public key.
 func validateSignature(sig []byte) bool {
-	_, err := btcec.ParseDERSignature(sig, btcec.S256())
+	_, err := ecdsa.ParseDERSignature(sig)
 	return err == nil
 }
 

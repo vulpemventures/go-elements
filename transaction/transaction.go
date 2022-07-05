@@ -7,6 +7,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
+	"github.com/vulpemventures/go-elements/taproot"
 )
 
 const (
@@ -23,6 +24,9 @@ const (
 
 	//SighashRangeproof is a flag that means the rangeproofs should be included in the sighash.
 	SighashRangeproof = 0x40
+
+	sighashInputMask  = uint8(0x80)
+	sighashOutputMask = uint8(0x03)
 )
 
 var (
@@ -617,13 +621,13 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 		(hashType&0x1f) != txscript.SigHashNone {
 		hashOutputs = calcTxOutputsHash(tx.Outputs)
 		if shouldCalculateRangeProofsHash {
-			hashForRangeProofs = calcRangeProofsHash(tx.Outputs)
+			hashForRangeProofs = calcTxOutputsHash(tx.Outputs)
 		}
 	} else {
 		if (hashType&0x1f) == txscript.SigHashSingle && inIndex < len(tx.Outputs) {
 			hashOutputs = calcTxOutputsHash([]*TxOutput{tx.Outputs[inIndex]})
 			if shouldCalculateRangeProofsHash {
-				hashForRangeProofs = calcRangeProofsHash([]*TxOutput{tx.Outputs[inIndex]})
+				hashForRangeProofs = calcTxOutputsHash([]*TxOutput{tx.Outputs[inIndex]})
 			}
 		}
 	}
@@ -654,6 +658,119 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 	s.WriteUint32(uint32(hashType))
 
 	return chainhash.DoubleHashH(s.Bytes())
+}
+
+// HashForWitnessV1 returns the sighash as described in BIP-340
+func (tx *Transaction) HashForWitnessV1(
+	inIndex int,
+	prevoutsScripts [][]byte,
+	prevoutsAssets [][]byte,
+	prevoutsValues [][]byte,
+	hashType txscript.SigHashType,
+	genesisBlockHash *chainhash.Hash,
+	leafHash *chainhash.Hash,
+	annex []byte, // for future tapscript update
+) [32]byte {
+	extflag := 0x00
+	if leafHash != nil {
+		extflag = 0x01
+	}
+
+	var inputType, outputType uint8
+
+	inputType = uint8(hashType) & sighashInputMask
+	if hashType == txscript.SigHashDefault {
+		outputType = uint8(txscript.SigHashAll)
+	} else {
+		outputType = uint8(hashType) & sighashOutputMask
+	}
+
+	s := bufferutil.NewSerializer(nil)
+	input := tx.Inputs[inIndex]
+
+	s.WriteSlice(genesisBlockHash.CloneBytes())
+	s.WriteSlice(genesisBlockHash.CloneBytes())
+	s.WriteUint8(uint8(hashType))
+
+	s.WriteUint32(uint32(tx.Version))
+	s.WriteUint32(tx.Locktime)
+
+	if inputType != uint8(txscript.SigHashAnyOneCanPay) {
+		hashInputs := calcTxInputsSingleHash(tx.Inputs)
+		hashScriptPubKeys := calcScriptPubKeysSingleHash(prevoutsScripts)
+		hashOutpointsFlag := calcOutpointsFlagsSingleHash(tx.Inputs)
+		hashSpentAssetValues := calcAssetAmountSingleHash(prevoutsAssets, prevoutsValues)
+		hashSequences := calcTxSequencesSingleHash(tx.Inputs)
+
+		hashIssuances := calcTxIssuancesSingleHash(tx.Inputs)
+		hashIssuancesProofs := calcIssuanceProofsSingleHash(tx.Inputs)
+
+		s.WriteSlice(hashOutpointsFlag[:])
+		s.WriteSlice(hashInputs[:])
+		s.WriteSlice(hashSpentAssetValues[:])
+		s.WriteSlice(hashScriptPubKeys[:])
+		s.WriteSlice(hashSequences[:])
+		s.WriteSlice(hashIssuances[:])
+		s.WriteSlice(hashIssuancesProofs[:])
+	}
+
+	if outputType != uint8(txscript.SigHashNone) && outputType != uint8(txscript.SigHashSingle) {
+		hashOutputs := calcTxOutputsSingleHash(tx.Outputs)
+		hashOutputsWitnesses := calcOutputWitnessesSingleHash(tx.Outputs)
+		s.WriteSlice(hashOutputs[:])
+		s.WriteSlice(hashOutputsWitnesses[:])
+	}
+
+	spendType := extflag << 1
+	if annex != nil {
+		spendType |= 1
+	}
+	s.WriteUint8(uint8(spendType))
+
+	if inputType == uint8(txscript.SigHashAnyOneCanPay) {
+		s.WriteUint8(calcInputFlag(input))
+		s.WriteSlice(input.Hash)
+		s.WriteUint32(input.Index)
+		s.WriteSlice(prevoutsAssets[inIndex])
+		s.WriteSlice(prevoutsValues[inIndex])
+		s.WriteVarSlice(prevoutsScripts[inIndex])
+		s.WriteUint32(input.Sequence)
+
+		if input.Issuance != nil {
+			s.WriteSlice(input.Issuance.AssetBlindingNonce)
+			s.WriteSlice(input.Issuance.AssetEntropy)
+			s.WriteSlice(input.Issuance.AssetAmount)
+			s.WriteSlice(input.Issuance.TokenAmount)
+			hashIssuanceProofInput := calcIssuanceProofsSingleHash([]*TxInput{input})
+			s.WriteSlice(hashIssuanceProofInput[:])
+		} else {
+			s.WriteSlice([]byte{0x00})
+		}
+	} else {
+		s.WriteUint32(uint32(inIndex))
+	}
+
+	if annex != nil {
+		buf := bufferutil.NewSerializer(nil)
+		buf.WriteVarSlice(annex)
+		singlehash := chainhash.HashH(buf.Bytes())
+		s.WriteSlice(singlehash[:])
+	}
+
+	if outputType == uint8(txscript.SigHashSingle) && inIndex < len(tx.Outputs) {
+		hashOutputs := calcTxOutputsSingleHash([]*TxOutput{tx.Outputs[inIndex]})
+		hashOutputsWitnesses := calcOutputWitnessesSingleHash([]*TxOutput{tx.Outputs[inIndex]})
+		s.WriteSlice(hashOutputs[:])
+		s.WriteSlice(hashOutputsWitnesses[:])
+	}
+
+	if leafHash != nil {
+		s.WriteSlice(leafHash[:])
+		s.WriteUint8(0)           // key version (XOnly 32 bytes now) - may change in future update
+		s.WriteUint32(0xffffffff) // constant separator
+	}
+
+	return *chainhash.TaggedHash(taproot.TagTapSighashElements, s.Bytes())
 }
 
 // ToHex returns the serializarion of the transaction in hex enncoding format.
@@ -788,24 +905,44 @@ func (tx *Transaction) serialize(
 	return s.Bytes(), nil
 }
 
-func calcTxInputsHash(ins []*TxInput) [32]byte {
+func serializeInputs(ins []*TxInput) []byte {
 	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteSlice(in.Hash)
 		s.WriteUint32(in.Index)
 	}
-	return chainhash.DoubleHashH(s.Bytes())
+	return s.Bytes()
 }
 
-func calcTxSequencesHash(ins []*TxInput) [32]byte {
+func calcTxInputsHash(ins []*TxInput) [32]byte {
+	b := serializeInputs(ins)
+	return chainhash.DoubleHashH(b)
+}
+
+func calcTxInputsSingleHash(ins []*TxInput) [32]byte {
+	b := serializeInputs(ins)
+	return chainhash.HashH(b)
+}
+
+func serializeSequences(ins []*TxInput) []byte {
 	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteUint32(in.Sequence)
 	}
-	return chainhash.DoubleHashH(s.Bytes())
+	return s.Bytes()
 }
 
-func calcTxIssuancesHash(ins []*TxInput) [32]byte {
+func calcTxSequencesHash(ins []*TxInput) [32]byte {
+	b := serializeSequences(ins)
+	return chainhash.DoubleHashH(b)
+}
+
+func calcTxSequencesSingleHash(ins []*TxInput) [32]byte {
+	b := serializeSequences(ins)
+	return chainhash.HashH(b)
+}
+
+func serializeIssuances(ins []*TxInput) []byte {
 	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		if iss := in.Issuance; iss != nil {
@@ -814,13 +951,23 @@ func calcTxIssuancesHash(ins []*TxInput) [32]byte {
 			s.WriteSlice(iss.AssetAmount)
 			s.WriteSlice(iss.TokenAmount)
 		} else {
-			s.WriteSlice([]byte{0x00})
+			s.WriteUint8(0x00)
 		}
 	}
-	return chainhash.DoubleHashH(s.Bytes())
+	return s.Bytes()
 }
 
-func calcTxOutputsHash(outs []*TxOutput) [32]byte {
+func calcTxIssuancesHash(ins []*TxInput) [32]byte {
+	b := serializeIssuances(ins)
+	return chainhash.DoubleHashH(b)
+}
+
+func calcTxIssuancesSingleHash(ins []*TxInput) [32]byte {
+	s := serializeIssuances(ins)
+	return chainhash.HashH(s)
+}
+
+func serializeOutputs(outs []*TxOutput) []byte {
 	s := bufferutil.NewSerializer(nil)
 	for _, out := range outs {
 		s.WriteSlice(out.Asset)
@@ -828,14 +975,89 @@ func calcTxOutputsHash(outs []*TxOutput) [32]byte {
 		s.WriteSlice(out.Nonce)
 		s.WriteVarSlice(out.Script)
 	}
-	return chainhash.DoubleHashH(s.Bytes())
+	return s.Bytes()
 }
 
-func calcRangeProofsHash(outs []*TxOutput) [32]byte {
+func calcTxOutputsHash(outs []*TxOutput) [32]byte {
+	b := serializeOutputs(outs)
+	return chainhash.DoubleHashH(b)
+}
+
+func calcTxOutputsSingleHash(outs []*TxOutput) [32]byte {
+	b := serializeOutputs(outs)
+	return chainhash.HashH(b)
+}
+
+func calcInputFlag(i *TxInput) uint8 {
+	flag := uint8(0)
+
+	if i.Issuance != nil {
+		flag |= OutpointIssuanceFlag >> 24
+	}
+	if i.IsPegin {
+		flag |= OutpointPeginFlag >> 24
+	}
+	return flag
+}
+
+func calcOutpointsFlagsSingleHash(ins []*TxInput) [32]byte {
+	s := bufferutil.NewSerializer(nil)
+	for _, in := range ins {
+		s.WriteUint8(calcInputFlag(in))
+	}
+	return chainhash.HashH(s.Bytes())
+}
+
+func calcAssetAmountSingleHash(prevoutAssets [][]byte, prevoutValues [][]byte) [32]byte {
+	s := bufferutil.NewSerializer(nil)
+
+	for i := 0; i < len(prevoutAssets); i++ {
+		s.WriteSlice(prevoutAssets[i])
+		s.WriteSlice(prevoutValues[i])
+	}
+	return chainhash.HashH(s.Bytes())
+}
+
+func calcIssuanceProofsSingleHash(ins []*TxInput) [32]byte {
+	s := bufferutil.NewSerializer(nil)
+	for _, in := range ins {
+		if in.IssuanceRangeProof != nil {
+			s.WriteVarSlice(in.IssuanceRangeProof)
+		} else {
+			s.WriteVarSlice([]byte{})
+		}
+
+		if in.InflationRangeProof != nil {
+			s.WriteVarSlice(in.InflationRangeProof)
+		} else {
+			s.WriteVarSlice([]byte{})
+		}
+	}
+	return chainhash.HashH(s.Bytes())
+}
+
+func calcOutputWitnessesSingleHash(outs []*TxOutput) [32]byte {
 	s := bufferutil.NewSerializer(nil)
 	for _, out := range outs {
-		s.WriteVarSlice(out.RangeProof)
-		s.WriteVarSlice(out.SurjectionProof)
+		if out.SurjectionProof != nil {
+			s.WriteVarSlice(out.SurjectionProof)
+		} else {
+			s.WriteVarSlice([]byte{})
+		}
+
+		if out.RangeProof != nil {
+			s.WriteVarSlice(out.RangeProof)
+		} else {
+			s.WriteVarSlice([]byte{})
+		}
 	}
-	return chainhash.DoubleHashH(s.Bytes())
+	return chainhash.HashH(s.Bytes())
+}
+
+func calcScriptPubKeysSingleHash(scripts [][]byte) [32]byte {
+	s := bufferutil.NewSerializer(nil)
+	for _, script := range scripts {
+		s.WriteVarSlice(script)
+	}
+	return chainhash.HashH(s.Bytes())
 }

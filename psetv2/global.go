@@ -9,8 +9,8 @@ import (
 
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/btcsuite/btcutil/hdkeychain"
+	"github.com/btcsuite/btcd/btcutil/base58"
+	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 )
 
 const (

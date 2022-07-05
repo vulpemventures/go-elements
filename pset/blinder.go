@@ -6,7 +6,7 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -474,7 +474,7 @@ func (b *Blinder) createBlindedOutputs(
 			return err
 		}
 
-		ephemeralPrivKey, err := btcec.NewPrivateKey(btcec.S256())
+		ephemeralPrivKey, err := btcec.NewPrivateKey()
 		if err != nil {
 			return err
 		}

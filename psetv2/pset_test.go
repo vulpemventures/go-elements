@@ -20,25 +20,32 @@ import (
 )
 
 var (
-	sighashAll = txscript.SigHashAll | transaction.SighashRangeproof
+	sighashAll = txscript.SigHashAll
 )
 
+/*
+*	The fixtures for this test have been generated with Elements CLI and
+*	demonstrate that this package is able to serialize a partial transaction
+* compliant with the Elements implementation.
+ */
 func TestRoundTrip(t *testing.T) {
 	file, _ := ioutil.ReadFile("testdata/roundtrip.json")
 	var tests []map[string]interface{}
 	json.Unmarshal(file, &tests)
 
 	for _, v := range tests {
-		psetBase64 := v["base64"].(string)
+		t.Run(v["name"].(string), func(t *testing.T) {
+			psetBase64 := v["base64"].(string)
 
-		ptx, err := psetv2.NewPsetFromBase64(psetBase64)
-		require.NoError(t, err)
+			ptx, err := psetv2.NewPsetFromBase64(psetBase64)
+			require.NoError(t, err)
 
-		ptxBase64, err := ptx.ToBase64()
-		require.NoError(t, err)
-		a, _ := base64.StdEncoding.DecodeString(psetBase64)
-		b, _ := base64.StdEncoding.DecodeString(ptxBase64)
-		require.Equal(t, b2h(a), b2h(b))
+			ptxBase64, err := ptx.ToBase64()
+			require.NoError(t, err)
+			a, _ := base64.StdEncoding.DecodeString(psetBase64)
+			b, _ := base64.StdEncoding.DecodeString(ptxBase64)
+			require.Equal(t, b2h(a), b2h(b))
+		})
 	}
 }
 

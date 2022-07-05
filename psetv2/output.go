@@ -84,29 +84,29 @@ func (o *Output) SanityCheck() error {
 }
 
 func (o *Output) IsBlinded() bool {
-	return o.BlindingPubkey != nil
+	return len(o.BlindingPubkey) > 0
 }
 
 func (o *Output) IsPartiallyBlinded() bool {
-	return o.IsBlinded() && (o.ValueCommitment != nil ||
-		o.AssetCommitment != nil ||
-		o.ValueRangeproof != nil ||
-		o.AssetSurjectionProof != nil ||
-		o.EcdhPubkey != nil)
+	return o.IsBlinded() && (len(o.ValueCommitment) > 0 ||
+		len(o.AssetCommitment) > 0 ||
+		len(o.ValueRangeproof) > 0 ||
+		len(o.AssetSurjectionProof) > 0 ||
+		len(o.EcdhPubkey) > 0)
 }
 
 func (o *Output) IsFullyBlinded() bool {
-	return o.IsBlinded() && o.ValueCommitment != nil &&
-		o.AssetCommitment != nil &&
-		o.ValueRangeproof != nil &&
-		o.AssetSurjectionProof != nil &&
-		o.EcdhPubkey != nil
+	return o.IsBlinded() && len(o.ValueCommitment) > 0 &&
+		len(o.AssetCommitment) > 0 &&
+		len(o.ValueRangeproof) > 0 &&
+		len(o.AssetSurjectionProof) > 0 &&
+		len(o.EcdhPubkey) > 0
 }
 
 func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	keyPairs := make([]KeyPair, 0)
 
-	if o.RedeemScript != nil {
+	if len(o.RedeemScript) > 0 {
 		redeemScriptKeyPair := KeyPair{
 			Key: Key{
 				KeyType: OutputRedeemScript,
@@ -117,7 +117,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, redeemScriptKeyPair)
 	}
 
-	if o.WitnessScript != nil {
+	if len(o.WitnessScript) > 0 {
 		witnessScriptKeyPair := KeyPair{
 			Key: Key{
 				KeyType: OutputWitnessScript,
@@ -128,7 +128,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, witnessScriptKeyPair)
 	}
 
-	if o.Bip32Derivation != nil {
+	if len(o.Bip32Derivation) > 0 {
 		for _, v := range o.Bip32Derivation {
 			bip32DerivationPathKeyPair := KeyPair{
 				Key: Key{
@@ -141,18 +141,16 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		}
 	}
 
-	if o.Script != nil {
-		outputScriptKeyPair := KeyPair{
-			Key: Key{
-				KeyType: OutputScript,
-				KeyData: nil,
-			},
-			Value: o.Script,
-		}
-		keyPairs = append(keyPairs, outputScriptKeyPair)
+	outputScriptKeyPair := KeyPair{
+		Key: Key{
+			KeyType: OutputScript,
+			KeyData: nil,
+		},
+		Value: o.Script,
 	}
+	keyPairs = append(keyPairs, outputScriptKeyPair)
 
-	if o.ValueCommitment != nil {
+	if len(o.ValueCommitment) > 0 {
 		outputValueCommitmentKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -174,7 +172,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	}
 	keyPairs = append(keyPairs, outputAmountKeyPair)
 
-	if o.AssetCommitment != nil {
+	if len(o.AssetCommitment) > 0 {
 		outputAssetCommitmentKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -185,7 +183,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, outputAssetCommitmentKeyPair)
 	}
 
-	if o.Asset != nil {
+	if len(o.Asset) > 0 {
 		outputAssetKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -196,7 +194,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, outputAssetKeyPair)
 	}
 
-	if o.ValueRangeproof != nil {
+	if len(o.ValueRangeproof) > 0 {
 		outputValueRangeproofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -207,7 +205,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, outputValueRangeproofKeyPair)
 	}
 
-	if o.AssetSurjectionProof != nil {
+	if len(o.AssetSurjectionProof) > 0 {
 		outputAssetSurjectionProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -218,7 +216,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, outputAssetSurjectionProofKeyPair)
 	}
 
-	if o.BlindingPubkey != nil {
+	if len(o.BlindingPubkey) > 0 {
 		outputBlindingPubkeyKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -229,7 +227,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, outputBlindingPubkeyKeyPair)
 	}
 
-	if o.EcdhPubkey != nil {
+	if len(o.EcdhPubkey) > 0 {
 		outputEcdhPubkeyKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -252,7 +250,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 	}
 	keyPairs = append(keyPairs, outputBlinderIndexKeyPair)
 
-	if o.BlindValueProof != nil {
+	if len(o.BlindValueProof) > 0 {
 		outputBlindValueProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -263,7 +261,7 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, outputBlindValueProofKeyPair)
 	}
 
-	if o.BlindAssetProof != nil {
+	if len(o.BlindAssetProof) > 0 {
 		outputBlindAssetProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -324,12 +322,12 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 
 		switch kp.Key.KeyType {
 		case OutputRedeemScript:
-			if o.RedeemScript != nil {
+			if len(o.RedeemScript) > 0 {
 				return ErrDuplicateKey
 			}
 			o.RedeemScript = kp.Value
 		case OutputWitnessScript:
-			if o.WitnessScript != nil {
+			if len(o.WitnessScript) > 0 {
 				return ErrDuplicateKey
 			}
 			o.WitnessScript = kp.Value
@@ -366,7 +364,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 			}
 			o.Value = binary.LittleEndian.Uint64(kp.Value)
 		case OutputScript:
-			if o.Script != nil {
+			if len(o.Script) > 0 {
 				return ErrDuplicateKey
 			}
 			o.Script = kp.Value
@@ -379,7 +377,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 			if bytes.Equal(pd.Identifier, magicPrefix) {
 				switch pd.Subtype {
 				case OutputValueCommitment:
-					if o.ValueCommitment != nil {
+					if len(o.ValueCommitment) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 33 {
@@ -387,7 +385,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					}
 					o.ValueCommitment = kp.Value
 				case OutputAsset:
-					if o.Asset != nil {
+					if len(o.Asset) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 32 {
@@ -395,7 +393,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					}
 					o.Asset = kp.Value
 				case OutputAssetCommitment:
-					if o.AssetCommitment != nil {
+					if len(o.AssetCommitment) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 33 {
@@ -403,17 +401,17 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					}
 					o.AssetCommitment = kp.Value
 				case OutputValueRangeproof:
-					if o.ValueRangeproof != nil {
+					if len(o.ValueRangeproof) > 0 {
 						return ErrDuplicateKey
 					}
 					o.ValueRangeproof = kp.Value
 				case OutputAssetSurjectionProof:
-					if o.AssetSurjectionProof != nil {
+					if len(o.AssetSurjectionProof) > 0 {
 						return ErrDuplicateKey
 					}
 					o.AssetSurjectionProof = kp.Value
 				case OutputBlindingPubkey:
-					if o.BlindingPubkey != nil {
+					if len(o.BlindingPubkey) > 0 {
 						return ErrDuplicateKey
 					}
 					if !validatePubkey(kp.Value) {
@@ -421,7 +419,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					}
 					o.BlindingPubkey = kp.Value
 				case OutputEcdhPubkey:
-					if o.EcdhPubkey != nil {
+					if len(o.EcdhPubkey) > 0 {
 						return ErrDuplicateKey
 					}
 					if !validatePubkey(kp.Value) {
@@ -437,12 +435,12 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					}
 					o.BlinderIndex = binary.LittleEndian.Uint32(kp.Value)
 				case OutputBlindValueProof:
-					if o.BlindValueProof != nil {
+					if len(o.BlindValueProof) > 0 {
 						return ErrDuplicateKey
 					}
 					o.BlindValueProof = kp.Value
 				case OutputBlindAssetProof:
-					if o.BlindAssetProof != nil {
+					if len(o.BlindAssetProof) > 0 {
 						return ErrDuplicateKey
 					}
 					o.BlindAssetProof = kp.Value

@@ -536,16 +536,9 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 //
 // NOTE: That this can be called multiple times for the same output.  An error
 // is returned if addition of this key-value pair to the Psbt fails.
-func (u *Updater) AddOutBip32Derivation(masterKeyFingerprint uint32,
-	bip32Path []uint32, pubKeyData []byte, outIndex int) error {
+func (u *Updater) AddOutBip32Derivation(outIndex int, bip32Derivation DerivationPathWithPubKey) error {
 	if outIndex > len(u.Pset.Outputs)-1 {
 		return ErrOutputIndexOutOfRange
-	}
-
-	bip32Derivation := DerivationPathWithPubKey{
-		PubKey:               pubKeyData,
-		MasterKeyFingerprint: masterKeyFingerprint,
-		Bip32Path:            bip32Path,
 	}
 
 	if !validatePubkey(bip32Derivation.PubKey) {

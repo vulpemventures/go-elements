@@ -283,7 +283,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, nonWitnessKeyPair)
 	}
 
-	if i.PartialSigs != nil {
+	if len(i.PartialSigs) > 0 {
 		for _, v := range i.PartialSigs {
 			partialSigKeyPair := KeyPair{
 				Key: Key{
@@ -309,7 +309,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, fallBackLockTimeKeyPair)
 	}
 
-	if i.RedeemScript != nil {
+	if len(i.RedeemScript) > 0 {
 		redeemScriptKeyPair := KeyPair{
 			Key: Key{
 				KeyType: InputRedeemScript,
@@ -320,7 +320,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, redeemScriptKeyPair)
 	}
 
-	if i.WitnessScript != nil {
+	if len(i.WitnessScript) > 0 {
 		witnessScriptKeyPair := KeyPair{
 			Key: Key{
 				KeyType: InputWitnessScript,
@@ -331,7 +331,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, witnessScriptKeyPair)
 	}
 
-	if i.Bip32Derivation != nil {
+	if len(i.Bip32Derivation) > 0 {
 		for _, v := range i.Bip32Derivation {
 			bip32DerivationPathKeyPair := KeyPair{
 				Key: Key{
@@ -344,7 +344,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		}
 	}
 
-	if i.FinalScriptSig != nil {
+	if len(i.FinalScriptSig) > 0 {
 		finalScriptSigKeyPair := KeyPair{
 			Key: Key{
 				KeyType: InputFinalScriptsig,
@@ -355,7 +355,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, finalScriptSigKeyPair)
 	}
 
-	if i.FinalScriptWitness != nil {
+	if len(i.FinalScriptWitness) > 0 {
 		finalScriptWitnessKeyPair := KeyPair{
 			Key: Key{
 				KeyType: InputFinalScriptwitness,
@@ -366,7 +366,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, finalScriptWitnessKeyPair)
 	}
 
-	if i.Ripemd160Preimages != nil {
+	if len(i.Ripemd160Preimages) > 0 {
 		for k, v := range i.Ripemd160Preimages {
 			ripemd160PreimagesKeyPair := KeyPair{
 				Key: Key{
@@ -379,7 +379,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		}
 	}
 
-	if i.Sha256Preimages != nil {
+	if len(i.Sha256Preimages) > 0 {
 		for k, v := range i.Sha256Preimages {
 			sha256PreimagesKeyPair := KeyPair{
 				Key: Key{
@@ -392,7 +392,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		}
 	}
 
-	if i.Hash160Preimages != nil {
+	if len(i.Hash160Preimages) > 0 {
 		for k, v := range i.Hash160Preimages {
 			hash160PreimagesKeyPair := KeyPair{
 				Key: Key{
@@ -405,7 +405,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		}
 	}
 
-	if i.Hash256Preimages != nil {
+	if len(i.Hash256Preimages) > 0 {
 		for k, v := range i.Hash256Preimages {
 			hash256PreimagesKeyPair := KeyPair{
 				Key: Key{
@@ -488,7 +488,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceValueKeyPair)
 	}
 
-	if i.IssuanceValueCommitment != nil {
+	if len(i.IssuanceValueCommitment) > 0 {
 		issuanceValueCommitmentKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -499,7 +499,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceValueCommitmentKeyPair)
 	}
 
-	if i.IssuanceValueRangeproof != nil {
+	if len(i.IssuanceValueRangeproof) > 0 {
 		issuanceValueRangeproofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -510,7 +510,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceValueRangeproofKeyPair)
 	}
 
-	if i.IssuanceInflationKeysRangeproof != nil {
+	if len(i.IssuanceInflationKeysRangeproof) > 0 {
 		issuanceKeysRangeproofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -537,7 +537,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, peginTxKeyPair)
 	}
 
-	if i.PeginTxoutProof != nil {
+	if len(i.PeginTxoutProof) > 0 {
 		peginTxoutProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -548,7 +548,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, peginTxoutProofKeyPair)
 	}
 
-	if i.PeginGenesisHash != nil {
+	if len(i.PeginGenesisHash) > 0 {
 		peginGenesisHashKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -559,7 +559,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, peginGenesisHashKeyPair)
 	}
 
-	if i.PeginClaimScript != nil {
+	if len(i.PeginClaimScript) > 0 {
 		peginClaimScriptKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -584,7 +584,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, peginValueKeyPair)
 	}
 
-	if i.PeginWitness != nil {
+	if len(i.PeginWitness) > 0 {
 		peginWitnessKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -609,7 +609,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceInflationKeysKeyPair)
 	}
 
-	if i.IssuanceInflationKeysCommitment != nil {
+	if len(i.IssuanceInflationKeysCommitment) > 0 {
 		issuanceInflationKeysCommitmentKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -620,7 +620,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceInflationKeysCommitmentKeyPair)
 	}
 
-	if i.IssuanceBlindingNonce != nil {
+	if len(i.IssuanceBlindingNonce) > 0 {
 		issuanceBlindingNonceKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -631,7 +631,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceBlindingNonceKeyPair)
 	}
 
-	if i.IssuanceAssetEntropy != nil {
+	if len(i.IssuanceAssetEntropy) > 0 {
 		issuanceAssetEntropyKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -642,7 +642,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceAssetEntropyKeyPair)
 	}
 
-	if i.UtxoRangeProof != nil {
+	if len(i.UtxoRangeProof) > 0 {
 		inUtxoRangeProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -653,7 +653,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, inUtxoRangeProofKeyPair)
 	}
 
-	if i.IssuanceBlindValueProof != nil {
+	if len(i.IssuanceBlindValueProof) > 0 {
 		issuanceBlindValueProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -664,7 +664,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceBlindValueProofKeyPair)
 	}
 
-	if i.IssuanceBlindInflationKeysProof != nil {
+	if len(i.IssuanceBlindInflationKeysProof) > 0 {
 		issuanceBlindInflationKeysProofKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
@@ -778,12 +778,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 
 			i.SigHashType = sigHashType
 		case InputRedeemScript:
-			if i.RedeemScript != nil {
+			if len(i.RedeemScript) > 0 {
 				return ErrDuplicateKey
 			}
 			i.RedeemScript = kp.Value
 		case InputWitnessScript:
-			if i.WitnessScript != nil {
+			if len(i.WitnessScript) > 0 {
 				return ErrDuplicateKey
 			}
 			i.WitnessScript = kp.Value
@@ -812,12 +812,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 				},
 			)
 		case InputFinalScriptsig:
-			if i.FinalScriptSig != nil {
+			if len(i.FinalScriptSig) > 0 {
 				return ErrDuplicateKey
 			}
 			i.FinalScriptSig = kp.Value
 		case InputFinalScriptwitness:
-			if i.FinalScriptWitness != nil {
+			if len(i.FinalScriptWitness) > 0 {
 				return ErrDuplicateKey
 			}
 			i.FinalScriptWitness = kp.Value
@@ -851,7 +851,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			copy(hash[:], kp.Key.KeyData[:])
 			i.Hash256Preimages[hash] = kp.Value
 		case InputPreviousTxid:
-			if i.PreviousTxid != nil {
+			if len(i.PreviousTxid) > 0 {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 32 {
@@ -907,7 +907,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.IssuanceValue = binary.LittleEndian.Uint64(kp.Value)
 				case InputIssuanceValueCommitment:
-					if i.IssuanceValueCommitment != nil {
+					if len(i.IssuanceValueCommitment) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 33 {
@@ -915,12 +915,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.IssuanceValueCommitment = kp.Value
 				case InputIssuanceValueRangeproof:
-					if i.IssuanceValueRangeproof != nil {
+					if len(i.IssuanceValueRangeproof) > 0 {
 						return ErrDuplicateKey
 					}
 					i.IssuanceValueRangeproof = kp.Value
 				case InputIssuanceInflationKeysRangeproof:
-					if i.IssuanceInflationKeysRangeproof != nil {
+					if len(i.IssuanceInflationKeysRangeproof) > 0 {
 						return ErrDuplicateKey
 					}
 					i.IssuanceInflationKeysRangeproof = kp.Value
@@ -934,12 +934,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.PeginTx = tx
 				case InputPeginTxoutProof:
-					if i.PeginTxoutProof != nil {
+					if len(i.PeginTxoutProof) > 0 {
 						return ErrDuplicateKey
 					}
 					i.PeginTxoutProof = kp.Value
 				case InputPeginGenesis:
-					if i.PeginGenesisHash != nil {
+					if len(i.PeginGenesisHash) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 32 {
@@ -947,7 +947,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.PeginGenesisHash = kp.Value
 				case InputPeginClaimScript:
-					if i.PeginClaimScript != nil {
+					if len(i.PeginClaimScript) > 0 {
 						return ErrDuplicateKey
 					}
 					i.PeginClaimScript = kp.Value
@@ -960,7 +960,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.PeginValue = binary.LittleEndian.Uint64(kp.Value)
 				case InputPeginWitness:
-					if i.PeginWitness != nil {
+					if len(i.PeginWitness) > 0 {
 						return ErrDuplicateKey
 					}
 					i.PeginWitness = kp.Value
@@ -973,7 +973,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.IssuanceInflationKeys = binary.LittleEndian.Uint64(kp.Value)
 				case InputIssuanceInflationKeysCommitment:
-					if i.IssuanceInflationKeysCommitment != nil {
+					if len(i.IssuanceInflationKeysCommitment) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 33 {
@@ -981,7 +981,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.IssuanceInflationKeysCommitment = kp.Value
 				case InputIssuanceBlindingNonce:
-					if i.IssuanceBlindingNonce != nil {
+					if len(i.IssuanceBlindingNonce) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 32 {
@@ -989,7 +989,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.IssuanceBlindingNonce = kp.Value
 				case InputIssuanceAssetEntropy:
-					if i.IssuanceAssetEntropy != nil {
+					if len(i.IssuanceAssetEntropy) > 0 {
 						return ErrDuplicateKey
 					}
 					if len(kp.Value) != 32 {
@@ -997,17 +997,17 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					}
 					i.IssuanceAssetEntropy = kp.Value
 				case InputUtxoRangeProof:
-					if i.UtxoRangeProof != nil {
+					if len(i.UtxoRangeProof) > 0 {
 						return ErrDuplicateKey
 					}
 					i.UtxoRangeProof = kp.Value
 				case InputIssuanceBlindValueProof:
-					if i.IssuanceBlindValueProof != nil {
+					if len(i.IssuanceBlindValueProof) > 0 {
 						return ErrDuplicateKey
 					}
 					i.IssuanceBlindValueProof = kp.Value
 				case InputIssuanceBlindInflationKeysProof:
-					if i.IssuanceBlindInflationKeysProof != nil {
+					if len(i.IssuanceBlindInflationKeysProof) > 0 {
 						return ErrDuplicateKey
 					}
 					i.IssuanceBlindInflationKeysProof = kp.Value

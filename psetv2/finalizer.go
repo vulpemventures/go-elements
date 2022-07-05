@@ -28,11 +28,17 @@ var (
 // FinalizeAll finalizes all inputs of a partial elements transaction by
 // calling the Finalize function for every partial input
 func FinalizeAll(p *Pset) error {
+	pp := p.Copy()
+
 	for inIndex := range p.Inputs {
-		if err := Finalize(p, inIndex); err != nil {
+		if err := Finalize(pp, inIndex); err != nil {
 			return err
 		}
 	}
+
+	p.Global = pp.Global
+	p.Inputs = pp.Inputs
+	p.Outputs = pp.Outputs
 	return nil
 }
 
@@ -60,6 +66,8 @@ func Finalize(p *Pset, inIndex int) error {
 	default:
 		return ErrInvalidPsbtFormat
 	}
+
+	p.Inputs[inIndex].PartialSigs = nil
 
 	// Before returning we sanity check the PSET to ensure we don't extract
 	// an invalid transaction or produce an invalid intermediate state.

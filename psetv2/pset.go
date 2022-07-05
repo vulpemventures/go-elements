@@ -102,17 +102,17 @@ func (p *Pset) Copy() *Pset {
 }
 
 func (p *Pset) InputsModifiable() bool {
-	if p.Global.TxModifiable == nil {
-		return true
+	if p.Global.TxModifiable != nil {
+		return p.Global.TxModifiable.Test(0)
 	}
-	return p.Global.TxModifiable.Test(0)
+	return true
 }
 
 func (p *Pset) OutputsModifiable() bool {
-	if p.Global.TxModifiable == nil {
-		return true
+	if p.Global.TxModifiable != nil {
+		return p.Global.TxModifiable.Test(1)
 	}
-	return p.Global.TxModifiable.Test(1)
+	return true
 }
 
 func (p *Pset) HasSighashSingle() bool {
@@ -123,18 +123,31 @@ func (p *Pset) HasSighashSingle() bool {
 }
 
 func (p *Pset) NeedsBlinding() bool {
-	if p.Global.Modifiable == nil {
-		return false
+	if p.Global.Modifiable != nil {
+		return p.Global.Modifiable.Test(0)
 	}
-	return p.Global.Modifiable.Test(0)
+
+	for _, out := range p.Outputs {
+		if out.IsBlinded() && !out.IsFullyBlinded() {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Pset) IsFullyBlinded() bool {
 	if !p.NeedsBlinding() {
 		return false
 	}
-
-	return !p.Global.Modifiable.Test(0)
+	if p.Global.Modifiable != nil {
+		return !p.Global.Modifiable.Test(0)
+	}
+	for _, out := range p.Outputs {
+		if out.IsBlinded() && !out.IsFullyBlinded() {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Pset) IsComplete() bool {

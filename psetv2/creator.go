@@ -118,16 +118,10 @@ func (a OutputArgs) toPartialOutput() Output {
 func New(
 	ins []InputArgs, outs []OutputArgs, locktime uint32,
 ) (*Pset, error) {
-	modifiable := NewBitSet()
-	txModifiable := NewBitSet()
-	txModifiable.Set(0)
-	txModifiable.Set(1)
 	global := Global{
 		Version:          defaultVersion,
 		TxVersion:        defaultTxVersion,
 		FallbackLocktime: locktime,
-		Modifiable:       modifiable,
-		TxModifiable:     txModifiable,
 		Scalars:          make([][]byte, 0),
 		ProprietaryData:  make([]ProprietaryData, 0),
 		Unknowns:         make([]KeyPair, 0),

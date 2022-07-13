@@ -70,46 +70,47 @@ func parseScriptExpression(descriptor string, topLevel bool) (Wallet, error) {
 	}
 
 	switch expressionFunc {
-	case "sh":
+	case "elsh":
 
 		return nil, nil
-	case "wsh":
+	case "elwsh":
 
 		return nil, nil
-	case "pk":
+	case "elpk":
 
 		return nil, nil
-	case "pkh":
+	case "elpkh":
 
 		return nil, nil
-	case "wpkh":
+	case "elwpkh":
 		keyInfo, err := parseKeyExpression(innerExpression)
 		if err != nil {
 			return nil, err
 		}
 
 		return newWpkhWalletFromKeyInfo(keyInfo), nil
-	case "combo":
+	case "elcombo":
 
 		return nil, nil
-	case "multi", "sortedmulti":
+	case "elmulti", "elsortedmulti":
 
 		return nil, nil
-	case "multi_a":
+	case "elmulti_a":
 
 		return nil, nil
-	case "sortedmulti_a":
+	case "elsortedmulti_a":
 
 		return nil, nil
-	case "tr":
+	case "eltr":
 
 		return nil, nil
-	case "addr":
+	case "eladdr":
 
 		return nil, nil
-	case "raw":
+	case "elraw":
 
-		return nil, nil
+	default:
+		return nil, fmt.Errorf("unknown expression: %s", expressionFunc)
 	}
 
 	return nil, fmt.Errorf("invalid op '%s'", expressionFunc)

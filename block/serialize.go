@@ -11,7 +11,7 @@ func (b *Block) SerializeBlock() ([]byte, error) {
 		return nil, err
 	}
 
-	err = b.Header.serializeHeader(s, false)
+	err = b.Header.SerializeHeader(s, false)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (t *Transactions) SerializeTransactions(
 	return nil
 }
 
-func (h *Header) serializeHeader(
+func (h *Header) SerializeHeader(
 	s *bufferutil.Serializer,
 	forHash bool,
 ) error {
@@ -91,7 +91,7 @@ func (h *Header) SerializeForHash() ([]byte, error) {
 		return nil, err
 	}
 
-	err = h.serializeHeader(s, true)
+	err = h.SerializeHeader(s, true)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (h *Header) Serialize() ([]byte, error) {
 		return nil, err
 	}
 
-	err = h.serializeHeader(s, false)
+	err = h.SerializeHeader(s, false)
 	if err != nil {
 		return nil, err
 	}

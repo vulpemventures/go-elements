@@ -20,15 +20,15 @@ func TestTrimAndValidateChecksum(t *testing.T) {
 		{
 			name: "1",
 			args: args{
-				descriptor: "sh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
+				descriptor: "elsh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
 			},
-			want:    "sh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
+			want:    "elsh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
 			wantErr: false,
 		},
 		{
 			name: "2",
 			args: args{
-				descriptor: "sh(L4rK1yDtC#WekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
+				descriptor: "elsh(L4rK1yDtC#WekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
 			},
 			want:    "",
 			wantErr: true,
@@ -36,15 +36,15 @@ func TestTrimAndValidateChecksum(t *testing.T) {
 		{
 			name: "3",
 			args: args{
-				descriptor: "sh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)#12345678",
+				descriptor: "elsh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)#12345678",
 			},
-			want:    "sh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
+			want:    "elsh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
 			wantErr: false,
 		},
 		{
 			name: "4",
 			args: args{
-				descriptor: "sh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)#1234568",
+				descriptor: "elsh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)#1234568",
 			},
 			want:    "",
 			wantErr: true,
@@ -52,7 +52,7 @@ func TestTrimAndValidateChecksum(t *testing.T) {
 		{
 			name: "5",
 			args: args{
-				descriptor: "sh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuP#LBcCU2z8TrisoyY1)#12345678",
+				descriptor: "elsh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuP#LBcCU2z8TrisoyY1)#12345678",
 			},
 			want:    "",
 			wantErr: true,
@@ -127,7 +127,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_pub_key",
 			args: args{
-				descriptor: "wpkh(03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd)",
+				descriptor: "elwpkh(03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -148,7 +148,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_wif",
 			args: args{
-				descriptor: "wpkh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
+				descriptor: "elwpkh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -169,7 +169,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpriv_with_index_1",
 			args: args{
-				descriptor: "wpkh([ffffffff/13']xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt/1/2/*)",
+				descriptor: "elwpkh([ffffffff/13']xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt/1/2/*)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -190,7 +190,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpriv_with_index_1",
 			args: args{
-				descriptor: "wpkh([ffffffff/13']xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt/1/2/*)",
+				descriptor: "elwpkh([ffffffff/13']xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt/1/2/*)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -211,7 +211,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpriv_with_range",
 			args: args{
-				descriptor: "wpkh([ffffffff/13']xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt/1/2/*)",
+				descriptor: "elwpkh([ffffffff/13']xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt/1/2/*)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -261,7 +261,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpub_with_range",
 			args: args{
-				descriptor: "wpkh([ffffffff/13']xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH/1/2/*)",
+				descriptor: "elwpkh([ffffffff/13']xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH/1/2/*)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -311,7 +311,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpub_with_index_1",
 			args: args{
-				descriptor: "wpkh([ffffffff/13']xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH/1/2/*)",
+				descriptor: "elwpkh([ffffffff/13']xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH/1/2/*)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -332,7 +332,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpub_with_index_1",
 			args: args{
-				descriptor: "wpkh([ffffffff/13']xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH/1/2/*)",
+				descriptor: "elwpkh([ffffffff/13']xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH/1/2/*)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -353,7 +353,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpub_no_fingerprint",
 			args: args{
-				descriptor: "wpkh(xpub661MyMwAqRbcFFzgbS7PZzrLLXNYmno5FN7aYMceX7HcRgot6DUnPWn8z8C2EAcqiQ9QBmsWkVmhvMjsrwsMexwiqcW1mdyMZDspQqv6SUQ/1/*)",
+				descriptor: "elwpkh(xpub661MyMwAqRbcFFzgbS7PZzrLLXNYmno5FN7aYMceX7HcRgot6DUnPWn8z8C2EAcqiQ9QBmsWkVmhvMjsrwsMexwiqcW1mdyMZDspQqv6SUQ/1/*)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {
@@ -374,7 +374,7 @@ func TestParseScriptExpressionWpkh(t *testing.T) {
 		{
 			name: "wpkh_xpub_no_fingerprint_no_children",
 			args: args{
-				descriptor: "wpkh(xpub661MyMwAqRbcFFzgbS7PZzrLLXNYmno5FN7aYMceX7HcRgot6DUnPWn8z8C2EAcqiQ9QBmsWkVmhvMjsrwsMexwiqcW1mdyMZDspQqv6SUQ)",
+				descriptor: "elwpkh(xpub661MyMwAqRbcFFzgbS7PZzrLLXNYmno5FN7aYMceX7HcRgot6DUnPWn8z8C2EAcqiQ9QBmsWkVmhvMjsrwsMexwiqcW1mdyMZDspQqv6SUQ)",
 				topLevel:   true,
 			},
 			validate: func(wallet Wallet) error {

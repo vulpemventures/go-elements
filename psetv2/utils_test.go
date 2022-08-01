@@ -193,7 +193,7 @@ func signTransaction(
 			continue
 		}
 
-		if err := signer.AddInSighashType(sighashType, i); err != nil {
+		if err := signer.AddInSighashType(i, sighashType); err != nil {
 			return err
 		}
 
@@ -259,7 +259,7 @@ func signInput(
 		return nil
 	}
 
-	if err := signer.AddInSighashType(sighashType, inIndex); err != nil {
+	if err := signer.AddInSighashType(inIndex, sighashType); err != nil {
 		return err
 	}
 

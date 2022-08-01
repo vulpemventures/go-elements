@@ -33,7 +33,6 @@ const (
 
 var (
 	ErrGlobalInvalidXPubLen               = fmt.Errorf("invalid global xpub value length")
-	ErrGlobalDuplicatedXPub               = fmt.Errorf("duplicated global xpub")
 	ErrGlobalInvalidXPubDerivationPathLen = fmt.Errorf("invalid global xpub derivation path value length")
 	ErrGlobalInvalidTxVersionLen          = fmt.Errorf("invalid global tx version value length")
 	ErrGlobalInvalidTxVersion             = fmt.Errorf("invalid global tx version value")
@@ -44,10 +43,12 @@ var (
 	ErrGlobalInvalidTxModifiable          = fmt.Errorf("invalid global tx modifiable value")
 	ErrGlobalInvalidVersionLen            = fmt.Errorf("invalid global version value length")
 	ErrGlobalInvalidVersion               = fmt.Errorf("invalid global version value")
-	ErrGlobalInvalidScalarLen             = fmt.Errorf("invalid global scalar value length")
-	ErrGlobalInvalidModifiableLen         = fmt.Errorf("invalid global modifiable value length")
+	ErrGlobalInvalidScalarLen             = fmt.Errorf("invalid global scalar length")
+	ErrGlobalInvalidModifiableLen         = fmt.Errorf("invalid global pset modifiable length")
 	ErrGlobalInvalidModifiable            = fmt.Errorf("invalid global pset modifiable value")
-	ErrGlobalDuplicatedScalar             = fmt.Errorf("duplicated global scalar value")
+	ErrGlobalDuplicatedField              = func(field string) error {
+		return fmt.Errorf("duplicated global %s", field)
+	}
 )
 
 type DerivationPath []uint32
@@ -95,7 +96,7 @@ func (g *Global) SanityCheck() error {
 		return ErrGlobalInvalidVersion
 	}
 	if findDuplicatedXpubs(g.Xpubs) {
-		return ErrGlobalDuplicatedXPub
+		return ErrGlobalDuplicatedField("xpub")
 	}
 	if g.TxModifiable.Uint8() > 7 {
 		return ErrGlobalInvalidTxModifiable
@@ -104,7 +105,7 @@ func (g *Global) SanityCheck() error {
 		return ErrGlobalInvalidModifiable
 	}
 	if findDuplicatedScalars(g.Scalars) {
-		return ErrGlobalDuplicatedScalar
+		return ErrGlobalDuplicatedField("scalar")
 	}
 	return nil
 }
@@ -308,7 +309,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			})
 		case GlobalTxVersion:
 			if g.TxVersion != 0 {
-				return ErrDuplicateKey
+				return ErrGlobalDuplicatedField("tx version")
 			}
 			if len(kp.Value) != 4 {
 				return ErrGlobalInvalidTxVersion
@@ -316,7 +317,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			g.TxVersion = binary.LittleEndian.Uint32(kp.Value)
 		case GlobalFallbackLocktime:
 			if g.FallbackLocktime != nil {
-				return ErrDuplicateKey
+				return ErrGlobalDuplicatedField("fallback locktime")
 			}
 			if len(kp.Value) != 4 {
 				return ErrGlobalInvalidFallbackLocktimeLen
@@ -325,7 +326,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			g.FallbackLocktime = &locktime
 		case GlobalInputCount:
 			if g.InputCount != 0 {
-				return ErrDuplicateKey
+				return ErrGlobalDuplicatedField("input count")
 			}
 			if len(kp.Value) != 1 {
 				return ErrGlobalInvalidInputCountLen
@@ -333,7 +334,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			g.InputCount = uint64(kp.Value[0])
 		case GlobalOutputCount:
 			if g.OutputCount != 0 {
-				return ErrDuplicateKey
+				return ErrGlobalDuplicatedField("output count")
 			}
 			if len(kp.Value) != 1 {
 				return ErrGlobalInvalidOutputCountLen
@@ -341,7 +342,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			g.OutputCount = uint64(kp.Value[0])
 		case GlobalTxModifiable:
 			if g.TxModifiable != nil {
-				return ErrDuplicateKey
+				return ErrGlobalDuplicatedField("tx modifiable")
 			}
 			if len(kp.Value) != 1 {
 				return ErrGlobalInvalidTxModifiableLen
@@ -354,7 +355,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			g.TxModifiable = txModifiable
 		case GlobalVersion:
 			if g.Version != 0 {
-				return ErrDuplicateKey
+				return ErrGlobalDuplicatedField("version")
 			}
 			if len(kp.Value) != 4 {
 				return ErrGlobalInvalidVersionLen
@@ -381,10 +382,10 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 					g.Scalars = append(g.Scalars, scalar)
 				case GlobalModifiable:
 					if g.Modifiable != nil {
-						return ErrDuplicateKey
+						return ErrGlobalDuplicatedField("pset modifiable")
 					}
 					if len(kp.Value) != 1 {
-						return ErrGlobalInvalidModifiable
+						return ErrGlobalInvalidModifiableLen
 					}
 					modifiable, err := NewBitSetFromBuffer(byte(kp.Value[0]))
 					if err != nil {

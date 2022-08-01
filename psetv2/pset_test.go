@@ -40,7 +40,7 @@ func TestRoundTrip(t *testing.T) {
 			t.Run(tt["name"].(string), func(t *testing.T) {
 				psetBase64 := tt["base64"].(string)
 				ptx, err := psetv2.NewPsetFromBase64(psetBase64)
-				require.Error(t, err)
+				require.EqualError(t, err, tt["expectedError"].(string))
 				require.Nil(t, ptx)
 			})
 		}
@@ -120,7 +120,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 	asset, _ := elementsutil.AssetHashToBytes(utxos[0]["asset"].(string))
 	value, _ := elementsutil.ValueToBytes(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(asset, value, p2wpkh.WitnessScript)
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
 	prvKeys := []*btcec.PrivateKey{privkey}
@@ -181,7 +181,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	asset, _ := elementsutil.AssetHashToBytes(utxos[0]["asset"].(string))
 	value, _ := elementsutil.ValueToBytes(uint64(utxos[0]["value"].(float64)))
 	witnessUtxo := transaction.NewTxOutput(asset, value, p2wpkh.WitnessScript)
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
 	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
@@ -266,7 +266,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
 		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
 	zkpValidator := confidential.NewZKPValidator()
@@ -378,7 +378,7 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
 		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
 	zkpValidator := confidential.NewZKPValidator()
@@ -484,7 +484,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
 		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
 	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
@@ -601,7 +601,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
 		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(witnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
 	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
@@ -735,7 +735,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		RangeProof:      alicePrevTx.Outputs[alicePrevoutIndex].RangeProof,
 		SurjectionProof: alicePrevTx.Outputs[alicePrevoutIndex].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(aliceWitnessUtxo, 0)
+	err = updater.AddInWitnessUtxo(0, aliceWitnessUtxo)
 	require.NoError(t, err)
 
 	// Now it's bob's turn to add his input and outputs.
@@ -785,7 +785,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		RangeProof:      bobPrevTx.Outputs[bobPrevoutIndex].RangeProof,
 		SurjectionProof: bobPrevTx.Outputs[bobPrevoutIndex].SurjectionProof,
 	}
-	err = updater.AddInWitnessUtxo(bobWitnessUtxo, 1)
+	err = updater.AddInWitnessUtxo(1, bobWitnessUtxo)
 	require.NoError(t, err)
 
 	// Bob can now blind all outputs with his and alice's blinding private keys.

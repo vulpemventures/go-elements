@@ -104,7 +104,7 @@ func (u *Updater) AddOutputs(outputs []OutputArgs) error {
 // source of the corresponding prevOut), and the input index. If addition of
 // this key-value pair to the Psbt fails, an error is returned.
 func (u *Updater) AddInNonWitnessUtxo(inIndex int, tx *transaction.Transaction) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
 	txid := tx.TxHash()
@@ -121,8 +121,8 @@ func (u *Updater) AddInNonWitnessUtxo(inIndex int, tx *transaction.Transaction) 
 // of the corresponding prevOut); not the full transaction because BIP143 means
 // the output information is sufficient, and the input index. If addition of
 // this key-value pair to the Psbt fails, an error is returned.
-func (u *Updater) AddInWitnessUtxo(txout *transaction.TxOutput, inIndex int) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+func (u *Updater) AddInWitnessUtxo(inIndex int, txout *transaction.TxOutput) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
 	u.Pset.Inputs[inIndex].WitnessUtxo = txout
@@ -134,8 +134,8 @@ func (u *Updater) AddInWitnessUtxo(txout *transaction.TxOutput, inIndex int) err
 // redeem script is passed serialized, as a byte slice, along with the index of
 // the input. An error is returned if addition of this key-value pair to the
 // Psbt fails.
-func (u *Updater) AddInRedeemScript(redeemScript []byte, inIndex int) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+func (u *Updater) AddInRedeemScript(inIndex int, redeemScript []byte) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
 	u.Pset.Inputs[inIndex].RedeemScript = redeemScript
@@ -147,8 +147,8 @@ func (u *Updater) AddInRedeemScript(redeemScript []byte, inIndex int) error {
 // witness script is passed serialized, as a byte slice, along with the index
 // of the input. An error is returned if addition of this key-value pair to the
 // Psbt fails.
-func (u *Updater) AddInWitnessScript(witnessScript []byte, inIndex int) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+func (u *Updater) AddInWitnessScript(inIndex int, witnessScript []byte) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
 	u.Pset.Inputs[inIndex].WitnessScript = witnessScript
@@ -164,17 +164,10 @@ func (u *Updater) AddInWitnessScript(witnessScript []byte, inIndex int) error {
 // NOTE: This can be called multiple times for the same input.  An error is
 // returned if addition of this key-value pair to the Psbt fails.
 func (u *Updater) AddInBip32Derivation(
-	masterKeyFingerprint uint32, bip32Path []uint32, pubKeyData []byte,
-	inIndex int,
+	inIndex int, bip32Derivation DerivationPathWithPubKey,
 ) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
-	}
-
-	bip32Derivation := DerivationPathWithPubKey{
-		PubKey:               pubKeyData,
-		MasterKeyFingerprint: masterKeyFingerprint,
-		Bip32Path:            bip32Path,
 	}
 
 	if !validatePubkey(bip32Derivation.PubKey) {
@@ -184,7 +177,7 @@ func (u *Updater) AddInBip32Derivation(
 	// Don't allow duplicate keys
 	for _, x := range u.Pset.Inputs[inIndex].Bip32Derivation {
 		if bytes.Equal(x.PubKey, bip32Derivation.PubKey) {
-			return ErrDuplicateKey
+			return ErrInDuplicatedField("bip32 derivation")
 		}
 	}
 
@@ -199,9 +192,9 @@ func (u *Updater) AddInBip32Derivation(
 // sighash type is passed as a 32 bit unsigned integer, along with the index
 // for the input. .
 func (u *Updater) AddInSighashType(
-	sighashType txscript.SigHashType, inIndex int,
+	inIndex int, sighashType txscript.SigHashType,
 ) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
 
@@ -470,7 +463,7 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 	}
 	inputIndex := int(p.Global.InputCount)
 	if arg.WitnessUtxo != nil {
-		if err := u.AddInWitnessUtxo(arg.WitnessUtxo, inputIndex); err != nil {
+		if err := u.AddInWitnessUtxo(inputIndex, arg.WitnessUtxo); err != nil {
 			return err
 		}
 	} else {
@@ -536,8 +529,10 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 //
 // NOTE: That this can be called multiple times for the same output.  An error
 // is returned if addition of this key-value pair to the Psbt fails.
-func (u *Updater) AddOutBip32Derivation(outIndex int, bip32Derivation DerivationPathWithPubKey) error {
-	if outIndex > len(u.Pset.Outputs)-1 {
+func (u *Updater) AddOutBip32Derivation(
+	outIndex int, bip32Derivation DerivationPathWithPubKey,
+) error {
+	if outIndex > int(u.Pset.Global.OutputCount)-1 {
 		return ErrOutputIndexOutOfRange
 	}
 
@@ -548,7 +543,7 @@ func (u *Updater) AddOutBip32Derivation(outIndex int, bip32Derivation Derivation
 	// Don't allow duplicate keys
 	for _, x := range u.Pset.Outputs[outIndex].Bip32Derivation {
 		if bytes.Equal(x.PubKey, bip32Derivation.PubKey) {
-			return ErrDuplicateKey
+			return ErrOutDuplicatedField("bip32 derivation")
 		}
 	}
 
@@ -561,8 +556,8 @@ func (u *Updater) AddOutBip32Derivation(outIndex int, bip32Derivation Derivation
 
 // AddOutRedeemScript takes a redeem script as a byte slice and appends it to
 // the output at index outIndex.
-func (u *Updater) AddOutRedeemScript(redeemScript []byte, outIndex int) error {
-	if outIndex > len(u.Pset.Outputs)-1 {
+func (u *Updater) AddOutRedeemScript(outIndex int, redeemScript []byte) error {
+	if outIndex > int(u.Pset.Global.OutputCount)-1 {
 		return ErrOutputIndexOutOfRange
 	}
 
@@ -572,8 +567,8 @@ func (u *Updater) AddOutRedeemScript(redeemScript []byte, outIndex int) error {
 
 // AddOutWitnessScript takes a witness script as a byte slice and appends it to
 // the output at index outIndex.
-func (u *Updater) AddOutWitnessScript(witnessScript []byte, outIndex int) error {
-	if outIndex > len(u.Pset.Outputs)-1 {
+func (u *Updater) AddOutWitnessScript(outIndex int, witnessScript []byte) error {
+	if outIndex > int(u.Pset.Global.OutputCount)-1 {
 		return ErrOutputIndexOutOfRange
 	}
 
@@ -590,7 +585,7 @@ func (u *Updater) AddOutWitnessScript(witnessScript []byte, outIndex int) error 
 //
 // NOTE: This function does *not* validate the ECDSA signature itself.
 func (u *Updater) addPartialSignature(inIndex int, sig, pubkey []byte) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
 
@@ -608,7 +603,7 @@ func (u *Updater) addPartialSignature(inIndex int, sig, pubkey []byte) error {
 	// First check; don't add duplicates.
 	for _, x := range input.PartialSigs {
 		if bytes.Equal(x.PubKey, partialSig.PubKey) {
-			return ErrDuplicateKey
+			return ErrInDuplicatedField("partial sig")
 		}
 	}
 
@@ -718,7 +713,7 @@ func (u *Updater) addPartialSignature(inIndex int, sig, pubkey []byte) error {
 // NonWitnessUtxo field with a WitnessUtxo field. See
 // https://github.com/bitcoin/bitcoin/pull/14197.
 func (u *Updater) nonWitnessToWitness(inIndex int) error {
-	if inIndex > len(u.Pset.Inputs)-1 {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
 
@@ -728,7 +723,7 @@ func (u *Updater) nonWitnessToWitness(inIndex int) error {
 	// Remove the non-witness first, else sanity check will not pass:
 	u.Pset.Inputs[inIndex].NonWitnessUtxo = nil
 
-	return u.AddInWitnessUtxo(txout, inIndex)
+	return u.AddInWitnessUtxo(inIndex, txout)
 }
 
 func findInputWithEmptyIssuance(p *Pset) (uint32, []byte, int) {

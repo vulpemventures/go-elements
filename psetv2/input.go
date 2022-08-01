@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 	"github.com/vulpemventures/go-elements/transaction"
 )
@@ -113,16 +114,21 @@ var (
 	ErrInInvalidFinalScriptWitness = fmt.Errorf(
 		"input final script witness cannot be set if witness utxo is unset",
 	)
-	ErrInInvalidIssuanceBlinding = fmt.Errorf(
-		"missing input issuance value range proof",
+	ErrInMissingIssuanceBlindValueProof = fmt.Errorf(
+		"missing input issuance value commitment or blind proof",
 	)
-	ErrInInvalidIssuanceInflationKeysBlinding = fmt.Errorf(
-		"missing input issuance inflation keys range proof",
+	ErrInMissingIssuanceBlindInflationKeysProof = fmt.Errorf(
+		"missing input issuance inflation keys commitment or blind proof",
 	)
 	ErrInInvalidLocktime       = fmt.Errorf("invalid input locktime")
 	ErrInInvalidNonWitnessUtxo = fmt.Errorf(
 		"non-witness utxo hash does not match input txid",
 	)
+	ErrInInvalidPeginWitness = fmt.Errorf("invalid input pegin witness")
+	ErrInInvalidPeginTx      = fmt.Errorf("invalid input pegin tx")
+	ErrInDuplicatedField     = func(field string) error {
+		return fmt.Errorf("duplicated input %s", field)
+	}
 )
 
 type Input struct {
@@ -148,7 +154,7 @@ type Input struct {
 	IssuanceValueCommitment         []byte
 	IssuanceValueRangeproof         []byte
 	IssuanceInflationKeysRangeproof []byte
-	PeginTx                         *transaction.Transaction
+	PeginTx                         *wire.MsgTx
 	PeginTxoutProof                 []byte
 	PeginGenesisHash                []byte
 	PeginClaimScript                []byte
@@ -175,14 +181,17 @@ func (i *Input) SanityCheck() error {
 	if len(i.PreviousTxid) == 0 {
 		return ErrInMissingTxid
 	}
-	if (i.IssuanceValue) > 0 && len(i.IssuanceValueCommitment) > 0 &&
-		len(i.IssuanceValueRangeproof) == 0 {
-		return ErrInInvalidIssuanceBlinding
+	issuanceValueCommitSet := len(i.IssuanceValueCommitment) > 0
+	issuanceBlindValueProofSet := len(i.IssuanceBlindValueProof) > 0
+	if (i.IssuanceValue) > 0 &&
+		issuanceValueCommitSet != issuanceBlindValueProofSet {
+		return ErrInMissingIssuanceBlindValueProof
 	}
+	issuanceTokenCommitSet := len(i.IssuanceInflationKeysCommitment) > 0
+	issuanceBlindTokenProofSet := len(i.IssuanceBlindInflationKeysProof) > 0
 	if (i.IssuanceInflationKeys) > 0 &&
-		len(i.IssuanceInflationKeysCommitment) > 0 &&
-		len(i.IssuanceInflationKeysRangeproof) == 0 {
-		return ErrInInvalidIssuanceBlinding
+		issuanceTokenCommitSet != issuanceBlindTokenProofSet {
+		return ErrInMissingIssuanceBlindInflationKeysProof
 	}
 	return nil
 }
@@ -521,8 +530,10 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	}
 
 	if i.PeginTx != nil {
-		peginTxBytes, err := i.PeginTx.Serialize()
-		if err != nil {
+		buf := bytes.NewBuffer(nil)
+		if err := i.PeginTx.BtcEncode(
+			buf, wire.ProtocolVersion, wire.LatestEncoding,
+		); err != nil {
 			return nil, err
 		}
 
@@ -531,7 +542,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginTx, nil),
 			},
-			Value: peginTxBytes,
+			Value: buf.Bytes(),
 		}
 		keyPairs = append(keyPairs, peginTxKeyPair)
 	}
@@ -729,7 +740,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 		switch kp.Key.KeyType {
 		case InputNonWitnessUtxo:
 			if i.NonWitnessUtxo != nil {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("non-witness utxo")
 			}
 
 			tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.Value))
@@ -740,7 +751,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.NonWitnessUtxo = tx
 		case InputWitnessUtxo:
 			if i.WitnessUtxo != nil {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("witness utxo")
 			}
 
 			txOut, err := readTxOut(kp.Value)
@@ -761,14 +772,14 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			// Duplicate keys are not allowed
 			for _, v := range i.PartialSigs {
 				if bytes.Equal(v.PubKey, partialSignature.PubKey) {
-					return ErrDuplicateKey
+					return ErrInDuplicatedField("partial sig")
 				}
 			}
 
 			i.PartialSigs = append(i.PartialSigs, partialSignature)
 		case InputSighashType:
 			if i.SigHashType != 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("sighash type")
 			}
 
 			if len(kp.Value) != 4 {
@@ -782,12 +793,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.SigHashType = sigHashType
 		case InputRedeemScript:
 			if len(i.RedeemScript) > 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("redeem script")
 			}
 			i.RedeemScript = kp.Value
 		case InputWitnessScript:
 			if len(i.WitnessScript) > 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("witness script")
 			}
 			i.WitnessScript = kp.Value
 		case InputBip32Derivation:
@@ -802,7 +813,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			// Duplicate keys are not allowed
 			for _, x := range i.Bip32Derivation {
 				if bytes.Equal(x.PubKey, kp.Key.KeyData) {
-					return ErrDuplicateKey
+					return ErrInDuplicatedField("bip32 derivation")
 				}
 			}
 
@@ -816,12 +827,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			)
 		case InputFinalScriptsig:
 			if len(i.FinalScriptSig) > 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("final scriptsig")
 			}
 			i.FinalScriptSig = kp.Value
 		case InputFinalScriptwitness:
 			if len(i.FinalScriptWitness) > 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("final script witness")
 			}
 			i.FinalScriptWitness = kp.Value
 		case InputRipemd160:
@@ -855,7 +866,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.Hash256Preimages[hash] = kp.Value
 		case InputPreviousTxid:
 			if len(i.PreviousTxid) > 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("previous txid")
 			}
 			if len(kp.Value) != 32 {
 				return ErrInInvalidPreviousTxid
@@ -863,7 +874,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.PreviousTxid = kp.Value
 		case InputPreviousTxIndex:
 			if i.PreviousTxIndex != 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("previous txindex")
 			}
 			if len(kp.Value) != 4 {
 				return ErrInInvalidPreviousTxIndex
@@ -871,7 +882,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.PreviousTxIndex = binary.LittleEndian.Uint32(kp.Value)
 		case InputSequence:
 			if i.Sequence != 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("sequence")
 			}
 			if len(kp.Value) != 4 {
 				return ErrInInvalidSequence
@@ -879,7 +890,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.Sequence = binary.LittleEndian.Uint32(kp.Value)
 		case InputRequiredTimeLocktime:
 			if i.RequiredTimeLocktime != 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("time locktime")
 			}
 			if len(kp.Value) != 4 {
 				return ErrInInvalidRequiredLocktime
@@ -887,7 +898,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			i.RequiredTimeLocktime = binary.LittleEndian.Uint32(kp.Value)
 		case InputRequiredHeightLocktime:
 			if i.RequiredHeightLocktime != 0 {
-				return ErrDuplicateKey
+				return ErrInDuplicatedField("height locktime")
 			}
 			if len(kp.Value) != 4 {
 				return ErrInInvalidRequiredHeightLocktime
@@ -903,7 +914,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 				switch pd.Subtype {
 				case InputIssuanceValue:
 					if i.IssuanceValue != 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance value")
 					}
 					if len(kp.Value) != 8 {
 						return ErrInInvalidIssuanceValue
@@ -911,7 +922,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.IssuanceValue = binary.LittleEndian.Uint64(kp.Value)
 				case InputIssuanceValueCommitment:
 					if len(i.IssuanceValueCommitment) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance value commitment")
 					}
 					if len(kp.Value) != 33 {
 						return ErrInInvalidIssuanceCommitment
@@ -919,31 +930,34 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.IssuanceValueCommitment = kp.Value
 				case InputIssuanceValueRangeproof:
 					if len(i.IssuanceValueRangeproof) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance value range proof")
 					}
 					i.IssuanceValueRangeproof = kp.Value
 				case InputIssuanceInflationKeysRangeproof:
 					if len(i.IssuanceInflationKeysRangeproof) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance inflation keys range proof")
 					}
 					i.IssuanceInflationKeysRangeproof = kp.Value
 				case InputPeginTx:
 					if i.PeginTx != nil {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("pegin tx")
 					}
-					tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(kp.Value))
-					if err != nil {
-						return fmt.Errorf("invalid input pegin tx: %s", err)
+					var tx wire.MsgTx
+					buf := bytes.NewReader(kp.Value)
+					if err := tx.BtcDecode(
+						buf, wire.ProtocolVersion, wire.LatestEncoding,
+					); err != nil {
+						return ErrInInvalidPeginTx
 					}
-					i.PeginTx = tx
+					i.PeginTx = &tx
 				case InputPeginTxoutProof:
 					if len(i.PeginTxoutProof) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("pegin txout proof")
 					}
 					i.PeginTxoutProof = kp.Value
 				case InputPeginGenesis:
 					if len(i.PeginGenesisHash) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("pegin genesis hash")
 					}
 					if len(kp.Value) != 32 {
 						return ErrInInvalidPeginGenesisHash
@@ -951,12 +965,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.PeginGenesisHash = kp.Value
 				case InputPeginClaimScript:
 					if len(i.PeginClaimScript) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("pegin claim script")
 					}
 					i.PeginClaimScript = kp.Value
 				case InputPeginValue:
 					if i.PeginValue != 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("pegin value")
 					}
 					if len(kp.Value) != 8 {
 						return ErrInInvalidPeginValue
@@ -964,17 +978,17 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.PeginValue = binary.LittleEndian.Uint64(kp.Value)
 				case InputPeginWitness:
 					if len(i.PeginWitness) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("pegin witness")
 					}
 					d := bufferutil.NewDeserializer(bytes.NewBuffer(kp.Value))
 					witness, err := d.ReadVector()
 					if err != nil {
-						return err
+						return ErrInInvalidPeginWitness
 					}
 					i.PeginWitness = witness
 				case InputIssuanceInflationKeys:
 					if i.IssuanceInflationKeys != 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance inflation keys")
 					}
 					if len(kp.Value) != 8 {
 						return ErrInInvalidIssuanceInflationKeys
@@ -982,7 +996,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.IssuanceInflationKeys = binary.LittleEndian.Uint64(kp.Value)
 				case InputIssuanceInflationKeysCommitment:
 					if len(i.IssuanceInflationKeysCommitment) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance inflation keys commitment")
 					}
 					if len(kp.Value) != 33 {
 						return ErrInInvalidIssuanceInflationKeysCommitment
@@ -990,7 +1004,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.IssuanceInflationKeysCommitment = kp.Value
 				case InputIssuanceBlindingNonce:
 					if len(i.IssuanceBlindingNonce) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance blinding nonce")
 					}
 					if len(kp.Value) != 32 {
 						return ErrInInvalidIssuanceBlindingNonce
@@ -998,7 +1012,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.IssuanceBlindingNonce = kp.Value
 				case InputIssuanceAssetEntropy:
 					if len(i.IssuanceAssetEntropy) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance asset entropy")
 					}
 					if len(kp.Value) != 32 {
 						return ErrInInvalidIssuanceAssetEntropy
@@ -1006,17 +1020,17 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					i.IssuanceAssetEntropy = kp.Value
 				case InputUtxoRangeProof:
 					if len(i.UtxoRangeProof) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("utxo range proof")
 					}
 					i.UtxoRangeProof = kp.Value
 				case InputIssuanceBlindValueProof:
 					if len(i.IssuanceBlindValueProof) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance blind value proof")
 					}
 					i.IssuanceBlindValueProof = kp.Value
 				case InputIssuanceBlindInflationKeysProof:
 					if len(i.IssuanceBlindInflationKeysProof) > 0 {
-						return ErrDuplicateKey
+						return ErrInDuplicatedField("issuance blind inflation keys proof")
 					}
 					i.IssuanceBlindInflationKeysProof = kp.Value
 				default:

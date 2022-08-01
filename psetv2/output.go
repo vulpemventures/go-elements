@@ -47,6 +47,9 @@ var (
 		"invalid output blinding pubkey length",
 	)
 	ErrOutInvalidBlinderIndex = fmt.Errorf("invalid output blinder index length")
+	ErrOutDuplicatedField     = func(field string) error {
+		return fmt.Errorf("duplicated output %s", field)
+	}
 )
 
 type Output struct {
@@ -70,8 +73,18 @@ type Output struct {
 }
 
 func (o *Output) SanityCheck() error {
-	if len(o.Asset) == 0 {
+	valueCommitSet := len(o.ValueCommitment) > 0
+	blindValueProofSet := len(o.BlindValueProof) > 0
+	if o.Value > 0 && valueCommitSet != blindValueProofSet {
+		return ErrOutMissingValueBlindProof
+	}
+	assetCommitSet := len(o.AssetCommitment) > 0
+	blindAssetProofSet := len(o.BlindAssetProof) > 0
+	if !assetCommitSet && len(o.Asset) == 0 {
 		return ErrOutMissingAsset
+	}
+	if len(o.Asset) > 0 && assetCommitSet != blindAssetProofSet {
+		return ErrOutMissingAssetBlindProof
 	}
 	if o.IsPartiallyBlinded() && !o.IsFullyBlinded() {
 		return ErrOutInvalidBlinding
@@ -92,8 +105,6 @@ func (o *Output) IsPartiallyBlinded() bool {
 		len(o.AssetCommitment) > 0 ||
 		len(o.ValueRangeproof) > 0 ||
 		len(o.AssetSurjectionProof) > 0 ||
-		len(o.BlindValueProof) > 0 ||
-		len(o.BlindAssetProof) > 0 ||
 		len(o.EcdhPubkey) > 0)
 }
 
@@ -102,8 +113,6 @@ func (o *Output) IsFullyBlinded() bool {
 		len(o.AssetCommitment) > 0 &&
 		len(o.ValueRangeproof) > 0 &&
 		len(o.AssetSurjectionProof) > 0 &&
-		len(o.BlindValueProof) > 0 &&
-		len(o.BlindAssetProof) > 0 &&
 		len(o.EcdhPubkey) > 0
 }
 
@@ -327,12 +336,12 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 		switch kp.Key.KeyType {
 		case OutputRedeemScript:
 			if len(o.RedeemScript) > 0 {
-				return ErrDuplicateKey
+				return ErrOutDuplicatedField("redeem script")
 			}
 			o.RedeemScript = kp.Value
 		case OutputWitnessScript:
 			if len(o.WitnessScript) > 0 {
-				return ErrDuplicateKey
+				return ErrOutDuplicatedField("witness script")
 			}
 			o.WitnessScript = kp.Value
 		case OutputBip32Derivation:
@@ -347,7 +356,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 			// Duplicate keys are not allowed
 			for _, x := range o.Bip32Derivation {
 				if bytes.Equal(x.PubKey, kp.Key.KeyData) {
-					return ErrDuplicateKey
+					return ErrOutDuplicatedField("bip32 derivation")
 				}
 			}
 
@@ -361,7 +370,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 			)
 		case OutputAmount:
 			if o.Value != 0 {
-				return ErrDuplicateKey
+				return ErrOutDuplicatedField("value")
 			}
 			if len(kp.Value) != 8 {
 				return ErrOutInvalidValue
@@ -369,7 +378,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 			o.Value = binary.LittleEndian.Uint64(kp.Value)
 		case OutputScript:
 			if len(o.Script) > 0 {
-				return ErrDuplicateKey
+				return ErrOutDuplicatedField("script")
 			}
 			o.Script = kp.Value
 		case PsetProprietary:
@@ -382,7 +391,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 				switch pd.Subtype {
 				case OutputValueCommitment:
 					if len(o.ValueCommitment) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("value commitment")
 					}
 					if len(kp.Value) != 33 {
 						return ErrOutInvalidValueCommitment
@@ -390,7 +399,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					o.ValueCommitment = kp.Value
 				case OutputAsset:
 					if len(o.Asset) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("asset")
 					}
 					if len(kp.Value) != 32 {
 						return ErrOutInvalidAsset
@@ -398,7 +407,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					o.Asset = kp.Value
 				case OutputAssetCommitment:
 					if len(o.AssetCommitment) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("asset commitment")
 					}
 					if len(kp.Value) != 33 {
 						return ErrOutInvalidAssetCommitment
@@ -406,17 +415,17 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					o.AssetCommitment = kp.Value
 				case OutputValueRangeproof:
 					if len(o.ValueRangeproof) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("value range proof")
 					}
 					o.ValueRangeproof = kp.Value
 				case OutputAssetSurjectionProof:
 					if len(o.AssetSurjectionProof) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("asset surjection proof")
 					}
 					o.AssetSurjectionProof = kp.Value
 				case OutputBlindingPubkey:
 					if len(o.BlindingPubkey) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("blinding pubkey")
 					}
 					if !validatePubkey(kp.Value) {
 						return ErrOutInvalidBlindingPubKey
@@ -424,7 +433,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					o.BlindingPubkey = kp.Value
 				case OutputEcdhPubkey:
 					if len(o.EcdhPubkey) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("ecdh pubkey")
 					}
 					if !validatePubkey(kp.Value) {
 						return ErrOutInvalidNonce
@@ -432,7 +441,7 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					o.EcdhPubkey = kp.Value
 				case OutputBlinderIndex:
 					if o.BlinderIndex != 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("blinder index")
 					}
 					if len(kp.Value) != 4 {
 						return ErrOutInvalidBlinderIndex
@@ -440,12 +449,12 @@ func (o *Output) deserialize(buf *bytes.Buffer) error {
 					o.BlinderIndex = binary.LittleEndian.Uint32(kp.Value)
 				case OutputBlindValueProof:
 					if len(o.BlindValueProof) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("blind value proof")
 					}
 					o.BlindValueProof = kp.Value
 				case OutputBlindAssetProof:
 					if len(o.BlindAssetProof) > 0 {
-						return ErrDuplicateKey
+						return ErrOutDuplicatedField("blind asset proof")
 					}
 					o.BlindAssetProof = kp.Value
 				default:

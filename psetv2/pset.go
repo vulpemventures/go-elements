@@ -35,7 +35,6 @@ var (
 	ErrInvalidPsbtFormat        = fmt.Errorf("invalid PSBT serialization format")
 	ErrNoMoreKeyPairs           = fmt.Errorf("no more key-pairs")
 	ErrInvalidMagicBytes        = fmt.Errorf("invalid magic bytes")
-	ErrDuplicateKey             = fmt.Errorf("invalid psbt due to duplicate key")
 	ErrPsetMissingBlindedOutput = fmt.Errorf(
 		"pset has blinded inputs, at least one output must be blinded",
 	)
@@ -296,7 +295,7 @@ func (p *Pset) addInput(in Input) error {
 		return err
 	}
 	if p.isDuplicateInput(in) {
-		return ErrDuplicateKey
+		return fmt.Errorf("input already existing")
 	}
 	if !p.InputsModifiable() {
 		return ErrPsetForbiddenInputsModification

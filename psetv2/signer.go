@@ -65,7 +65,7 @@ func (s *Signer) SignInput(
 	// Add the witnessScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if witnessScript != nil {
-		if err := s.AddInWitnessScript(witnessScript, inIndex); err != nil {
+		if err := s.AddInWitnessScript(inIndex, witnessScript); err != nil {
 			return fmt.Errorf("failed to add input witness script: %s", err)
 		}
 	}
@@ -73,7 +73,7 @@ func (s *Signer) SignInput(
 	// Add the redeemScript to the PSBT in preparation.  If it already
 	// exists, it will be overwritten.
 	if redeemScript != nil {
-		if err := s.AddInRedeemScript(redeemScript, inIndex); err != nil {
+		if err := s.AddInRedeemScript(inIndex, redeemScript); err != nil {
 			return fmt.Errorf("failed to add input redeem script: %s", err)
 		}
 	}

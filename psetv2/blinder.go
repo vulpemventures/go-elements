@@ -86,7 +86,7 @@ func (a OutputBlindingArgs) validate(p *Pset, isLastOutput bool) error {
 		return ErrOutputIndexOutOfRange
 	}
 	out := p.Outputs[a.Index]
-	if !out.IsBlinded() {
+	if !out.NeedsBlinding() {
 		return ErrOutMissingBlindingKey
 	}
 	if a.Nonce == nil {
@@ -446,7 +446,6 @@ func (b *Blinder) blind(
 		p.Global.Scalars = append(b.Pset.Global.Scalars, outputScalar)
 	} else {
 		p.Global.Scalars = nil
-		p.Global.Modifiable.Reset(0)
 	}
 
 	b.Pset.Global = p.Global

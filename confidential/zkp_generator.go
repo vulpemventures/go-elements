@@ -338,7 +338,7 @@ func (g *zkpGenerator) BlindOutputs(
 
 	if outputIndexes == nil {
 		for i, out := range p.Outputs {
-			if out.IsBlinded() {
+			if out.NeedsBlinding() {
 				outputIndexes = append(outputIndexes, uint32(i))
 			}
 		}

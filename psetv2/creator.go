@@ -116,7 +116,7 @@ func (a OutputArgs) toPartialOutput() Output {
 }
 
 func New(
-	ins []InputArgs, outs []OutputArgs, locktime uint32,
+	ins []InputArgs, outs []OutputArgs, locktime *uint32,
 ) (*Pset, error) {
 	global := Global{
 		Version:          defaultVersion,
@@ -125,7 +125,7 @@ func New(
 		Scalars:          make([][]byte, 0),
 		ProprietaryData:  make([]ProprietaryData, 0),
 		Unknowns:         make([]KeyPair, 0),
-		Xpub:             make([]Xpub, 0),
+		Xpubs:            make([]Xpub, 0),
 	}
 	p := &Pset{
 		Global:  global,

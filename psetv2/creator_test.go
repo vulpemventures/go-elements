@@ -18,7 +18,7 @@ var (
 func TestCreator(t *testing.T) {
 	inputs := randomInputArgs(2)
 	outputs := randomOutputArgs(6)
-	ptx, err := psetv2.New(inputs, outputs, 0)
+	ptx, err := psetv2.New(inputs, outputs, nil)
 	require.NoError(t, err)
 	require.NotNil(t, ptx)
 

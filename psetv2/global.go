@@ -32,16 +32,22 @@ const (
 )
 
 var (
-	ErrGlobalInvalidXPub               = fmt.Errorf("invalid global xpub")
-	ErrGlobalInvalidXPubDerivationPath = fmt.Errorf("invalid global xpub derivation path length")
-	ErrGlobalInvalidTxVersion          = fmt.Errorf("invalid global tx version length")
-	ErrGlobalInvalidFallbackLocktime   = fmt.Errorf("invalid global fallback locktime length")
-	ErrGlobalInvalidInputCount         = fmt.Errorf("invalid global input count length")
-	ErrGlobalInvalidOutputCount        = fmt.Errorf("invalid global output count length")
-	ErrGlobalInvalidTxModifiable       = fmt.Errorf("invalid global tx modifiable length")
-	ErrGlobalInvalidVersion            = fmt.Errorf("invalid global version length")
-	ErrGlobalInvalidScalar             = fmt.Errorf("invalid global scalar length")
-	ErrGlobalInvalidModifiable         = fmt.Errorf("invalid global modifiable length")
+	ErrGlobalInvalidXPubLen               = fmt.Errorf("invalid global xpub value length")
+	ErrGlobalDuplicatedXPub               = fmt.Errorf("duplicated global xpub")
+	ErrGlobalInvalidXPubDerivationPathLen = fmt.Errorf("invalid global xpub derivation path value length")
+	ErrGlobalInvalidTxVersionLen          = fmt.Errorf("invalid global tx version value length")
+	ErrGlobalInvalidTxVersion             = fmt.Errorf("invalid global tx version value")
+	ErrGlobalInvalidFallbackLocktimeLen   = fmt.Errorf("invalid global fallback locktime value length")
+	ErrGlobalInvalidInputCountLen         = fmt.Errorf("invalid global input count value length")
+	ErrGlobalInvalidOutputCountLen        = fmt.Errorf("invalid global output count value length")
+	ErrGlobalInvalidTxModifiableLen       = fmt.Errorf("invalid global tx modifiable value length")
+	ErrGlobalInvalidTxModifiable          = fmt.Errorf("invalid global tx modifiable value")
+	ErrGlobalInvalidVersionLen            = fmt.Errorf("invalid global version value length")
+	ErrGlobalInvalidVersion               = fmt.Errorf("invalid global version value")
+	ErrGlobalInvalidScalarLen             = fmt.Errorf("invalid global scalar value length")
+	ErrGlobalInvalidModifiableLen         = fmt.Errorf("invalid global modifiable value length")
+	ErrGlobalInvalidModifiable            = fmt.Errorf("invalid global pset modifiable value")
+	ErrGlobalDuplicatedScalar             = fmt.Errorf("duplicated global scalar value")
 )
 
 type DerivationPath []uint32
@@ -68,9 +74,9 @@ type Xpub struct {
 }
 
 type Global struct {
-	Xpub             []Xpub
+	Xpubs            []Xpub
 	TxVersion        uint32
-	FallbackLocktime uint32
+	FallbackLocktime *uint32
 	InputCount       uint64
 	OutputCount      uint64
 	TxModifiable     BitSet
@@ -81,10 +87,32 @@ type Global struct {
 	Unknowns         []KeyPair
 }
 
+func (g *Global) SanityCheck() error {
+	if g.TxVersion < 2 {
+		return ErrGlobalInvalidTxVersion
+	}
+	if g.Version != 2 {
+		return ErrGlobalInvalidVersion
+	}
+	if findDuplicatedXpubs(g.Xpubs) {
+		return ErrGlobalDuplicatedXPub
+	}
+	if g.TxModifiable.Uint8() > 7 {
+		return ErrGlobalInvalidTxModifiable
+	}
+	if g.Modifiable != nil && g.Modifiable.Uint8() != 0 {
+		return ErrGlobalInvalidModifiable
+	}
+	if findDuplicatedScalars(g.Scalars) {
+		return ErrGlobalDuplicatedScalar
+	}
+	return nil
+}
+
 func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	keyPairs := make([]KeyPair, 0)
 
-	for _, xpub := range g.Xpub {
+	for _, xpub := range g.Xpubs {
 		keyData := append([]byte{byte(len(xpub.ExtendedKey))}, xpub.ExtendedKey...)
 		xPubKeyPair := KeyPair{
 			Key: Key{
@@ -110,16 +138,18 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	}
 	keyPairs = append(keyPairs, versionKeyPair)
 
-	fallbackLocktime := make([]byte, 4)
-	binary.LittleEndian.PutUint32(fallbackLocktime, g.FallbackLocktime)
-	fallbackLocktimeKeyPair := KeyPair{
-		Key: Key{
-			KeyType: GlobalFallbackLocktime,
-			KeyData: nil,
-		},
-		Value: fallbackLocktime,
+	if g.FallbackLocktime != nil {
+		fallbackLocktime := make([]byte, 4)
+		binary.LittleEndian.PutUint32(fallbackLocktime, *g.FallbackLocktime)
+		fallbackLocktimeKeyPair := KeyPair{
+			Key: Key{
+				KeyType: GlobalFallbackLocktime,
+				KeyData: nil,
+			},
+			Value: fallbackLocktime,
+		}
+		keyPairs = append(keyPairs, fallbackLocktimeKeyPair)
 	}
-	keyPairs = append(keyPairs, fallbackLocktimeKeyPair)
 
 	inputCount := new(bytes.Buffer)
 	if err := wire.WriteVarInt(inputCount, 0, g.InputCount); err != nil {
@@ -164,17 +194,6 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, txModifiableKeyPair)
 	}
 
-	globalVersion := make([]byte, 4)
-	binary.LittleEndian.PutUint32(globalVersion, g.Version)
-	globalVersionKeyPair := KeyPair{
-		Key: Key{
-			KeyType: GlobalVersion,
-			KeyData: nil,
-		},
-		Value: globalVersion,
-	}
-	keyPairs = append(keyPairs, globalVersionKeyPair)
-
 	for _, v := range g.Scalars {
 		scalarKeyPair := KeyPair{
 			Key: Key{
@@ -186,7 +205,18 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, scalarKeyPair)
 	}
 
-	if g.Modifiable != nil {
+	globalVersion := make([]byte, 4)
+	binary.LittleEndian.PutUint32(globalVersion, g.Version)
+	globalVersionKeyPair := KeyPair{
+		Key: Key{
+			KeyType: GlobalVersion,
+			KeyData: nil,
+		},
+		Value: globalVersion,
+	}
+	keyPairs = append(keyPairs, globalVersionKeyPair)
+
+	if g.Modifiable != nil && g.Modifiable.Uint8() > 0 {
 		modifiable := new(bytes.Buffer)
 		if err := binary.Write(
 			modifiable, binary.LittleEndian, g.Modifiable.Uint8(),
@@ -254,7 +284,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 		switch kp.Key.KeyType {
 		case GlobalXpub:
 			if len(kp.Key.KeyData) != pubKeyLength+1 {
-				return ErrGlobalInvalidXPub
+				return ErrGlobalInvalidXPubLen
 			}
 			// Parse xpub to make sure it's valid
 			xpubStr := base58.Encode(kp.Key.KeyData[1:])
@@ -263,7 +293,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			}
 
 			if len(kp.Value) == 0 || len(kp.Value)%4 != 0 {
-				return ErrGlobalInvalidXPubDerivationPath
+				return ErrGlobalInvalidXPubDerivationPathLen
 			}
 
 			master, derivationPath, err := readBip32Derivation(kp.Value)
@@ -271,7 +301,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return fmt.Errorf("invalid gloabl bip32 derivation: %s", err)
 			}
 
-			g.Xpub = append(g.Xpub, Xpub{
+			g.Xpubs = append(g.Xpubs, Xpub{
 				ExtendedKey:       kp.Key.KeyData,
 				MasterFingerprint: master,
 				DerivationPath:    derivationPath,
@@ -285,19 +315,20 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			}
 			g.TxVersion = binary.LittleEndian.Uint32(kp.Value)
 		case GlobalFallbackLocktime:
-			if g.FallbackLocktime != 0 {
+			if g.FallbackLocktime != nil {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 4 {
-				return ErrGlobalInvalidFallbackLocktime
+				return ErrGlobalInvalidFallbackLocktimeLen
 			}
-			g.FallbackLocktime = binary.LittleEndian.Uint32(kp.Value)
+			locktime := binary.LittleEndian.Uint32(kp.Value)
+			g.FallbackLocktime = &locktime
 		case GlobalInputCount:
 			if g.InputCount != 0 {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 1 {
-				return ErrGlobalInvalidInputCount
+				return ErrGlobalInvalidInputCountLen
 			}
 			g.InputCount = uint64(kp.Value[0])
 		case GlobalOutputCount:
@@ -305,7 +336,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 1 {
-				return ErrGlobalInvalidOutputCount
+				return ErrGlobalInvalidOutputCountLen
 			}
 			g.OutputCount = uint64(kp.Value[0])
 		case GlobalTxModifiable:
@@ -313,8 +344,9 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 1 {
-				return ErrGlobalInvalidTxModifiable
+				return ErrGlobalInvalidTxModifiableLen
 			}
+
 			txModifiable, err := NewBitSetFromBuffer(byte(kp.Value[0]))
 			if err != nil {
 				return err
@@ -325,7 +357,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return ErrDuplicateKey
 			}
 			if len(kp.Value) != 4 {
-				return ErrGlobalInvalidVersion
+				return ErrGlobalInvalidVersionLen
 			}
 			g.Version = binary.LittleEndian.Uint32(kp.Value)
 		case PsetProprietary:
@@ -339,7 +371,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				case GlobalScalar:
 					scalar := pd.KeyData
 					if len(scalar) != 32 {
-						return ErrGlobalInvalidScalar
+						return ErrGlobalInvalidScalarLen
 					}
 
 					if g.Scalars == nil {
@@ -369,10 +401,9 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 		default:
 			g.Unknowns = append(g.Unknowns, kp)
 		}
-
 	}
 
-	return nil
+	return g.SanityCheck()
 }
 
 func stepToString(step uint32) string {
@@ -381,4 +412,38 @@ func stepToString(step uint32) string {
 	}
 	step -= hdkeychain.HardenedKeyStart
 	return fmt.Sprintf("%d'", step)
+}
+
+func findDuplicatedXpubs(list []Xpub) bool {
+	xpubs := make([]Xpub, len(list))
+	copy(xpubs, list)
+	for _, xpub := range xpubs {
+		if len(xpubs) > 1 {
+			next := xpubs[1:]
+			for _, xp := range next {
+				if bytes.Equal(xpub.ExtendedKey, xp.ExtendedKey) {
+					return true
+				}
+			}
+			xpubs = next
+		}
+	}
+	return false
+}
+
+func findDuplicatedScalars(list [][]byte) bool {
+	scalars := make([][]byte, len(list))
+	copy(scalars, list)
+	for _, scalar := range scalars {
+		if len(scalars) > 1 {
+			next := scalars[1:]
+			for _, ss := range next {
+				if bytes.Equal(scalar, ss) {
+					return true
+				}
+			}
+			scalars = next
+		}
+	}
+	return false
 }

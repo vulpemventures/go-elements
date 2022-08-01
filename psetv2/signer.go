@@ -56,7 +56,7 @@ func (s *Signer) SignInput(
 
 	if (input.SigHashType & 0x1f) == txscript.SigHashAll {
 		for _, out := range p.Outputs {
-			if out.IsBlinded() && !out.IsFullyBlinded() {
+			if out.NeedsBlinding() && !out.IsFullyBlinded() {
 				return ErrSignerForbiddenSigning
 			}
 		}

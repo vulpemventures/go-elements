@@ -73,7 +73,7 @@ func (o *Output) SanityCheck() error {
 	if len(o.Asset) == 0 {
 		return ErrOutMissingAsset
 	}
-	if o.IsBlinded() && o.IsPartiallyBlinded() && !o.IsFullyBlinded() {
+	if o.IsPartiallyBlinded() && !o.IsFullyBlinded() {
 		return ErrOutInvalidBlinding
 	}
 	if o.IsFullyBlinded() && o.BlinderIndex != 0 {
@@ -83,23 +83,27 @@ func (o *Output) SanityCheck() error {
 	return nil
 }
 
-func (o *Output) IsBlinded() bool {
-	return len(o.BlindingPubkey) > 0
+func (o *Output) NeedsBlinding() bool {
+	return len(o.BlindingPubkey) > 0 && !o.IsFullyBlinded()
 }
 
 func (o *Output) IsPartiallyBlinded() bool {
-	return o.IsBlinded() && (len(o.ValueCommitment) > 0 ||
+	return (len(o.ValueCommitment) > 0 ||
 		len(o.AssetCommitment) > 0 ||
 		len(o.ValueRangeproof) > 0 ||
 		len(o.AssetSurjectionProof) > 0 ||
+		len(o.BlindValueProof) > 0 ||
+		len(o.BlindAssetProof) > 0 ||
 		len(o.EcdhPubkey) > 0)
 }
 
 func (o *Output) IsFullyBlinded() bool {
-	return o.IsBlinded() && len(o.ValueCommitment) > 0 &&
+	return len(o.ValueCommitment) > 0 &&
 		len(o.AssetCommitment) > 0 &&
 		len(o.ValueRangeproof) > 0 &&
 		len(o.AssetSurjectionProof) > 0 &&
+		len(o.BlindValueProof) > 0 &&
+		len(o.BlindAssetProof) > 0 &&
 		len(o.EcdhPubkey) > 0
 }
 
@@ -141,6 +145,17 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		}
 	}
 
+	outputAmountBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(outputAmountBytes, o.Value)
+	outputAmountKeyPair := KeyPair{
+		Key: Key{
+			KeyType: OutputAmount,
+			KeyData: nil,
+		},
+		Value: outputAmountBytes,
+	}
+	keyPairs = append(keyPairs, outputAmountKeyPair)
+
 	outputScriptKeyPair := KeyPair{
 		Key: Key{
 			KeyType: OutputScript,
@@ -160,17 +175,6 @@ func (o *Output) getKeyPairs() ([]KeyPair, error) {
 		}
 		keyPairs = append(keyPairs, outputValueCommitmentKeyPair)
 	}
-
-	outputAmountBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(outputAmountBytes, o.Value)
-	outputAmountKeyPair := KeyPair{
-		Key: Key{
-			KeyType: OutputAmount,
-			KeyData: nil,
-		},
-		Value: outputAmountBytes,
-	}
-	keyPairs = append(keyPairs, outputAmountKeyPair)
 
 	if len(o.AssetCommitment) > 0 {
 		outputAssetCommitmentKeyPair := KeyPair{

@@ -30,23 +30,40 @@ var (
  */
 func TestRoundTrip(t *testing.T) {
 	file, _ := ioutil.ReadFile("testdata/roundtrip.json")
-	var tests []map[string]interface{}
-	json.Unmarshal(file, &tests)
+	var fixtures map[string]interface{}
+	json.Unmarshal(file, &fixtures)
 
-	for _, v := range tests {
-		t.Run(v["name"].(string), func(t *testing.T) {
-			psetBase64 := v["base64"].(string)
+	invalid := fixtures["invalid"].([]interface{})
+	t.Run("invalid", func(t *testing.T) {
+		for _, v := range invalid {
+			tt := v.(map[string]interface{})
+			t.Run(tt["name"].(string), func(t *testing.T) {
+				psetBase64 := tt["base64"].(string)
+				ptx, err := psetv2.NewPsetFromBase64(psetBase64)
+				require.Error(t, err)
+				require.Nil(t, ptx)
+			})
+		}
+	})
 
-			ptx, err := psetv2.NewPsetFromBase64(psetBase64)
-			require.NoError(t, err)
+	valid := fixtures["valid"].([]interface{})
+	t.Run("valid", func(t *testing.T) {
+		for _, v := range valid {
+			tt := v.(map[string]interface{})
+			t.Run(tt["name"].(string), func(t *testing.T) {
+				psetBase64 := tt["base64"].(string)
 
-			ptxBase64, err := ptx.ToBase64()
-			require.NoError(t, err)
-			a, _ := base64.StdEncoding.DecodeString(psetBase64)
-			b, _ := base64.StdEncoding.DecodeString(ptxBase64)
-			require.Equal(t, b2h(a), b2h(b))
-		})
-	}
+				ptx, err := psetv2.NewPsetFromBase64(psetBase64)
+				require.NoError(t, err)
+
+				ptxBase64, err := ptx.ToBase64()
+				require.NoError(t, err)
+				a, _ := base64.StdEncoding.DecodeString(psetBase64)
+				b, _ := base64.StdEncoding.DecodeString(ptxBase64)
+				require.Equal(t, b2h(a), b2h(b))
+			})
+		}
+	})
 }
 
 func TestBroadcastUnblindedTx(t *testing.T) {
@@ -94,7 +111,7 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 		},
 	}
 
-	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
 	require.NoError(t, err)
 
 	updater, err := psetv2.NewUpdater(ptx)
@@ -155,7 +172,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 		},
 	}
 
-	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
 	require.NoError(t, err)
 
 	updater, err := psetv2.NewUpdater(ptx)
@@ -229,7 +246,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 		},
 	}
 
-	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
 	require.NoError(t, err)
 
 	updater, err := psetv2.NewUpdater(ptx)
@@ -341,7 +358,7 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 		},
 	}
 
-	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
 	require.NoError(t, err)
 
 	updater, err := psetv2.NewUpdater(ptx)
@@ -447,7 +464,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 		},
 	}
 
-	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
 	require.NoError(t, err)
 
 	updater, err := psetv2.NewUpdater(ptx)
@@ -564,7 +581,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 		},
 	}
 
-	ptx, err := psetv2.New(inputArgs, outputArgs, 0)
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
 	require.NoError(t, err)
 
 	updater, err := psetv2.NewUpdater(ptx)
@@ -698,7 +715,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		},
 	}
 
-	ptx, err := psetv2.New(aliceInputArgs, aliceOutputArgs, 0)
+	ptx, err := psetv2.New(aliceInputArgs, aliceOutputArgs, nil)
 	require.NoError(t, err)
 
 	updater, err := psetv2.NewUpdater(ptx)

@@ -64,7 +64,7 @@ func Extract(p *Pset) (*transaction.Transaction, error) {
 
 		txIn.IsPegin = in.PeginWitness != nil
 		if txIn.IsPegin {
-			txIn.PeginWitness = [][]byte{in.PeginWitness}
+			txIn.PeginWitness = in.PeginWitness
 		}
 
 		if in.FinalScriptSig != nil {

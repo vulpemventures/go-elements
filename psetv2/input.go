@@ -114,12 +114,10 @@ var (
 		"input final script witness cannot be set if witness utxo is unset",
 	)
 	ErrInInvalidIssuanceBlinding = fmt.Errorf(
-		"input issuance value commitment and range proof must be both either " +
-			"set or unset",
+		"missing input issuance value range proof",
 	)
 	ErrInInvalidIssuanceInflationKeysBlinding = fmt.Errorf(
-		"input issuance inflation keys commitment and range proof must be both " +
-			"either set or unset",
+		"missing input issuance inflation keys range proof",
 	)
 	ErrInInvalidLocktime       = fmt.Errorf("invalid input locktime")
 	ErrInInvalidNonWitnessUtxo = fmt.Errorf(
@@ -155,7 +153,7 @@ type Input struct {
 	PeginGenesisHash                []byte
 	PeginClaimScript                []byte
 	PeginValue                      uint64
-	PeginWitness                    []byte
+	PeginWitness                    [][]byte
 	IssuanceInflationKeys           uint64
 	IssuanceInflationKeysCommitment []byte
 	IssuanceBlindingNonce           []byte
@@ -177,17 +175,15 @@ func (i *Input) SanityCheck() error {
 	if len(i.PreviousTxid) == 0 {
 		return ErrInMissingTxid
 	}
-	issuanceValueCommitmentSet := len(i.IssuanceValueCommitment) > 0
-	issuanceValueRangeproofSet := len(i.IssuanceValueRangeproof) > 0
-	if issuanceValueCommitmentSet != issuanceValueRangeproofSet {
+	if (i.IssuanceValue) > 0 && len(i.IssuanceValueCommitment) > 0 &&
+		len(i.IssuanceValueRangeproof) == 0 {
 		return ErrInInvalidIssuanceBlinding
 	}
-	issuanceInflationKeysCommitmentSet := len(i.IssuanceInflationKeysCommitment) > 0
-	issuanceInflationKeysRangeproofSet := len(i.IssuanceInflationKeysRangeproof) > 0
-	if issuanceInflationKeysCommitmentSet != issuanceInflationKeysRangeproofSet {
-		return ErrInInvalidIssuanceInflationKeysBlinding
+	if (i.IssuanceInflationKeys) > 0 &&
+		len(i.IssuanceInflationKeysCommitment) > 0 &&
+		len(i.IssuanceInflationKeysRangeproof) == 0 {
+		return ErrInInvalidIssuanceBlinding
 	}
-
 	return nil
 }
 
@@ -273,14 +269,15 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		if err != nil {
 			return nil, err
 		}
-		nonWitnessKeyPair := KeyPair{
+
+		witnessUtxoKeyPair := KeyPair{
 			Key: Key{
 				KeyType: InputWitnessUtxo,
 				KeyData: nil,
 			},
 			Value: witnessUtxoBytes,
 		}
-		keyPairs = append(keyPairs, nonWitnessKeyPair)
+		keyPairs = append(keyPairs, witnessUtxoKeyPair)
 	}
 
 	if len(i.PartialSigs) > 0 {
@@ -438,16 +435,18 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	}
 	keyPairs = append(keyPairs, previousOutputIndexKeyPair)
 
-	sequenceBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(sequenceBytes, i.Sequence)
-	sequenceKeyPair := KeyPair{
-		Key: Key{
-			KeyType: InputSequence,
-			KeyData: nil,
-		},
-		Value: sequenceBytes,
+	if i.Sequence > 0 {
+		sequenceBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(sequenceBytes, i.Sequence)
+		sequenceKeyPair := KeyPair{
+			Key: Key{
+				KeyType: InputSequence,
+				KeyData: nil,
+			},
+			Value: sequenceBytes,
+		}
+		keyPairs = append(keyPairs, sequenceKeyPair)
 	}
-	keyPairs = append(keyPairs, sequenceKeyPair)
 
 	if i.RequiredTimeLocktime != 0 {
 		requiredTimeLocktimeBytes := make([]byte, 4)
@@ -585,12 +584,16 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	}
 
 	if len(i.PeginWitness) > 0 {
+		s := bufferutil.NewSerializer(nil)
+		if err := s.WriteVector(i.PeginWitness); err != nil {
+			return nil, err
+		}
 		peginWitnessKeyPair := KeyPair{
 			Key: Key{
 				KeyType: PsetProprietary,
 				KeyData: proprietaryKey(InputPeginWitness, nil),
 			},
-			Value: i.PeginWitness,
+			Value: s.Bytes(),
 		}
 		keyPairs = append(keyPairs, peginWitnessKeyPair)
 	}
@@ -963,7 +966,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					if len(i.PeginWitness) > 0 {
 						return ErrDuplicateKey
 					}
-					i.PeginWitness = kp.Value
+					d := bufferutil.NewDeserializer(bytes.NewBuffer(kp.Value))
+					witness, err := d.ReadVector()
+					if err != nil {
+						return err
+					}
+					i.PeginWitness = witness
 				case InputIssuanceInflationKeys:
 					if i.IssuanceInflationKeys != 0 {
 						return ErrDuplicateKey

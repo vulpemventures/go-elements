@@ -126,7 +126,10 @@ func New(
 		ProprietaryData:  make([]ProprietaryData, 0),
 		Unknowns:         make([]KeyPair, 0),
 		Xpubs:            make([]Xpub, 0),
+		TxModifiable:     NewBitSet(),
 	}
+	global.TxModifiable.Set(0)
+	global.TxModifiable.Set(1)
 	p := &Pset{
 		Global:  global,
 		Inputs:  make([]Input, 0),

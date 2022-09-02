@@ -259,14 +259,14 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
 	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
 	witnessUtxo := &transaction.TxOutput{
-		Asset:           assetCommitment,
-		Value:           valueCommitment,
-		Script:          p2wpkh.WitnessScript,
-		Nonce:           prevTx.Outputs[prevoutIndex].Nonce,
-		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
-		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: p2wpkh.WitnessScript,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
 	}
 	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
 	zkpValidator := confidential.NewZKPValidator()
@@ -371,14 +371,14 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
 	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
 	witnessUtxo := &transaction.TxOutput{
-		Asset:           assetCommitment,
-		Value:           valueCommitment,
-		Script:          p2wpkh.WitnessScript,
-		Nonce:           prevTx.Outputs[prevoutIndex].Nonce,
-		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
-		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: p2wpkh.WitnessScript,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
 	}
 	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
 	zkpValidator := confidential.NewZKPValidator()
@@ -477,14 +477,14 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
 	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
 	witnessUtxo := &transaction.TxOutput{
-		Asset:           assetCommitment,
-		Value:           valueCommitment,
-		Script:          p2wpkh.WitnessScript,
-		Nonce:           prevTx.Outputs[prevoutIndex].Nonce,
-		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
-		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: p2wpkh.WitnessScript,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
 	}
 	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
 	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
@@ -594,14 +594,14 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
 	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
 	witnessUtxo := &transaction.TxOutput{
-		Asset:           assetCommitment,
-		Value:           valueCommitment,
-		Script:          p2wpkh.WitnessScript,
-		Nonce:           prevTx.Outputs[prevoutIndex].Nonce,
-		RangeProof:      prevTx.Outputs[prevoutIndex].RangeProof,
-		SurjectionProof: prevTx.Outputs[prevoutIndex].SurjectionProof,
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: p2wpkh.WitnessScript,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
 	}
 	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
 	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
@@ -728,14 +728,14 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	aliceAssetCommitment := h2b(aliceUtxos[0]["assetcommitment"].(string))
 	aliceValueCommitment := h2b(aliceUtxos[0]["valuecommitment"].(string))
 	aliceWitnessUtxo := &transaction.TxOutput{
-		Asset:           aliceAssetCommitment,
-		Value:           aliceValueCommitment,
-		Script:          aliceP2wpkh.WitnessScript,
-		Nonce:           alicePrevTx.Outputs[alicePrevoutIndex].Nonce,
-		RangeProof:      alicePrevTx.Outputs[alicePrevoutIndex].RangeProof,
-		SurjectionProof: alicePrevTx.Outputs[alicePrevoutIndex].SurjectionProof,
+		Asset:  aliceAssetCommitment,
+		Value:  aliceValueCommitment,
+		Script: aliceP2wpkh.WitnessScript,
+		Nonce:  alicePrevTx.Outputs[alicePrevoutIndex].Nonce,
 	}
 	err = updater.AddInWitnessUtxo(0, aliceWitnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, alicePrevTx.Outputs[alicePrevoutIndex].RangeProof)
 	require.NoError(t, err)
 
 	// Now it's bob's turn to add his input and outputs.
@@ -778,14 +778,14 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	bobAssetCommitment := h2b(bobUtxos[0]["assetcommitment"].(string))
 	bobValueCommitment := h2b(bobUtxos[0]["valuecommitment"].(string))
 	bobWitnessUtxo := &transaction.TxOutput{
-		Asset:           bobAssetCommitment,
-		Value:           bobValueCommitment,
-		Script:          bobP2wpkh.WitnessScript,
-		Nonce:           bobPrevTx.Outputs[bobPrevoutIndex].Nonce,
-		RangeProof:      bobPrevTx.Outputs[bobPrevoutIndex].RangeProof,
-		SurjectionProof: bobPrevTx.Outputs[bobPrevoutIndex].SurjectionProof,
+		Asset:  bobAssetCommitment,
+		Value:  bobValueCommitment,
+		Script: bobP2wpkh.WitnessScript,
+		Nonce:  bobPrevTx.Outputs[bobPrevoutIndex].Nonce,
 	}
 	err = updater.AddInWitnessUtxo(1, bobWitnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(1, bobPrevTx.Outputs[bobPrevoutIndex].RangeProof)
 	require.NoError(t, err)
 
 	// Bob can now blind all outputs with his and alice's blinding private keys.

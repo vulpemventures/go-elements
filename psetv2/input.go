@@ -246,13 +246,14 @@ func (i *Input) GetIssuanceInflationKeysHash(blindedIssuance bool) []byte {
 }
 
 func (i *Input) GetUtxo() *transaction.TxOutput {
-	if i.WitnessUtxo != nil {
-		return i.WitnessUtxo
+	utxo := i.WitnessUtxo
+	if utxo == nil {
+		utxo = i.NonWitnessUtxo.Outputs[i.PreviousTxIndex]
 	}
-	if i.NonWitnessUtxo != nil {
-		return i.NonWitnessUtxo.Outputs[i.PreviousTxIndex]
+	if utxo != nil {
+		utxo.RangeProof = i.UtxoRangeProof
 	}
-	return nil
+	return utxo
 }
 
 func (i *Input) getKeyPairs() ([]KeyPair, error) {

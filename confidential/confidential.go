@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/elementsutil"
@@ -466,7 +465,7 @@ func CreateBlindValueProof(
 	if ok, _, _ := secp256k1.RangeProofVerify(
 		ctx, proof, commit, nil, gen,
 	); !ok {
-		return nil, fmt.Errorf("generated unverified blind value proof")
+		return nil, errors.New("generated unverified blind value proof")
 	}
 
 	return proof, nil
@@ -638,6 +637,10 @@ func nonceHash(pubKey, privKey []byte) (result [32]byte, err error) {
 func unblindOutput(
 	out *transaction.TxOutput, nonce [32]byte,
 ) (*UnblindOutputResult, error) {
+	if len(out.RangeProof) <= 0 {
+		return nil, errors.New("missing rangeproof to rewind")
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 

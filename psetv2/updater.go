@@ -202,6 +202,18 @@ func (u *Updater) AddInSighashType(
 	return u.Pset.SanityCheck()
 }
 
+// AddInUtxoRangeProof adds the prevout rangeproof for an input.
+func (u *Updater) AddInUtxoRangeProof(
+	inIndex int, proof []byte,
+) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
+		return ErrInputIndexOutOfRange
+	}
+
+	u.Pset.Inputs[inIndex].UtxoRangeProof = proof
+	return u.Pset.SanityCheck()
+}
+
 // AddInIssuanceArgs is a struct encapsulating all the issuance data that
 // can be attached to any specific transaction of the PSBT.
 type AddInIssuanceArgs struct {

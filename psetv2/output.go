@@ -97,7 +97,7 @@ func (o *Output) SanityCheck() error {
 }
 
 func (o *Output) NeedsBlinding() bool {
-	return len(o.BlindingPubkey) > 0 && !o.IsFullyBlinded()
+	return len(o.BlindingPubkey) > 0
 }
 
 func (o *Output) IsPartiallyBlinded() bool {

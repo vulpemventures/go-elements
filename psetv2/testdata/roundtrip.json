@@ -1,0 +1,304 @@
+{
+  "invalid": [
+    {
+      "name": "Invalid Global Key Size Scalar Offset",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQABBQEAKPwEcHNldAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAAAAA==",
+      "expectedError": "invalid global scalar length"
+    },
+    {
+      "name": "Duplicate Global Key Scalar Offset",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQABBQEAJ/wEcHNldAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAAn/ARwc2V0AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAAA=",
+      "expectedError": "duplicated global scalar"
+    },
+    {
+      "name": "Invalid Global Pset Modifiable Flag Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQABBQEAB/wEcHNldAECAQAA",
+      "expectedError": "invalid global pset modifiable length"
+    },
+    {
+      "name": "Invalid Global Pset Modifiable Flag Value",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQABBQEAB/wEcHNldAEBAgA=",
+      "expectedError": "invalid global pset modifiable value"
+    },
+    {
+      "name": "Invalid Input Issuance Value Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQACQECAAAAAAAAAAA=",
+      "expectedError": "invalid input issuance value length"
+    },
+    {
+      "name": "Duplicate Input Issuance Value",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQACAECAAAAAAAAB/wEcHNldAAIAQIAAAAAAAAA",
+      "expectedError": "duplicated input issuance value"
+    },
+    {
+      "name": "Invalid Input Issuance Value Commitment Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQBCQECAAAAAAAAAAA=",
+      "expectedError": "invalid input issuance value commitment length"
+    },
+    {
+      "name": "Duplicate Input Issuance Value Commitment",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQBIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQf8BHBzZXQBIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "duplicated input issuance value commitment"
+    },
+    {
+      "name": "Duplicate Input Issuance Value Range Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQCIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQf8BHBzZXQCIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "duplicated input issuance value range proof"
+    },
+    {
+      "name": "Duplicate Input Issuance Inflation Keys Range Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQDIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQf8BHBzZXQDIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "duplicated input issuance inflation keys range proof"
+    },
+    {
+      "name": "Invalid Input Issuance Inflation Keys Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQKCQECAQAAAAAAAAA=",
+      "expectedError": "invalid input issuance inflation keys length"
+    },
+    {
+      "name": "Duplicate Input Issuance Inflation Keys",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQKCAIBAAAAAAAAB/wEcHNldAoIAgEAAAAAAAAA",
+      "expectedError": "duplicated input issuance inflation keys"
+    },
+    {
+      "name": "Invalid Input Issuance Inflation Keys Commitment Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQLIgIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMA",
+      "expectedError": "invalid input issuance inflation keys commitment length"
+    },
+    {
+      "name": "Duplicate Input Issuance Inflation Keys Commitment",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQLIQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIgf8BHBzZXQLIQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIgA=",
+      "expectedError": "duplicated input issuance inflation keys commitment"
+    },
+    {
+      "name": "Invalid Input Issuance Blinding Nonce Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQMIQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIgA=",
+      "expectedError": "invalid input issuance blinding nonce length"
+    },
+    {
+      "name": "Duplicate Input Issuance Blinding Nonce",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQMIAIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhB/wEcHNldAwgAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEA",
+      "expectedError": "duplicated input issuance blinding nonce"
+    },
+    {
+      "name": "Invalid Input Issuance Asset Entropy Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQNIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "invalid input issuance asset entropy length"
+    },
+    {
+      "name": "Duplicate Input Issuance Asset Entropy",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQNIAIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhB/wEcHNldA0gAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEA",
+      "expectedError": "duplicated input issuance asset entropy"
+    },
+    {
+      "name": "Duplicate Input Issuance Blind Value Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQPIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQf8BHBzZXQPIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "duplicated input issuance blind value proof"
+    },
+    {
+      "name": "Duplicate Input Inflation Keys Blind Value Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQQIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQf8BHBzZXQQIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "duplicated input issuance blind inflation keys proof"
+    },
+    {
+      "name": "Input Issuance Value + Issuance Value Commitment, No Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQACAECAAAAAAAAB/wEcHNldAEhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhAA==",
+      "expectedError": "missing input issuance value commitment or blind proof"
+    },
+    {
+      "name": "Input Inflation Keys Value + Inflation Keys Commitment, No Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQKCAIBAAAAAAAAB/wEcHNldAshAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiAA==",
+      "expectedError": "missing input issuance inflation keys commitment or blind proof"
+    },
+    {
+      "name": "Invalid Input Pegin Tx",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQECAIBAAAAAAAAAA==",
+      "expectedError": "invalid input pegin tx"
+    },
+    {
+      "name": "Duplicate Input Pegin Tx",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQE/R8BAgAAAAH16xqTeqsQOCTmMZBFTe+sAzi3UnCrerLbbeA/y+HT/QIAAACKRzBEAiACIfMVZwUvOHXEbIhh9wFCMI2TXYyQqLi2mpxjNf21IgIgd55k8mIOHU/FNyDA1XKhihroPGihBfB+VoRC04gq3kIBQQRxRvDg/LMTmUfPC+uHD+JRkwyhDUVFeT0xAz6AG1IZq/VsEaPPNAbKWQ5MFLDat0nSCGKzrcRwkVPCgMKni+EM/////wOAOAEAAAAAABepFNih72PEFcC4gUIUrRuLK3ARw6XWhzmyBAAAAAAAF6kU0nidl3pX+5vqx/b4XdrIU82HckeHeiyvRAAAAAAZdqkUQ4STgxIuu4ooJoqJcAyfcjZjtbiIrAAAAAAH/ARwc2V0BP0fAQIAAAAB9esak3qrEDgk5jGQRU3vrAM4t1Jwq3qy223gP8vh0/0CAAAAikcwRAIgAiHzFWcFLzh1xGyIYfcBQjCNk12MkKi4tpqcYzX9tSICIHeeZPJiDh1PxTcgwNVyoYoa6DxooQXwflaEQtOIKt5CAUEEcUbw4PyzE5lHzwvrhw/iUZMMoQ1FRXk9MQM+gBtSGav1bBGjzzQGylkOTBSw2rdJ0ghis63EcJFTwoDCp4vhDP////8DgDgBAAAAAAAXqRTYoe9jxBXAuIFCFK0biytwEcOl1oc5sgQAAAAAABepFNJ4nZd6V/ub6sf2+F3ayFPNh3JHh3osr0QAAAAAGXapFEOEk4MSLruKKCaKiXAMn3I2Y7W4iKwAAAAAAA==",
+      "expectedError": "duplicated input pegin tx"
+    },
+    {
+      "name": "Duplicate Input Pegin Txoutproof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQFCAECAwQFBgcIB/wEcHNldAUIAQIDBAUGBwgA",
+      "expectedError": "duplicated input pegin txout proof"
+    },
+    {
+      "name": "Invalid Input Genesis Hash",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQGCAECAwQFBgcIAA==",
+      "expectedError": "invalid input pegin genesis hash length"
+    },
+    {
+      "name": "Duplicate Input Genesis Hash",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQGIAECAwQFBgcICQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJB/wEcHNldAYgAQIDBAUGBwgJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkA",
+      "expectedError": "duplicated input pegin genesis hash"
+    },
+    {
+      "name": "Duplicate Input Claim Script",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQHIAECAwQFBgcICQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJB/wEcHNldAcgAQIDBAUGBwgJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkA",
+      "expectedError": "duplicated input pegin claim script"
+    },
+    {
+      "name": "Invalid Input Pegin Value",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQIIAECAwQFBgcICQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJAA==",
+      "expectedError": "invalid input pegin value length"
+    },
+    {
+      "name": "Duplicate Input Pegin Value",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQICAECAwQFBgcIB/wEcHNldAgIAQIDBAUGBwgA",
+      "expectedError": "duplicated input pegin value"
+    },
+    {
+      "name": "Invalid Input Pegin Witness",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQJBgIHAQIDBAA=",
+      "expectedError": "invalid input pegin witness"
+    },
+    {
+      "name": "Duplicate Input Pegin Witness",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQJBgIBAQIDBAf8BHBzZXQJBgIBAQIDBAA=",
+      "expectedError": "duplicated input pegin witness"
+    },
+    {
+      "name": "Duplicate Input UTXO Rangeproof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQOBgIBAQIDBAf8BHBzZXQOBgIBAQIDBAA=",
+      "expectedError": "duplicated input utxo range proof"
+    },
+    {
+      "name": "Output Value + Value Commitment, No Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAEhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhAA==",
+      "expectedError": "missing output value commitment or blind proof"
+    },
+    {
+      "name": "Output Asset + Asset Commitment, No Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAIgAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAH/ARwc2V0AyECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIA",
+      "expectedError": "missing output asset commitment or blind proof"
+    },
+    {
+      "name": "Output Value + Proof, No Value Commitment",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAEhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhAA==",
+      "expectedError": "missing output value commitment or blind proof"
+    },
+    {
+      "name": "Output Asset + Proof, No Asset Commitment",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAIgAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAH/ARwc2V0CgUBAgMEBQA=",
+      "expectedError": "missing output asset commitment or blind proof"
+    },
+    {
+      "name": "Invalid Output Value Commitment Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQQBAQf8BHBzZXQBIgABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEA",
+      "expectedError": "invalid output value commitment length"
+    },
+    {
+      "name": "Duplicate Output Value Commitment",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQQBAQf8BHBzZXQBIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQf8BHBzZXQBIQECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "duplicated output value commitment"
+    },
+    {
+      "name": "Missing Output Asset",
+      "base64": "cHNldP8BAgQCAAAAAQQBAQEFAQEBBgEDAfsEAgAAAAABDiCd/GYowmxYmf4b09wzhmW/1V162hD2Iglz3y04bewSdgEPBAEAAAABEAT///8AAAEDCPA9zR0AAAAAAQQWABR7OgC/3BTSd5XCt0kB0J2m7xM1eQf8BHBzZXQIBAAAAAAA",
+      "expectedError": "missing output asset"
+    },
+    {
+      "name": "Invalid Output Asset Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAIhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhAA==",
+      "expectedError": "invalid output asset length"
+    },
+    {
+      "name": "Duplicate Output Asset",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAIgAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEH/ARwc2V0AiACAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "duplicated output asset"
+    },
+    {
+      "name": "Invalid Output Asset Commitment Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAMiAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "invalid output asset commitment length"
+    },
+    {
+      "name": "Duplicate Output Asset Commitment",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAMhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhB/wEcHNldAMhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhAA==",
+      "expectedError": "duplicated output asset commitment"
+    },
+    {
+      "name": "Duplicate Output Range Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAQhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhB/wEcHNldAQhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhAA==",
+      "expectedError": "duplicated output value range proof"
+    },
+    {
+      "name": "Duplicate Output Surjection Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAUhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhB/wEcHNldAUhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhAA==",
+      "expectedError": "duplicated output asset surjection proof"
+    },
+    {
+      "name": "Invalid Output Blinding Pubkey Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAYiAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "invalid output blinding pubkey length"
+    },
+    {
+      "name": "Duplicate Output Blinding Pubkey",
+      "base64": "cHNldP8BAgQCAAAAAQQBAQEFAQEB+wQCAAAAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAABAwgBAAAAAAAAAAEEAQEH/ARwc2V0BiEC8MQ6YlMRcVCBwh8oe5880HKM1banIIGU3xf15NGTwGwH/ARwc2V0BiEC8MQ6YlMRcVCBwh8oe5880HKM1banIIGU3xf15NGTwGwH/ARwc2V0CAQAAAAAAA==",
+      "expectedError": "duplicated output blinding pubkey"
+    },
+    {
+      "name": "Invalid Output ECDH Pubkey Size",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAciAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gIQA=",
+      "expectedError": "invalid output ecdh pubkey length"
+    },
+    {
+      "name": "Duplicate Output ECDH Pubkey",
+      "base64": "cHNldP8BAgQCAAAAAQQBAQEFAQEB+wQCAAAAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAABAwgBAAAAAAAAAAEEAQEH/ARwc2V0ByEDjnyp3Bk81u6DQcAm3MCNewxQ4O0GXErm1PXLrYD9EagH/ARwc2V0ByEDjnyp3Bk81u6DQcAm3MCNewxQ4O0GXErm1PXLrYD9EagH/ARwc2V0CAQAAAAAAA==",
+      "expectedError": "duplicated output ecdh pubkey"
+    },
+    {
+      "name": "Invalid Output Blinder Index",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAgIAQIDBAUGBwgA",
+      "expectedError": "invalid output blinder index length"
+    },
+    {
+      "name": "Duplicate Output Blinder Index",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAgEAQIDBAf8BHBzZXQIBAECAwQA",
+      "expectedError": "duplicated output blinder index"
+    },
+    {
+      "name": "Duplicate Output Blind Value Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAEhAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhB/wEcHNldAkEAQIDBAf8BHBzZXQJBAECAwQA",
+      "expectedError": "duplicated output blind value proof"
+    },
+    {
+      "name": "Duplicate Output Blind Asset Proof",
+      "base64": "cHNldP8B+wQCAAAAAQIEAgAAAAEEAQEBBQEBAQYBAwABDiABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEPBAEAAAAAAQMIAQAAAAAAAAABBAEBB/wEcHNldAIgAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAH/ARwc2V0AyEAAQMDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAH/ARwc2V0CgQBAgMEB/wEcHNldAoEAQIDBAA=",
+      "expectedError": "duplicated output blind asset proof"
+    }
+  ],
+  "valid": [
+    {
+      "name": "Version 2 Minimal",
+      "base64": "cHNldP8BAgQCAAAAAQQBAAEFAQAB+wQCAAAAAA=="
+    },
+    {
+      "name": "With Scalar Offset",
+      "base64": "cHNldP8BAgQCAAAAAQQBAAEFAQAn/ARwc2V0AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAAH7BAIAAAAA"
+    },
+    {
+      "name": "With Multiple Scalar Offset",
+      "base64": "cHNldP8BAgQCAAAAAQQBAAEFAQAn/ARwc2V0AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gACf8BHBzZXQAAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEAAfsEAgAAAAA="
+    },
+    {
+      "name": "With All Issuance Fields",
+      "base64": "cHNldP8BAgQCAAAAAQQBAQEFAQAB+wQCAAAAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQACAECAAAAAAAAB/wEcHNldAEhCUREREREREREREREREREREREREREREREREREREREREREB/wEcHNldAIFAQIDBAUH/ARwc2V0AwYBAgMEBQYH/ARwc2V0CggCAQAAAAAAAAf8BHBzZXQLIQlVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQf8BHBzZXQMIAMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiB/wEcHNldA0gBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMH/ARwc2V0DyAFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJAf8BHBzZXQQIAYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlAA=="
+    },
+    {
+      "name": "With Commitment Only",
+      "base64": "cHNldP8BAgQCAAAAAQQBAQEFAQAB+wQCAAAAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQBIQlERERERERERERERERERERERERERERERERERERERERERAf8BHBzZXQCBQECAwQFB/wEcHNldAMGAQIDBAUGB/wEcHNldAshCVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVB/wEcHNldAwgAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIH/ARwc2V0DSAEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIwf8BHBzZXQPIAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkB/wEcHNldBAgBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUA"
+    },
+    {
+      "name": "With Values Only",
+      "base64": "cHNldP8BAgQCAAAAAQQBAQEFAQAB+wQCAAAAAAEOIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAQ8EAQAAAAf8BHBzZXQACAECAAAAAAAAB/wEcHNldAIFAQIDBAUH/ARwc2V0AwYBAgMEBQYH/ARwc2V0CggCAQAAAAAAAAf8BHBzZXQMIAMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiB/wEcHNldA0gBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMA"
+    },
+    {
+      "name": "With UTXO and Witness UTXO",
+      "base64": "cHNldP8BAgQCAAAAAQMEAAAAAAEEAQEBBQEDAfsEAgAAAAABAKICAAAAAAHH6k+xEgicvmA3NdivY741Mkb1NOcXWr0NNl6hrR/WbgAAAEAA/////wIBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAlQLx/QAFgAUTwXL7rzz4++YOM52QVixAcDETlwBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAAAAHAwAAAAAAAABAUIBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAlQLx/QAFgAUTwXL7rzz4++YOM52QVixAcDETlwBDiBzQYOL5jKoCOgksiRTvw0zfNZ+6QwsBsCZRoqc3PHoygEPBAIAAAABEAT9////ACICAt/pWo4sGJOHmHcQ8znTQCNWAZbCdkdGx3JaRfNNtbr6EAm9XegAAACAAQAAgEgAAIABAwjMugi/AQAAAAEEFgAUK4O/jgxELlCP5V61uOh6JJRLmncH/ARwc2V0AiAjD09dS3xvqEWAbuT2dxNFnhtp6OYPzuLklAx6DV3hsgf8BHBzZXQIBAAAAAAAAQMIAPkClQAAAAABBBYAFI0krONpRve47GLGy+HUYYTd9bvNB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIH/ARwc2V0CAQAAAAAAAEDCCgUAAAAAAAAAQQAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIH/ARwc2V0CAQAAAAAAA=="
+    }
+  ]
+}

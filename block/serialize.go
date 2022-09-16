@@ -6,27 +6,20 @@ import (
 )
 
 func (b *Block) SerializeBlock() ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
+	s := bufferutil.NewSerializer(nil)
+
+	if err := b.Header.serializeHeader(s, false); err != nil {
 		return nil, err
 	}
 
-	err = b.Header.serializeHeader(s, false)
-	if err != nil {
-		return nil, err
-	}
-
-	err = b.TransactionsData.SerializeTransactions(s)
-	if err != nil {
+	if err := b.TransactionsData.Serialize(s); err != nil {
 		return nil, err
 	}
 
 	return s.Bytes(), nil
 }
 
-func (t *Transactions) SerializeTransactions(
-	s *bufferutil.Serializer,
-) error {
+func (t *Transactions) Serialize(s *bufferutil.Serializer) error {
 	err := s.WriteVarInt(uint64(len(t.Transactions)))
 	if err != nil {
 		return err
@@ -46,9 +39,42 @@ func (t *Transactions) SerializeTransactions(
 	return nil
 }
 
+// SerializeForHash returns the block bytes for block hash
+// it does not include some data of the block (like witness or solution in case of signed blocks)
+func (h *Header) SerializeForHash() ([]byte, error) {
+	s := bufferutil.NewSerializer(nil)
+
+	if err := h.serializeHeader(s, true); err != nil {
+		return nil, err
+	}
+
+	return s.Bytes(), nil
+}
+
+// Serialize returns the block bytes
+// includes all the data of the block
+func (h *Header) Serialize() ([]byte, error) {
+	s := bufferutil.NewSerializer(nil)
+
+	if err := h.serializeHeader(s, false); err != nil {
+		return nil, err
+	}
+
+	return s.Bytes(), nil
+}
+
+// Hash gets the bytes with SerializeForHash and DoubleHash the bytes
+func (h *Header) Hash() (chainhash.Hash, error) {
+	bytes, err := h.SerializeForHash()
+	if err != nil {
+		return chainhash.Hash{}, err
+	}
+
+	return chainhash.DoubleHashH(bytes), nil
+}
+
 func (h *Header) serializeHeader(
-	s *bufferutil.Serializer,
-	forHash bool,
+	s *bufferutil.Serializer, forHash bool,
 ) error {
 	version := h.Version
 	if h.ExtData.IsDyna {
@@ -83,52 +109,7 @@ func (h *Header) serializeHeader(
 	return nil
 }
 
-// SerializeForHash returns the block bytes for block hash
-// it does not include some data of the block (like witness or solution in case of signed blocks)
-func (h *Header) SerializeForHash() ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	err = h.serializeHeader(s, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.Bytes(), nil
-}
-
-// Serialize returns the block bytes
-// includes all the data of the block
-func (h *Header) Serialize() ([]byte, error) {
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	err = h.serializeHeader(s, false)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.Bytes(), nil
-}
-
-// Hash gets the bytes with SerializeForHash and DoubleHash the bytes
-func (h *Header) Hash() (chainhash.Hash, error) {
-	bytes, err := h.SerializeForHash()
-	if err != nil {
-		return chainhash.Hash{}, err
-	}
-
-	return chainhash.DoubleHashH(bytes), nil
-}
-
-func (e *ExtData) serialize(
-	s *bufferutil.Serializer,
-	forHash bool,
-) error {
+func (e *ExtData) serialize(s *bufferutil.Serializer, forHash bool) error {
 	if e.IsDyna {
 		err := e.DynamicFederation.serialize(s, forHash)
 		if err != nil {
@@ -144,10 +125,7 @@ func (e *ExtData) serialize(
 	return nil
 }
 
-func (p *Proof) serialize(
-	s *bufferutil.Serializer,
-	forHash bool,
-) error {
+func (p *Proof) serialize(s *bufferutil.Serializer, forHash bool) error {
 	if err := s.WriteVarInt(uint64(len(p.Challenge))); err != nil {
 		return err
 	}
@@ -170,8 +148,7 @@ func (p *Proof) serialize(
 }
 
 func (d *DynamicFederation) serialize(
-	s *bufferutil.Serializer,
-	forHash bool,
+	s *bufferutil.Serializer, forHash bool,
 ) error {
 	if d.Current == nil {
 		if err := s.WriteUint8(null); err != nil {
@@ -212,9 +189,7 @@ func (d *DynamicFederation) serialize(
 	return nil
 }
 
-func (d *DynamicFederationParams) serialize(
-	s *bufferutil.Serializer,
-) error {
+func (d *DynamicFederationParams) serialize(s *bufferutil.Serializer) error {
 	if d.CompactParams == nil && d.FullParams == nil {
 		if err := s.WriteUint8(null); err != nil {
 			return err
@@ -244,9 +219,7 @@ func (d *DynamicFederationParams) serialize(
 	return nil
 }
 
-func (c *CompactParams) serialize(
-	s *bufferutil.Serializer,
-) error {
+func (c *CompactParams) serialize(s *bufferutil.Serializer) error {
 	if err := s.WriteVarInt(uint64(len(c.SignBlockScript))); err != nil {
 		return err
 	}
@@ -266,9 +239,7 @@ func (c *CompactParams) serialize(
 	return nil
 }
 
-func (f *FullParams) serialize(
-	s *bufferutil.Serializer,
-) error {
+func (f *FullParams) serialize(s *bufferutil.Serializer) error {
 	if err := s.WriteVarInt(uint64(len(f.SignBlockScript))); err != nil {
 		return err
 	}

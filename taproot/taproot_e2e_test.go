@@ -86,15 +86,15 @@ func TestKeyPathSpend(t *testing.T) {
 	hash := faucetTx.TxHash()
 	txInput := transaction.NewTxInput(hash[:], uint32(vout))
 
-	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
+	receiverValue, _ := elementsutil.ValueToBytes(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
-	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.ValueToBytes(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], taprootScript) // address reuse here (change = input's script)
 
 	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.ValueToBytes(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
 	p, _ := pset.New([]*transaction.TxInput{txInput}, []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}, 2, 0)
@@ -238,15 +238,15 @@ func TestTapscriptSpend(t *testing.T) {
 	hash := faucetTx.TxHash()
 	txInput := transaction.NewTxInput(hash[:], uint32(vout))
 
-	receiverValue, _ := elementsutil.SatoshiToElementsValue(60000000)
+	receiverValue, _ := elementsutil.ValueToBytes(60000000)
 	receiverScript, _ := hex.DecodeString("76a91439397080b51ef22c59bd7469afacffbeec0da12e88ac")
 	receiverOutput := transaction.NewTxOutput(lbtc, receiverValue[:], receiverScript)
 
-	changeValue, _ := elementsutil.SatoshiToElementsValue(39999500)
+	changeValue, _ := elementsutil.ValueToBytes(39999500)
 	changeOutput := transaction.NewTxOutput(lbtc, changeValue[:], taprootPay.Script) // address reuse here (change = input's script)
 
 	feeScript := []byte{}
-	feeValue, _ := elementsutil.SatoshiToElementsValue(500)
+	feeValue, _ := elementsutil.ValueToBytes(500)
 	feeOutput := transaction.NewTxOutput(lbtc, feeValue[:], feeScript)
 
 	p, _ := pset.New([]*transaction.TxInput{txInput}, []*transaction.TxOutput{receiverOutput, changeOutput, feeOutput}, 2, 0)

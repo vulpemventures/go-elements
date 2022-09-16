@@ -1,24 +1,35 @@
 package confidential
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 
 	"github.com/btcsuite/btcd/txscript"
-
+	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
 	"github.com/vulpemventures/go-secp256k1-zkp"
 )
 
+var (
+	ErrPrivKeyMult         = errors.New("privKey mult error")
+	ErrPrivKeyTweakAdd     = errors.New("privKey tweak add error")
+	ErrPrivKeyNegate       = errors.New("privKey negate error")
+	ErrInvalidValueBlinder = errors.New("invalid value blinder")
+)
+
 const (
-	maxScriptSize = 10000
+	maxSurjectionTargets = 3
+	maxScriptSize        = 10000
+)
+
+var (
+	Zero = make([]byte, 32)
 )
 
 // NonceHash method generates hashed secret based on ecdh.
-func NonceHash(pubKey, privKey []byte) (
-	result [32]byte,
-	err error,
-) {
+func NonceHash(pubKey, privKey []byte) ([32]byte, error) {
 	return nonceHash(pubKey, privKey)
 }
 
@@ -35,11 +46,19 @@ type UnblindOutputResult struct {
 // UnblindOutputWithKey method unblinds a confidential transaction output with
 // the given blinding private key.
 func UnblindOutputWithKey(
-	out *transaction.TxOutput,
-	blindKey []byte,
+	out *transaction.TxOutput, blindKey []byte,
 ) (*UnblindOutputResult, error) {
 	if !out.IsConfidential() {
-		return nil, nil
+		value, err := elementsutil.ValueFromBytes(out.Value)
+		if err != nil {
+			return nil, err
+		}
+		return &UnblindOutputResult{
+			Value:               value,
+			Asset:               out.Asset[1:],
+			ValueBlindingFactor: Zero,
+			AssetBlindingFactor: Zero,
+		}, nil
 	}
 
 	nonce, err := NonceHash(out.Nonce, blindKey)
@@ -52,11 +71,19 @@ func UnblindOutputWithKey(
 // UnblindOutputWithNonce method unblinds a confidential transaction output with
 // the given ecdh nonce calculated for example with the above NonceHash func.
 func UnblindOutputWithNonce(
-	out *transaction.TxOutput,
-	nonce []byte,
+	out *transaction.TxOutput, nonce []byte,
 ) (*UnblindOutputResult, error) {
 	if !out.IsConfidential() {
-		return nil, nil
+		value, err := elementsutil.ValueFromBytes(out.Value)
+		if err != nil {
+			return nil, err
+		}
+		return &UnblindOutputResult{
+			Value:               value,
+			Asset:               out.Asset[1:],
+			ValueBlindingFactor: Zero,
+			AssetBlindingFactor: Zero,
+		}, nil
 	}
 
 	var nonce32 [32]byte
@@ -70,8 +97,7 @@ type UnblindIssuanceResult struct {
 }
 
 func UnblindIssuance(
-	in *transaction.TxInput,
-	blindKeys [][]byte,
+	in *transaction.TxInput, blindKeys [][]byte,
 ) (*UnblindIssuanceResult, error) {
 	return unblindIssuance(in, blindKeys)
 }
@@ -89,9 +115,9 @@ type FinalValueBlindingFactorArgs struct {
 
 // FinalValueBlindingFactor method calculates the blinder as the sum of all
 // previous blinders of a tx.
-func FinalValueBlindingFactor(args FinalValueBlindingFactorArgs) (
-	[32]byte, error,
-) {
+func FinalValueBlindingFactor(
+	args FinalValueBlindingFactorArgs,
+) ([32]byte, error) {
 	return finalValueBlindingFactor(args)
 }
 
@@ -118,10 +144,12 @@ type RangeProofArgs struct {
 }
 
 func (a RangeProofArgs) minValue() uint64 {
+	if a.Value == 0 {
+		return 0
+	}
 	if isUnSpendable(a.ScriptPubkey) {
 		return 0
 	}
-
 	return 1
 }
 
@@ -139,7 +167,7 @@ func (a RangeProofArgs) exp() int {
 
 func (a RangeProofArgs) minBits() int {
 	if a.MinBits <= 0 {
-		return 36
+		return 52
 	}
 	return a.MinBits
 }
@@ -149,19 +177,31 @@ func RangeProof(args RangeProofArgs) ([]byte, error) {
 	return rangeProof(args)
 }
 
+func VerifyRangeProof(valueCommitment, assetCommitment, script, proof []byte) bool {
+	return verifyRangeProof(valueCommitment, assetCommitment, script, proof)
+}
+
 type SurjectionProofArgs struct {
 	OutputAsset               []byte
 	OutputAssetBlindingFactor []byte
 	InputAssets               [][]byte
 	InputAssetBlindingFactors [][]byte
 	Seed                      []byte
+	NumberOfTargets           int
 }
 
 func (a SurjectionProofArgs) nInputsToUse() int {
-	if len(a.InputAssets) >= 3 {
-		return 3
+	numOfTargets := maxSurjectionTargets
+	if a.NumberOfTargets > 0 {
+		numOfTargets = a.NumberOfTargets
 	}
-	return len(a.InputAssets)
+
+	min := numOfTargets
+	if len(a.InputAssets) < min {
+		min = len(a.InputAssets)
+	}
+
+	return min
 }
 
 //SurjectionProof method generates surjection proof
@@ -180,6 +220,400 @@ type VerifySurjectionProofArgs struct {
 // VerifySurjectionProof method verifies the validity of a surjection proof
 func VerifySurjectionProof(args VerifySurjectionProofArgs) bool {
 	return verifySurjectionProof(args)
+}
+
+// CalculateScalarOffset computes the scalar offset used for the final blinder computation
+// value * asset_blinder + value_blinder
+func CalculateScalarOffset(
+	amount uint64, assetBlinder, valueBlinder []byte,
+) ([]byte, error) {
+	var result []byte
+
+	var ab []byte
+	if assetBlinder != nil {
+		ab = make([]byte, len(assetBlinder))
+		copy(ab, assetBlinder)
+	}
+
+	var vb []byte
+	if valueBlinder != nil {
+		vb = make([]byte, len(valueBlinder))
+		copy(vb, valueBlinder)
+	}
+
+	if ab == nil {
+		return vb, nil
+	}
+
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	result = ab
+
+	val := make([]byte, 32)
+	binary.BigEndian.PutUint64(val[24:], amount)
+
+	if amount > 0 {
+		r, err := secp256k1.EcPrivKeyTweakMul(ctx, result, val)
+		if err != nil {
+			return nil, err
+		}
+		if r != 1 {
+			return nil, ErrPrivKeyMult
+		}
+	} else {
+		return vb, nil
+	}
+
+	if vb == nil {
+		return nil, ErrInvalidValueBlinder
+	}
+
+	var vn []byte
+	if valueBlinder != nil {
+		vn = make([]byte, len(valueBlinder))
+		copy(vn, valueBlinder)
+	}
+	r, err := secp256k1.EcPrivKeyNegate(ctx, vn)
+	if err != nil {
+		return nil, err
+	}
+	if r != 1 {
+		return nil, ErrPrivKeyNegate
+	}
+
+	if bytes.Equal(vn, result) {
+		return Zero, nil
+	}
+
+	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, result, vb)
+	if err != nil {
+		return nil, err
+	}
+	if r != 1 {
+		return nil, ErrPrivKeyTweakAdd
+	}
+
+	return result, nil
+}
+
+// SubtractScalars subtract b from a in place
+func SubtractScalars(a []byte, b []byte) ([]byte, error) {
+	var aa []byte
+	if a != nil {
+		aa = make([]byte, len(a))
+		copy(aa, a)
+	}
+
+	var bb []byte
+	if b != nil {
+		bb = make([]byte, len(b))
+		copy(bb, b)
+	}
+
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	if bb == nil {
+		return aa, nil
+	}
+
+	r, err := secp256k1.EcPrivKeyNegate(ctx, bb)
+	if err != nil {
+		return nil, err
+	}
+	if r != 1 {
+		return nil, ErrPrivKeyNegate
+	}
+
+	if aa == nil {
+		return bb, nil
+	}
+
+	r, err = secp256k1.EcPrivKeyTweakAdd(ctx, aa, bb)
+	if err != nil {
+		return nil, err
+	}
+	if r != 1 {
+		return nil, ErrPrivKeyTweakAdd
+	}
+
+	return aa, nil
+}
+
+// ComputeAndAddToScalarOffset computes a scalar offset and adds it to another existing one
+func ComputeAndAddToScalarOffset(
+	scalar []byte, value uint64, assetBlinder, valueBlinder []byte,
+) ([]byte, error) {
+	var s []byte
+	if scalar != nil {
+		s = make([]byte, len(scalar))
+		copy(s, scalar)
+	}
+
+	var ab []byte
+	if assetBlinder != nil {
+		ab = make([]byte, len(assetBlinder))
+		copy(ab, assetBlinder)
+	}
+
+	var vb []byte
+	if valueBlinder != nil {
+		vb = make([]byte, len(valueBlinder))
+		copy(vb, valueBlinder)
+	}
+
+	// If both asset and value blinders are null, 0 is added to the offset, so nothing actually happens
+	if ab == nil && vb == nil {
+		return s, nil
+	}
+
+	scalarOffset, err := CalculateScalarOffset(value, ab, vb)
+	if err != nil {
+		return nil, err
+	}
+
+	// When we start out, the result (a) is 0, so just set it to the scalar we just computed.
+	if s == nil {
+		return scalarOffset, nil
+	} else {
+		ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+		defer secp256k1.ContextDestroy(ctx)
+
+		var nv []byte
+		if scalarOffset != nil {
+			nv = make([]byte, len(scalarOffset))
+			copy(nv, scalarOffset)
+		}
+		r, err := secp256k1.EcPrivKeyNegate(ctx, nv)
+		if err != nil {
+			return nil, err
+		}
+		if r != 1 {
+			return nil, ErrPrivKeyNegate
+		}
+
+		if bytes.Equal(s, nv) {
+			return Zero, nil
+		}
+
+		r, err = secp256k1.EcPrivKeyTweakAdd(ctx, s, scalarOffset)
+		if err != nil {
+			return nil, err
+		}
+		if r != 1 {
+			return nil, ErrPrivKeyTweakAdd
+		}
+	}
+
+	return s, nil
+}
+
+func CreateBlindValueProof(
+	rng func() ([]byte, error),
+	valueBlinder []byte, amount uint64, valueCommitment, assetCommitment []byte,
+) ([]byte, error) {
+	var vbf []byte
+	if valueBlinder != nil {
+		vbf = make([]byte, len(valueBlinder))
+		copy(vbf, valueBlinder)
+	}
+
+	var vc []byte
+	if valueCommitment != nil {
+		vc = make([]byte, len(valueCommitment))
+		copy(vc, valueCommitment)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	r, err := rng()
+	if err != nil {
+		return nil, err
+	}
+
+	var nonce [32]byte
+	copy(nonce[:], r)
+
+	commit, err := secp256k1.CommitmentParse(ctx, vc)
+	if err != nil {
+		return nil, err
+	}
+
+	gen, err := secp256k1.GeneratorParse(ctx, ac)
+	if err != nil {
+		return nil, err
+	}
+
+	var vbf32 [32]byte
+	copy(vbf32[:], vbf)
+
+	proof, err := secp256k1.RangeProofSign(
+		ctx, amount, commit, vbf32, nonce, -1, 0, amount, nil, nil, gen,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok, _, _ := secp256k1.RangeProofVerify(
+		ctx, proof, commit, nil, gen,
+	); !ok {
+		return nil, errors.New("generated unverified blind value proof")
+	}
+
+	return proof, nil
+}
+
+func CreateBlindAssetProof(
+	asset, assetCommitment, assetBlinder []byte,
+) ([]byte, error) {
+	var a []byte
+	if asset != nil {
+		a = make([]byte, len(asset))
+		copy(a, asset)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
+	var ab []byte
+	if assetBlinder != nil {
+		ab = make([]byte, len(assetBlinder))
+		copy(ab, assetBlinder)
+	}
+
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	fixedAssetTag, err := secp256k1.FixedAssetTagParse(a)
+	if err != nil {
+		return nil, err
+	}
+	fixedInputTags := []*secp256k1.FixedAssetTag{fixedAssetTag}
+
+	maxIterations := 100
+	proof, inputIndex, err := secp256k1.SurjectionProofInitialize(
+		ctx, fixedInputTags, 1, fixedAssetTag, maxIterations, Zero,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	gen, err := secp256k1.GeneratorGenerate(ctx, a)
+	if err != nil {
+		return nil, err
+	}
+	assetGen := []*secp256k1.Generator{gen}
+
+	blindedAssetGen, err := secp256k1.GeneratorParse(ctx, ac)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = secp256k1.SurjectionProofGenerate(
+		ctx, proof, assetGen, blindedAssetGen, inputIndex, Zero, ab,
+	); err != nil {
+		return nil, err
+	}
+
+	if !secp256k1.SurjectionProofVerify(
+		ctx,
+		proof,
+		assetGen,
+		blindedAssetGen,
+	) {
+		return nil, errors.New("invalid surjection proof")
+	}
+
+	return proof.Bytes(), nil
+}
+
+func VerifyBlindValueProof(
+	value uint64, valueCommitment, assetCommitment, proof []byte,
+) bool {
+	var vc []byte
+	if valueCommitment != nil {
+		vc = make([]byte, len(valueCommitment))
+		copy(vc, valueCommitment)
+	}
+
+	var bvp []byte
+	if proof != nil {
+		bvp = make([]byte, len(proof))
+		copy(bvp, proof)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	commitment, err := secp256k1.CommitmentParse(ctx, vc)
+	if err != nil {
+		return false
+	}
+
+	assetGenerator, err := secp256k1.GeneratorParse(ctx, ac)
+	if err != nil {
+		return false
+	}
+
+	valid, minValue, _ := secp256k1.RangeProofVerify(
+		ctx, bvp, commitment, nil, assetGenerator,
+	)
+
+	return valid && minValue == int(value)
+}
+
+func VerifyBlindAssetProof(asset, assetCommitment, proof []byte) bool {
+	var bap []byte
+	if proof != nil {
+		bap = make([]byte, len(proof))
+		copy(bap, proof)
+	}
+
+	var ac []byte
+	if assetCommitment != nil {
+		ac = make([]byte, len(assetCommitment))
+		copy(ac, assetCommitment)
+	}
+
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	surjectionProof, err := secp256k1.SurjectionProofParse(ctx, bap)
+	if err != nil {
+		return false
+	}
+
+	blindAssetGen, err := secp256k1.GeneratorParse(ctx, ac)
+	if err != nil {
+		return false
+	}
+
+	assetGen, err := secp256k1.GeneratorGenerate(ctx, asset)
+	if err != nil {
+		return false
+	}
+	generators := []*secp256k1.Generator{assetGen}
+
+	return secp256k1.SurjectionProofVerify(
+		ctx, surjectionProof, generators, blindAssetGen,
+	)
 }
 
 func nonceHash(pubKey, privKey []byte) (result [32]byte, err error) {
@@ -201,9 +635,12 @@ func nonceHash(pubKey, privKey []byte) (result [32]byte, err error) {
 }
 
 func unblindOutput(
-	out *transaction.TxOutput,
-	nonce [32]byte,
+	out *transaction.TxOutput, nonce [32]byte,
 ) (*UnblindOutputResult, error) {
+	if len(out.RangeProof) <= 0 {
+		return nil, errors.New("missing rangeproof to rewind")
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -223,12 +660,7 @@ func unblindOutput(
 	}
 
 	rewind, value, _, _, message, err := secp256k1.RangeProofRewind(
-		ctx,
-		valueCommit,
-		out.RangeProof,
-		nonce,
-		out.Script,
-		gen,
+		ctx, valueCommit, out.RangeProof, nonce, out.Script, gen,
 	)
 	if err != nil {
 		return nil, err
@@ -243,8 +675,7 @@ func unblindOutput(
 }
 
 func unblindIssuance(
-	in *transaction.TxInput,
-	blindKeys [][]byte,
+	in *transaction.TxInput, blindKeys [][]byte,
 ) (*UnblindIssuanceResult, error) {
 	if len(blindKeys) <= 1 {
 		return nil, errors.New("missing asset blind private key")
@@ -271,7 +702,7 @@ func unblindIssuance(
 	}
 
 	outs := []*transaction.TxOutput{
-		&transaction.TxOutput{
+		{
 			Asset:      asset,
 			Value:      in.Issuance.AssetAmount,
 			RangeProof: in.IssuanceRangeProof,
@@ -313,9 +744,9 @@ func unblindIssuance(
 	return res, nil
 }
 
-func finalValueBlindingFactor(args FinalValueBlindingFactorArgs) (
-	[32]byte, error,
-) {
+func finalValueBlindingFactor(
+	args FinalValueBlindingFactorArgs,
+) ([32]byte, error) {
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
@@ -330,11 +761,7 @@ func finalValueBlindingFactor(args FinalValueBlindingFactorArgs) (
 	blindingFactor = append(blindingFactor, args.OutFactors...)
 
 	return secp256k1.BlindGeneratorBlindSum(
-		ctx,
-		values,
-		generatorBlind,
-		blindingFactor,
-		len(args.InValues),
+		ctx, values, generatorBlind, blindingFactor, len(args.InValues),
 	)
 }
 
@@ -382,27 +809,39 @@ func rangeProof(args RangeProofArgs) ([]byte, error) {
 	}
 
 	return secp256k1.RangeProofSign(
-		ctx,
-		args.minValue(),
-		commit,
-		args.ValueBlindFactor,
-		args.Nonce,
-		args.exp(),
-		args.minBits(),
-		args.Value,
-		message,
-		args.ScriptPubkey,
+		ctx, args.minValue(), commit, args.ValueBlindFactor, args.Nonce,
+		args.exp(), args.minBits(), args.Value, message, args.ScriptPubkey,
 		generator,
 	)
 }
 
+func verifyRangeProof(valueCommitment, assetCommitment, script, proof []byte) bool {
+	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(ctx)
+
+	commit, err := secp256k1.CommitmentParse(ctx, valueCommitment)
+	if err != nil {
+		return false
+	}
+	gen, err := secp256k1.GeneratorParse(ctx, assetCommitment)
+	if err != nil {
+		return false
+	}
+
+	verified, _, _ := secp256k1.RangeProofVerify(ctx, proof, commit, script, gen)
+	return verified
+}
+
 func surjectionProof(args SurjectionProofArgs) ([]byte, bool) {
+	if args.NumberOfTargets > maxSurjectionTargets {
+		return nil, false
+	}
+
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
 	inputGenerators, err := inAssetGenerators(
-		args.InputAssets,
-		args.InputAssetBlindingFactors,
+		args.InputAssets, args.InputAssetBlindingFactors,
 	)
 	if err != nil {
 		return nil, false
@@ -428,11 +867,7 @@ func surjectionProof(args SurjectionProofArgs) ([]byte, bool) {
 
 	maxIterations := 100
 	proof, inputIndex, err := secp256k1.SurjectionProofInitialize(
-		ctx,
-		fixedInputTags,
-		args.nInputsToUse(),
-		fixedOutputTag,
-		maxIterations,
+		ctx, fixedInputTags, args.nInputsToUse(), fixedOutputTag, maxIterations,
 		args.Seed,
 	)
 	if err != nil {
@@ -440,23 +875,15 @@ func surjectionProof(args SurjectionProofArgs) ([]byte, bool) {
 	}
 
 	err = secp256k1.SurjectionProofGenerate(
-		ctx,
-		proof,
-		inputGenerators,
-		outputGenerator,
-		inputIndex,
-		args.InputAssetBlindingFactors[inputIndex],
-		args.OutputAssetBlindingFactor,
+		ctx, proof, inputGenerators, outputGenerator, inputIndex,
+		args.InputAssetBlindingFactors[inputIndex], args.OutputAssetBlindingFactor,
 	)
 	if err != nil {
 		return nil, false
 	}
 
 	if !secp256k1.SurjectionProofVerify(
-		ctx,
-		proof,
-		inputGenerators,
-		outputGenerator,
+		ctx, proof, inputGenerators, outputGenerator,
 	) {
 		return nil, false
 	}
@@ -469,16 +896,14 @@ func verifySurjectionProof(args VerifySurjectionProofArgs) bool {
 	defer secp256k1.ContextDestroy(ctx)
 
 	inGenerators, err := inAssetGenerators(
-		args.InputAssets,
-		args.InputAssetBlindingFactors,
+		args.InputAssets, args.InputAssetBlindingFactors,
 	)
 	if err != nil {
 		return false
 	}
 
 	outGenerator, err := outAssetGenerator(
-		args.OutputAsset,
-		args.OutputAssetBlindingFactor,
+		args.OutputAsset, args.OutputAssetBlindingFactor,
 	)
 	if err != nil {
 		return false
@@ -490,10 +915,7 @@ func verifySurjectionProof(args VerifySurjectionProofArgs) bool {
 	}
 
 	return secp256k1.SurjectionProofVerify(
-		ctx,
-		proof,
-		inGenerators,
-		outGenerator,
+		ctx, proof, inGenerators, outGenerator,
 	)
 }
 
@@ -503,10 +925,8 @@ func inAssetGenerators(inAssets, inAssetBlinders [][]byte) ([]*secp256k1.Generat
 
 	inGenerators := make([]*secp256k1.Generator, 0, len(inAssets))
 	for i, inAsset := range inAssets {
-		gen, err := secp256k1.GeneratorGenerateBlinded(
-			ctx,
-			inAsset,
-			inAssetBlinders[i],
+		gen, err := secp256k1.GeneratorGenerateBlinded( //TODO in elements repo generate_blinded is not used?
+			ctx, inAsset, inAssetBlinders[i],
 		)
 		if err != nil {
 			return nil, err
@@ -563,15 +983,4 @@ func calcTokenHash(in *transaction.TxInput) ([]byte, error) {
 		return nil, err
 	}
 	return iss.GenerateReissuanceToken(1)
-}
-
-func calcIssuance(in *transaction.TxInput) *transaction.TxIssuanceExtended {
-	var issuance *transaction.TxIssuanceExtended
-	if in.Issuance.IsReissuance() {
-		issuance = transaction.NewTxIssuanceFromEntropy(in.Issuance.AssetEntropy)
-	} else {
-		issuance = transaction.NewTxIssuanceFromContractHash(in.Issuance.AssetEntropy)
-		issuance.GenerateEntropy(in.Hash, in.Index)
-	}
-	return issuance
 }

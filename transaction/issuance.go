@@ -85,14 +85,7 @@ func NewTxIssuance(
 	precision uint,
 	contract *IssuanceContract,
 ) (*TxIssuanceExtended, error) {
-	if assetAmount < 0 {
-		return nil, errors.New("invalid asset amount")
-	}
-	if tokenAmount < 0 {
-		return nil, errors.New("invalid token amount")
-	}
-
-	if precision < 0 || precision > 8 {
+	if precision > 8 {
 		return nil, errors.New("invalid precision")
 	}
 
@@ -153,12 +146,9 @@ func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex u
 		return errors.New("invalid tx hash length")
 	}
 
-	s, err := bufferutil.NewSerializer(nil)
-	if err != nil {
-		return err
-	}
+	s := bufferutil.NewSerializer(nil)
 
-	err = s.WriteSlice(inTxHash)
+	err := s.WriteSlice(inTxHash)
 	if err != nil {
 		return err
 	}
@@ -210,7 +200,7 @@ func toConfidentialIssuanceAmount(tokenAmount uint64) ([]byte, error) {
 		return []byte{0x00}, nil
 	}
 
-	confAmount, err := elementsutil.SatoshiToElementsValue(tokenAmount)
+	confAmount, err := elementsutil.ValueToBytes(tokenAmount)
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,7 @@
 
 # go-elements
 
-[![Build Status](https://travis-ci.com/vulpemventures/go-elements.svg?branch=master)](https://travis-ci.com/vulpemventures/go-elements)
+[![Go](https://github.com/vulpemventures/go-elements/actions/workflows/ci.yml/badge.svg)](https://github.com/vulpemventures/go-elements/actions/workflows/ci.yml)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/vulpemventures/go-elements)](https://pkg.go.dev/github.com/vulpemventures/go-elements)
 [![Release](https://img.shields.io/github/release/vulpemventures/go-elements.svg?style=flat-square)](https://github.com/vulpemventures/go-elements/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vulpemventures/go-elements)](https://goreportcard.com/report/github.com/vulpemventures/go-elements)

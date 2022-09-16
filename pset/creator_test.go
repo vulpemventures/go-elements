@@ -33,7 +33,7 @@ func TestCreator(t *testing.T) {
 			out := vOut.(map[string]interface{})
 			outAsset, _ := hex.DecodeString(out["asset"].(string))
 			outAsset = append([]byte{0x01}, elementsutil.ReverseBytes(outAsset)...)
-			outValue, _ := elementsutil.SatoshiToElementsValue(uint64(out["value"].(float64)))
+			outValue, _ := elementsutil.ValueToBytes(uint64(out["value"].(float64)))
 			outScript, _ := hex.DecodeString(out["script"].(string))
 			outputs = append(outputs, transaction.NewTxOutput(outAsset, outValue[:], outScript))
 		}

@@ -273,6 +273,26 @@ func (arg AddInIssuanceArgs) tokenFlag() uint {
 	return uint(NonConfidentialReissuanceTokenFlag)
 }
 
+func (arg AddInIssuanceArgs) parseAssetAddress() ([]byte, []byte) {
+	script, _ := address.ToOutputScript(arg.AssetAddress)
+	isConf, _ := address.IsConfidential(arg.AssetAddress)
+	if !isConf {
+		return script, nil
+	}
+	info, _ := address.FromConfidential(arg.AssetAddress)
+	return info.Script, info.BlindingKey
+}
+
+func (arg AddInIssuanceArgs) parseTokenAddress() ([]byte, []byte) {
+	script, _ := address.ToOutputScript(arg.TokenAddress)
+	isConf, _ := address.IsConfidential(arg.TokenAddress)
+	if !isConf {
+		return script, nil
+	}
+	info, _ := address.FromConfidential(arg.TokenAddress)
+	return info.Script, info.BlindingKey
+}
+
 // AddInIssuance adds an unblinded issuance to the transaction
 func (u *Updater) AddInIssuance(arg AddInIssuanceArgs) error {
 	if err := arg.validate(); err != nil {
@@ -309,12 +329,16 @@ func (u *Updater) AddInIssuance(arg AddInIssuanceArgs) error {
 	rawAsset, _ := issuance.GenerateAsset()
 	// prepend with a 0x01 prefix
 	rawAsset = append([]byte{0x01}, rawAsset...)
+	script, blindingKey := arg.parseAssetAddress()
 	issuanceAsset := elementsutil.AssetHashFromBytes(rawAsset)
 	issuanceOut := OutputArgs{
-		Asset:   issuanceAsset,
-		Amount:  arg.AssetAmount,
-		Address: arg.AssetAddress,
+		Asset:        issuanceAsset,
+		Amount:       arg.AssetAmount,
+		Script:       script,
+		BlindingKey:  blindingKey,
+		BlinderIndex: uint32(inputIndex),
 	}
+
 	out := issuanceOut.toPartialOutput()
 	if out.NeedsBlinding() {
 		inIndex := uint32(inputIndex)
@@ -328,10 +352,13 @@ func (u *Updater) AddInIssuance(arg AddInIssuanceArgs) error {
 		rawAsset, _ := issuance.GenerateReissuanceToken(arg.tokenFlag())
 		rawAsset = append([]byte{byte(1)}, rawAsset...)
 		tokenAsset := elementsutil.AssetHashFromBytes(rawAsset)
+		script, blindingKey := arg.parseTokenAddress()
 		tokenOut := OutputArgs{
-			Asset:   tokenAsset,
-			Amount:  arg.TokenAmount,
-			Address: arg.TokenAddress,
+			Asset:        tokenAsset,
+			Amount:       arg.TokenAmount,
+			Script:       script,
+			BlindingKey:  blindingKey,
+			BlinderIndex: uint32(inputIndex),
 		}
 		out := tokenOut.toPartialOutput()
 		if out.NeedsBlinding() {
@@ -491,10 +518,13 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 	rawAsset, _ := issuance.GenerateAsset()
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	reissuedAsset := elementsutil.AssetHashFromBytes(rawAsset)
+	addr, _ := address.FromConfidential(arg.AssetAddress)
 	reissuanceOut := OutputArgs{
-		Asset:   reissuedAsset,
-		Amount:  arg.AssetAmount,
-		Address: arg.AssetAddress,
+		Asset:        reissuedAsset,
+		Amount:       arg.AssetAmount,
+		Script:       addr.Script,
+		BlindingKey:  addr.BlindingKey,
+		BlinderIndex: uint32(inputIndex),
 	}
 	out := reissuanceOut.toPartialOutput()
 	if out.NeedsBlinding() {
@@ -509,10 +539,13 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 	)
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	tokenAsset := elementsutil.AssetHashFromBytes(rawAsset)
+	addr, _ = address.FromConfidential(arg.TokenAddress)
 	tokenOut := OutputArgs{
-		Asset:   tokenAsset,
-		Amount:  arg.TokenAmount,
-		Address: arg.TokenAddress,
+		Asset:        tokenAsset,
+		Amount:       arg.TokenAmount,
+		Script:       addr.Script,
+		BlindingKey:  addr.BlindingKey,
+		BlinderIndex: uint32(inputIndex),
 	}
 	out = tokenOut.toPartialOutput()
 	if out.NeedsBlinding() {

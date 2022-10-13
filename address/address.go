@@ -11,13 +11,7 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/blech32"
 	"github.com/vulpemventures/go-elements/network"
-	"golang.org/x/crypto/ripemd160"
 )
-
-// Address defines the address as string
-type Address struct {
-	address string
-}
 
 const (
 	P2Pkh = iota
@@ -30,13 +24,17 @@ const (
 	ConfidentialP2Wsh
 	P2TR
 	ConfidentialP2TR
+)
 
-	P2PkhScript      = 1
-	P2ShScript       = 2
-	P2MultiSigScript = 3
-	P2WpkhScript     = 4
-	P2WshScript      = 5
-	P2TRScript       = 6
+const (
+	P2PkhScript = iota + 1
+	P2ShScript
+	P2MultiSigScript
+	P2WpkhScript
+	P2WshScript
+	P2TRScript
+
+	ripemd160Size = 20
 )
 
 // Base58 type defines the structure of a legacy or wrapped segwit address
@@ -68,9 +66,10 @@ type Blech32 struct {
 	Program   []byte
 }
 
-// ConfidentialAddress defines the structure of a generic confidential address
-type ConfidentialAddress struct {
+// AddressInfo holds info about a receiving address.
+type AddressInfo struct {
 	Address     string
+	Script      []byte
 	BlindingKey []byte
 }
 
@@ -78,7 +77,7 @@ type ConfidentialAddress struct {
 func FromBase58(address string) (*Base58, error) {
 	decoded, version, err := base58.CheckDecode(address)
 	if err != nil {
-		return nil, errors.New("Invalid address")
+		return nil, errors.New("invalid address")
 	}
 
 	if len(decoded) < 20 {
@@ -105,7 +104,7 @@ func FromBech32(address string) (*Bech32, error) {
 	// testnet it is "ert".
 	oneIndex := strings.LastIndexByte(address, '1')
 	if oneIndex <= 1 {
-		return nil, errors.New("Invalid Sewgit address")
+		return nil, errors.New("invalid Sewgit address")
 	}
 	hrp := address[:oneIndex+1]
 	// The HRP is everything before the found '1'.
@@ -190,7 +189,7 @@ func ToBech32(bc *Bech32) (string, error) {
 func FromBase58Confidential(address string) (*Base58Confidential, error) {
 	decoded, version, err := base58.CheckDecode(address)
 	if err != nil {
-		return nil, errors.New("Invalid address")
+		return nil, errors.New("invalid address")
 	}
 
 	if len(decoded) < 54 {
@@ -230,7 +229,7 @@ func FromBlech32(address string) (*Blech32, error) {
 	// testnet it is "ert".
 	oneIndex := strings.LastIndexByte(address, '1')
 	if oneIndex <= 1 {
-		return nil, errors.New("Invalid Sewgit address")
+		return nil, errors.New("invalid Sewgit address")
 	}
 	hrp := address[:oneIndex+1]
 	// The HRP is everything before the found '1'.
@@ -327,7 +326,7 @@ func ToBlech32(bl *Blech32) (string, error) {
 
 // FromConfidential returns the unconfidential address and the blinding public
 // key that form the confidential address
-func FromConfidential(address string) (*ConfidentialAddress, error) {
+func FromConfidential(address string) (*AddressInfo, error) {
 	net, err := NetworkForAddress(address)
 	if err != nil {
 		return nil, err
@@ -338,6 +337,8 @@ func FromConfidential(address string) (*ConfidentialAddress, error) {
 		return nil, err
 	}
 
+	var addr string
+	var blindingKey []byte
 	switch addressType {
 	case ConfidentialP2Pkh, ConfidentialP2Sh:
 		fromBase58, err := FromBase58Confidential(address)
@@ -345,19 +346,15 @@ func FromConfidential(address string) (*ConfidentialAddress, error) {
 			return nil, err
 		}
 
-		addr := ToBase58(&fromBase58.Base58)
-
-		return &ConfidentialAddress{
-			Address:     addr,
-			BlindingKey: fromBase58.PublicKey,
-		}, nil
+		addr = ToBase58(&fromBase58.Base58)
+		blindingKey = fromBase58.PublicKey
 	case ConfidentialP2Wpkh, ConfidentialP2Wsh, ConfidentialP2TR:
 		fromBlech32, err := FromBlech32(address)
 		if err != nil {
 			return nil, err
 		}
 
-		addr, err := ToBech32(&Bech32{
+		addr, err = ToBech32(&Bech32{
 			Prefix:  net.Bech32,
 			Version: fromBlech32.Version,
 			Program: fromBlech32.Program,
@@ -365,19 +362,22 @@ func FromConfidential(address string) (*ConfidentialAddress, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		return &ConfidentialAddress{
-			Address:     addr,
-			BlindingKey: fromBlech32.PublicKey,
-		}, nil
+		blindingKey = fromBlech32.PublicKey
 	default:
 		return nil, errors.New("unknown address type")
 	}
+
+	script, _ := ToOutputScript(addr)
+	return &AddressInfo{
+		BlindingKey: blindingKey,
+		Address:     addr,
+		Script:      script,
+	}, nil
 }
 
 // ToConfidential returns the confidential address formed by the given
 // unconfidential address and blinding public key
-func ToConfidential(ca *ConfidentialAddress) (string, error) {
+func ToConfidential(ca *AddressInfo) (string, error) {
 	net, err := NetworkForAddress(ca.Address)
 	if err != nil {
 		return "", err
@@ -657,7 +657,7 @@ func decodeBase58(address string, net network.Network) (int, error) {
 	if netID == net.Confidential {
 		prefixPlusBlindKeySize := 34
 		switch len(decoded[prefixPlusBlindKeySize:]) {
-		case ripemd160.Size:
+		case ripemd160Size:
 			prefix := decoded[0]
 			isP2PKH := prefix == net.PubKeyHash
 			isP2SH := prefix == net.ScriptHash
@@ -678,7 +678,7 @@ func decodeBase58(address string, net network.Network) (int, error) {
 	}
 
 	switch len(decoded) {
-	case ripemd160.Size:
+	case ripemd160Size:
 		isP2PKH := netID == net.PubKeyHash
 		isP2SH := netID == net.ScriptHash
 		switch {

@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -69,7 +69,8 @@ func (a InputArgs) toPartialInput() Input {
 type OutputArgs struct {
 	Asset        string
 	Amount       uint64
-	Address      string
+	Script       []byte
+	BlindingKey  []byte
 	BlinderIndex uint32
 }
 
@@ -84,33 +85,26 @@ func (a OutputArgs) validate() error {
 	if len(buf) != 32 {
 		return ErrOutInvalidAsset
 	}
-	if len(a.Address) > 0 {
-		if _, err := address.ToOutputScript(a.Address); err != nil {
-			return ErrOutInvalidAddress
+	if len(a.Script) > 0 {
+		if _, err := address.ParseScript(a.Script); err != nil {
+			return fmt.Errorf("invalid output script: %s", err)
+		}
+	}
+	if len(a.BlindingKey) > 0 {
+		if _, err := btcec.ParsePubKey(a.BlindingKey); err != nil {
+			return fmt.Errorf("invalid output blinding publick key: %s", err)
 		}
 	}
 	return nil
 }
 
 func (a OutputArgs) toPartialOutput() Output {
-	var script, blindingKey []byte
-	if len(a.Address) > 0 {
-		script = []byte{txscript.OP_RETURN}
-		if a.Amount > 0 {
-			script, _ = address.ToOutputScript(a.Address)
-		}
-		isConfidential, _ := address.IsConfidential(a.Address)
-		if isConfidential {
-			info, _ := address.FromConfidential(a.Address)
-			blindingKey = info.BlindingKey
-		}
-	}
 	asset, _ := elementsutil.AssetHashToBytes(a.Asset)
 	return Output{
 		Value:          a.Amount,
 		Asset:          asset[1:],
-		Script:         script,
-		BlindingPubkey: blindingKey,
+		Script:         a.Script,
+		BlindingPubkey: a.BlindingKey,
 		BlinderIndex:   a.BlinderIndex,
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/psetv2"
 )
 
@@ -45,10 +46,13 @@ func randomInputArgs(num int) []psetv2.InputArgs {
 func randomOutputArgs(num int) []psetv2.OutputArgs {
 	outs := make([]psetv2.OutputArgs, 0, num)
 	for i := 0; i < num; i++ {
+		addr := testAddresses[i%3]
+		info, _ := address.FromConfidential(addr)
 		outs = append(outs, psetv2.OutputArgs{
-			Asset:   randomHex(32),
-			Amount:  randomValue(),
-			Address: testAddresses[i%3],
+			Asset:       randomHex(32),
+			Amount:      randomValue(),
+			Script:      info.Script,
+			BlindingKey: info.BlindingKey,
 		})
 	}
 	return outs

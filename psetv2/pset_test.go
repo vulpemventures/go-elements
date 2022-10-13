@@ -95,19 +95,18 @@ func TestBroadcastUnblindedTx(t *testing.T) {
 
 	outputArgs := []psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  60000000,
-			Address: "2dwq2ByzMwkJuU7Swbdz51udh1UosBeaYZ2",
+			Asset:  lbtc,
+			Amount: 60000000,
+			Script: h2b("76a914f5b9864394bb5bc62691750cb32c9cbe522f0c3f88ac"),
 		},
 		{
-			Asset:   lbtc,
-			Amount:  39999500,
-			Address: address,
+			Asset:  lbtc,
+			Amount: 39999500,
+			Script: p2wpkh.WitnessScript,
 		},
 		{
-			Asset:   lbtc,
-			Amount:  500,
-			Address: "",
+			Asset:  lbtc,
+			Amount: 500,
 		},
 	}
 
@@ -161,14 +160,13 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 
 	outputArgs := []psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  99999500,
-			Address: address,
+			Asset:  lbtc,
+			Amount: 99999500,
+			Script: p2wpkh.WitnessScript,
 		},
 		{
-			Asset:   lbtc,
-			Amount:  500,
-			Address: "",
+			Asset:  lbtc,
+			Amount: 500,
 		},
 	}
 
@@ -235,14 +233,16 @@ func TestBroadcastBlindedTx(t *testing.T) {
 
 	outputArgs := []psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  60000000,
-			Address: "2dwq2ByzMwkJuU7Swbdz51udh1UosBeaYZ2",
+			Asset:  lbtc,
+			Amount: 60000000,
+			Script: h2b("76a914f5b9864394bb5bc62691750cb32c9cbe522f0c3f88ac"),
 		},
 		{
-			Asset:   lbtc,
-			Amount:  39999500,
-			Address: address,
+			Asset:        lbtc,
+			Amount:       39999500,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
 		},
 	}
 
@@ -291,9 +291,8 @@ func TestBroadcastBlindedTx(t *testing.T) {
 
 	err = updater.AddOutputs([]psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  500,
-			Address: "",
+			Asset:  lbtc,
+			Amount: 500,
 		},
 	})
 	require.NoError(t, err)
@@ -319,7 +318,6 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 	pubkey := privkey.PubKey()
 	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
 	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
-	unconfAddress, _ := p2wpkh.WitnessPubKeyHash()
 
 	// Fund sender address.
 	_, err = faucet(address)
@@ -342,19 +340,20 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 
 	outputArgs := []psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  60000000,
-			Address: "2dwq2ByzMwkJuU7Swbdz51udh1UosBeaYZ2",
+			Asset:  lbtc,
+			Amount: 60000000,
+			Script: h2b("76a914f5b9864394bb5bc62691750cb32c9cbe522f0c3f88ac"),
 		},
 		{
-			Asset:   lbtc,
-			Amount:  39999500,
-			Address: unconfAddress,
+			Asset:  lbtc,
+			Amount: 39999500,
+			Script: p2wpkh.WitnessScript,
 		},
 		{
-			Asset:   lbtc,
-			Amount:  0,
-			Address: address,
+			Asset:       lbtc,
+			Amount:      0,
+			Script:      []byte{txscript.OP_RETURN},
+			BlindingKey: blindingPublicKey.SerializeCompressed(),
 		},
 	}
 
@@ -403,9 +402,8 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 
 	err = updater.AddOutputs([]psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  500,
-			Address: "",
+			Asset:  lbtc,
+			Amount: 500,
 		},
 	})
 	require.NoError(t, err)
@@ -453,14 +451,15 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 
 	outputArgs := []psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  99999000,
-			Address: address,
+			Asset:        lbtc,
+			Amount:       99999000,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
 		},
 		{
-			Asset:   lbtc,
-			Amount:  1000,
-			Address: "",
+			Asset:  lbtc,
+			Amount: 1000,
 		},
 	}
 
@@ -570,14 +569,15 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 
 	outputArgs := []psetv2.OutputArgs{
 		{
-			Asset:   lbtc,
-			Amount:  99999000,
-			Address: address,
+			Asset:        lbtc,
+			Amount:       99999000,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
 		},
 		{
-			Asset:   lbtc,
-			Amount:  1000,
-			Address: "",
+			Asset:  lbtc,
+			Amount: 1000,
 		},
 	}
 
@@ -699,19 +699,22 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 
 	aliceOutputArgs := []psetv2.OutputArgs{
 		{
-			Asset:   usdt,
-			Amount:  50000000,
-			Address: aliceAddress,
+			Asset:        usdt,
+			Amount:       50000000,
+			Script:       aliceP2wpkh.WitnessScript,
+			BlindingKey:  aliceBlindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
 		},
 		{
-			Asset:   lbtc,
-			Amount:  49999000,
-			Address: aliceAddress,
+			Asset:        lbtc,
+			Amount:       49999000,
+			Script:       aliceP2wpkh.WitnessScript,
+			BlindingKey:  aliceBlindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
 		},
 		{
-			Asset:   lbtc,
-			Amount:  1000,
-			Address: "",
+			Asset:  lbtc,
+			Amount: 1000,
 		},
 	}
 
@@ -757,13 +760,15 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 		{
 			Asset:        lbtc,
 			Amount:       50000000,
-			Address:      bobAddress,
+			Script:       bobP2wpkh.WitnessScript,
+			BlindingKey:  bobBlindingPublicKey.SerializeCompressed(),
 			BlinderIndex: bobOutputBlinderIndex,
 		},
 		{
 			Asset:        usdt,
 			Amount:       50000000,
-			Address:      bobAddress,
+			Script:       bobP2wpkh.WitnessScript,
+			BlindingKey:  bobBlindingPublicKey.SerializeCompressed(),
 			BlinderIndex: bobOutputBlinderIndex,
 		},
 	}

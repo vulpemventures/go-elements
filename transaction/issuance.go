@@ -139,28 +139,37 @@ func NewTxIssuance(
 	}, nil
 }
 
-// GenerateEntropy generates the entropy from which the hash of the asset and
-// of the reissuance token are calculated
-func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex uint32) error {
+func ComputeEntropy(inTxHash []byte, inTxIndex uint32, contractHash []byte) ([]byte, error) {
 	if len(inTxHash) != 32 {
-		return errors.New("invalid tx hash length")
+		return nil, errors.New("invalid tx hash length")
 	}
 
 	s := bufferutil.NewSerializer(nil)
 
 	err := s.WriteSlice(inTxHash)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = s.WriteUint32(inTxIndex)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	buf := chainhash.DoubleHashB(s.Bytes())
-	buf = append(buf, issuance.ContractHash...)
+	buf = append(buf, contractHash...)
 	entropy := fastsha256.MidState256(buf)
+
+	return entropy[:], nil
+}
+
+// GenerateEntropy generates the entropy from which the hash of the asset and
+// of the reissuance token are calculated
+func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex uint32) error {
+	entropy, err := ComputeEntropy(inTxHash, inTxIndex, issuance.ContractHash)
+	if err != nil {
+		return err
+	}
 
 	issuance.TxIssuance.AssetEntropy = entropy[:]
 	return nil
@@ -189,6 +198,10 @@ func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, 
 
 	buf := make([]byte, 32)
 	buf[0] = byte(flag + 1)
+	// write zero to empty
+	for i := 1; i < 32; i++ {
+		buf[i] = 0
+	}
 	buf = append(issuance.TxIssuance.AssetEntropy, buf...)
 	token := fastsha256.MidState256(buf)
 

@@ -488,28 +488,21 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 		return err
 	}
 
-	if len(u.Pset.Inputs) == 0 {
-		return fmt.Errorf(
-			"transaction must contain at least one input before adding a reissuance",
-		)
-	}
-
-	p := u.Pset.Copy()
-
-	// add input
-	if err := p.addInput(arg.TokenPrevOut.toPartialInput()); err != nil {
+	if err := u.AddInputs([]InputArgs{arg.TokenPrevOut}); err != nil {
 		return err
 	}
-	inputIndex := int(p.Global.InputCount)
+	inputIndex := int(u.Pset.Global.InputCount) - 1
 	if arg.WitnessUtxo != nil {
 		if err := u.AddInWitnessUtxo(inputIndex, arg.WitnessUtxo); err != nil {
-			return err
+			return fmt.Errorf("error adding reissuance witness utxo: %s", err)
 		}
 	} else {
 		if err := u.AddInNonWitnessUtxo(inputIndex, arg.NonWitnessUtxo); err != nil {
 			return err
 		}
 	}
+
+	p := u.Pset.Copy()
 
 	entropy, _ := hex.DecodeString(arg.Entropy)
 	entropy = elementsutil.ReverseBytes(entropy)
@@ -524,7 +517,7 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 		Amount:       arg.AssetAmount,
 		Script:       addr.Script,
 		BlindingKey:  addr.BlindingKey,
-		BlinderIndex: uint32(inputIndex),
+		BlinderIndex: 0,
 	}
 	out := reissuanceOut.toPartialOutput()
 	if out.NeedsBlinding() {
@@ -545,7 +538,7 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 		Amount:       arg.TokenAmount,
 		Script:       addr.Script,
 		BlindingKey:  addr.BlindingKey,
-		BlinderIndex: uint32(inputIndex),
+		BlinderIndex: 0,
 	}
 	out = tokenOut.toPartialOutput()
 	if out.NeedsBlinding() {
@@ -557,7 +550,7 @@ func (u *Updater) AddInReissuance(arg AddInReissuanceArgs) error {
 
 	// add the (re)issuance to the token input. The token amount of the issuance
 	// must not be defined for reissunces.
-	p.Inputs[inputIndex].IssuanceAssetEntropy = issuance.ContractHash
+	p.Inputs[inputIndex].IssuanceAssetEntropy = issuance.AssetEntropy
 	p.Inputs[inputIndex].IssuanceValue = arg.AssetAmount
 	p.Inputs[inputIndex].IssuanceBlindingNonce = arg.TokenPrevOutBlinder
 

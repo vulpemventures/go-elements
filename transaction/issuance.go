@@ -175,37 +175,42 @@ func (issuance *TxIssuanceExtended) GenerateEntropy(inTxHash []byte, inTxIndex u
 	return nil
 }
 
-// GenerateAsset calculates the asset hash for the given issuance
-func (issuance *TxIssuanceExtended) GenerateAsset() ([]byte, error) {
-	if issuance.TxIssuance.AssetEntropy == nil || len(issuance.TxIssuance.AssetEntropy) <= 0 {
-		return nil, errors.New("issuance entropy must not be nil")
+// ComputeAsset generates the hash of the asset from the issuance entropy
+func ComputeAsset(entropy []byte) ([]byte, error) {
+	if entropy == nil || len(entropy) != 32 {
+		return nil, errors.New("invalid issuance entropy size")
 	}
 
-	buf := append(issuance.TxIssuance.AssetEntropy, make([]byte, 32)...)
+	buf := append(entropy, make([]byte, 32)...)
 	asset := fastsha256.MidState256(buf)
-
 	return asset[:], nil
 }
 
-// GenerateReissuanceToken calculates the asset hash for the given issuance
-func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, error) {
-	if issuance.TxIssuance.AssetEntropy == nil || len(issuance.TxIssuance.AssetEntropy) <= 0 {
-		return nil, errors.New("issuance entropy must not be nil")
+// GenerateAsset calculates the asset hash for the given issuance
+func (issuance *TxIssuanceExtended) GenerateAsset() ([]byte, error) {
+	return ComputeAsset(issuance.AssetEntropy)
+}
+
+// ComputeReissuanceToken generates the hash of the reissuance token asset from the entropy and issuance flag
+func ComputeReissuanceToken(entropy []byte, flag uint) ([]byte, error) {
+	if entropy == nil || len(entropy) != 32 {
+		return nil, errors.New("invalid issuance entropy size")
 	}
+
 	if flag != 0 && flag != 1 {
 		return nil, errors.New("invalid flag for reissuance token")
 	}
 
 	buf := make([]byte, 32)
 	buf[0] = byte(flag + 1)
-	// write zero to empty
-	for i := 1; i < 32; i++ {
-		buf[i] = 0
-	}
-	buf = append(issuance.TxIssuance.AssetEntropy, buf...)
+	buf = append(entropy, buf...)
 	token := fastsha256.MidState256(buf)
-
 	return token[:], nil
+}
+
+// GenerateReissuanceToken calculates the asset hash for the given issuance
+func (issuance *TxIssuanceExtended) GenerateReissuanceToken(flag uint) ([]byte, error) {
+	return ComputeReissuanceToken(issuance.AssetEntropy, flag)
 }
 
 func toConfidentialIssuanceAmount(tokenAmount uint64) ([]byte, error) {

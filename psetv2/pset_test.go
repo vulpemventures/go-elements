@@ -183,7 +183,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
-	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
 		AssetAmount:  1000,
 		TokenAmount:  1,
 		AssetAddress: address,
@@ -487,7 +487,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
-	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
 		AssetAmount:     1000,
 		TokenAmount:     1,
 		AssetAddress:    address,
@@ -605,7 +605,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
-	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
 		AssetAmount:     1000,
 		TokenAmount:     1,
 		AssetAddress:    address,
@@ -716,7 +716,7 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
-	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
 		AssetAmount:     1000,
 		TokenAmount:     1,
 		AssetAddress:    address,
@@ -766,6 +766,7 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 			TxIndex: 0,
 			Txid:    issuanceTx.TxHash().String(),
 		},
+		{Txid: issuanceTx.TxHash().String(), TxIndex: 3},
 	}
 
 	reissuanceOutputArgs := []psetv2.OutputArgs{
@@ -791,20 +792,30 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	err = updater.AddInWitnessUtxo(0, issuanceTx.Outputs[0])
 	require.NoError(t, err)
 
+	err = updater.AddInUtxoRangeProof(0, issuanceTx.Outputs[0].RangeProof)
+	require.NoError(t, err)
+
+	err = updater.AddInWitnessUtxo(1, issuanceTx.Outputs[3])
+	require.NoError(t, err)
+
+	err = updater.AddInUtxoRangeProof(1, issuanceTx.Outputs[3].RangeProof)
+	require.NoError(t, err)
+
 	issuanceTxID := issuanceTx.TxHash()
 	entropy, err := transaction.ComputeEntropy(issuanceTxID[:], 0, nil)
 	require.NoError(t, err)
 
-	err = updater.AddInReissuance(psetv2.AddInReissuanceArgs{
-		TokenPrevOut:        psetv2.InputArgs{Txid: issuanceTx.TxHash().String(), TxIndex: 3},
+	err = updater.AddInReissuance(1, psetv2.AddInReissuanceArgs{
 		TokenPrevOutBlinder: outBlindingArgs[2].AssetBlinder,
-		WitnessUtxo:         issuanceTx.Outputs[3],
 		Entropy:             hex.EncodeToString(elementsutil.ReverseBytes(entropy)),
 		AssetAmount:         1000,
 		AssetAddress:        "el1qq0k562f2kgxruw6z5gztxhxegls8mjlxxccmuham3dhxu8r207pkl3nuydlvy22g00nx6s47xudtm3y0sw32jwpjsd3vps070",
 		TokenAmount:         1,
 		TokenAddress:        "el1qq0k562f2kgxruw6z5gztxhxegls8mjlxxccmuham3dhxu8r207pkl3nuydlvy22g00nx6s47xudtm3y0sw32jwpjsd3vps070",
 	})
+	require.NoError(t, err)
+
+	assetIssued, err := transaction.ComputeAsset(entropy)
 	require.NoError(t, err)
 
 	zkpGenerator, err = confidential.NewZKPGeneratorFromOwnedInputs(map[uint32]psetv2.OwnedInput{
@@ -818,7 +829,7 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 		1: psetv2.OwnedInput{
 			Index:        1,
 			Value:        1,
-			Asset:        elementsutil.AssetHashFromBytes(issuanceTx.Outputs[3].Asset),
+			Asset:        elementsutil.AssetHashFromBytes(assetIssued),
 			ValueBlinder: outBlindingArgs[2].ValueBlinder,
 			AssetBlinder: outBlindingArgs[2].AssetBlinder,
 		},

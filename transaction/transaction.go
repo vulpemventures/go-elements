@@ -22,6 +22,9 @@ const (
 	advancedTransactionMarker = uint8(0x00)
 	defaultTxInOutAlloc       = 15
 
+	//SighashRangeproof is a flag that means the rangeproofs should be included in the sighash.
+	SighashRangeproof = 0x40
+
 	sighashInputMask  = uint8(0x80)
 	sighashOutputMask = uint8(0x03)
 )
@@ -356,7 +359,7 @@ func (tx *Transaction) HasWitness() bool {
 // TxHash generates the Hash for the transaction.
 func (tx *Transaction) TxHash() chainhash.Hash {
 	// Encode the transaction and calculate double sha256 on the result.
-	buf, _ := tx.serialize(nil, false, true, false)
+	buf, _ := tx.serialize(nil, false, true, false, false)
 	return chainhash.DoubleHashH(buf)
 }
 
@@ -367,7 +370,7 @@ func (tx *Transaction) TxHash() chainhash.Hash {
 // is the same as its txid.
 func (tx *Transaction) WitnessHash() chainhash.Hash {
 	if tx.HasWitness() {
-		buf, _ := tx.serialize(nil, true, true, false)
+		buf, _ := tx.serialize(nil, true, true, false, false)
 		return chainhash.DoubleHashH(buf)
 	}
 	return tx.TxHash()
@@ -501,7 +504,7 @@ func (tx *Transaction) SerializeSize(allowWitness, forSignature bool) int {
 
 // Serialize returns the serialization of the transaction.
 func (tx *Transaction) Serialize() ([]byte, error) {
-	return tx.serialize(nil, true, false, false)
+	return tx.serialize(nil, true, false, false, false)
 }
 
 // HashForSignature returns the double sha256 hash of the serialization
@@ -511,7 +514,8 @@ func (tx *Transaction) Serialize() ([]byte, error) {
 func (tx *Transaction) HashForSignature(
 	inIndex int,
 	prevoutScript []byte,
-	hashType txscript.SigHashType) ([32]byte, error) {
+	hashType txscript.SigHashType,
+) ([32]byte, error) {
 	if inIndex >= len(tx.Inputs) {
 		return One, nil
 	}
@@ -577,7 +581,8 @@ func (tx *Transaction) HashForSignature(
 		}
 	}
 
-	buf, err := txCopy.serialize(nil, false, true, true)
+	shouldCalculateRangeProofsHash := (hashType & SighashRangeproof) != 0
+	buf, err := txCopy.serialize(nil, false, true, true, shouldCalculateRangeProofsHash)
 	if err != nil {
 		return [32]byte{}, err
 	}
@@ -589,10 +594,13 @@ func (tx *Transaction) HashForSignature(
 // of the transaction following the BIP-0143 specification. This hash should
 // then be used to produce a witness signatures for the given inIndex input.
 func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value []byte, hashType txscript.SigHashType) [32]byte {
+	shouldCalculateRangeProofsHash := (hashType & SighashRangeproof) != 0
+
 	hashInputs := Zero
 	hashSequences := Zero
 	hashIssuances := Zero
 	hashOutputs := Zero
+	hashForRangeProofs := Zero
 
 	// Inputs
 	if (hashType & txscript.SigHashAnyOneCanPay) == 0 {
@@ -612,13 +620,19 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 	if (hashType&0x1f) != txscript.SigHashSingle &&
 		(hashType&0x1f) != txscript.SigHashNone {
 		hashOutputs = calcTxOutputsHash(tx.Outputs)
+		if shouldCalculateRangeProofsHash {
+			hashForRangeProofs = calcTxOutputsHash(tx.Outputs)
+		}
 	} else {
 		if (hashType&0x1f) == txscript.SigHashSingle && inIndex < len(tx.Outputs) {
 			hashOutputs = calcTxOutputsHash([]*TxOutput{tx.Outputs[inIndex]})
+			if shouldCalculateRangeProofsHash {
+				hashForRangeProofs = calcTxOutputsHash([]*TxOutput{tx.Outputs[inIndex]})
+			}
 		}
 	}
 
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	input := tx.Inputs[inIndex]
 
 	s.WriteUint32(uint32(tx.Version))
@@ -637,6 +651,9 @@ func (tx *Transaction) HashForWitnessV0(inIndex int, prevoutScript []byte, value
 		s.WriteSlice(iss.TokenAmount)
 	}
 	s.WriteSlice(hashOutputs[:])
+	if shouldCalculateRangeProofsHash {
+		s.WriteSlice(hashForRangeProofs[:])
+	}
 	s.WriteUint32(tx.Locktime)
 	s.WriteUint32(uint32(hashType))
 
@@ -668,7 +685,7 @@ func (tx *Transaction) HashForWitnessV1(
 		outputType = uint8(hashType) & sighashOutputMask
 	}
 
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	input := tx.Inputs[inIndex]
 
 	s.WriteSlice(genesisBlockHash.CloneBytes())
@@ -734,7 +751,7 @@ func (tx *Transaction) HashForWitnessV1(
 	}
 
 	if annex != nil {
-		buf, _ := bufferutil.NewSerializer(nil)
+		buf := bufferutil.NewSerializer(nil)
 		buf.WriteVarSlice(annex)
 		singlehash := chainhash.HashH(buf.Bytes())
 		s.WriteSlice(singlehash[:])
@@ -801,11 +818,14 @@ func (tx *Transaction) baseSize(forSignature bool) int {
 	return size
 }
 
-func (tx *Transaction) serialize(buf *bytes.Buffer, allowWitness, zeroFlag, forSignature bool) ([]byte, error) {
-	s, err := bufferutil.NewSerializer(buf)
-	if err != nil {
-		return nil, err
-	}
+func (tx *Transaction) serialize(
+	buf *bytes.Buffer,
+	allowWitness,
+	zeroFlag,
+	forSignature,
+	withRangeProofs bool,
+) ([]byte, error) {
+	s := bufferutil.NewSerializer(buf)
 
 	// Version
 	s.WriteUint32(uint32(tx.Version))
@@ -857,6 +877,10 @@ func (tx *Transaction) serialize(buf *bytes.Buffer, allowWitness, zeroFlag, forS
 			s.WriteUint64(0)
 		}
 		s.WriteVarSlice(txOut.Script)
+		if withRangeProofs {
+			s.WriteVarSlice(txOut.RangeProof)
+			s.WriteVarSlice(txOut.SurjectionProof)
+		}
 	}
 
 	// Locktime
@@ -882,7 +906,7 @@ func (tx *Transaction) serialize(buf *bytes.Buffer, allowWitness, zeroFlag, forS
 }
 
 func serializeInputs(ins []*TxInput) []byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteSlice(in.Hash)
 		s.WriteUint32(in.Index)
@@ -901,7 +925,7 @@ func calcTxInputsSingleHash(ins []*TxInput) [32]byte {
 }
 
 func serializeSequences(ins []*TxInput) []byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteUint32(in.Sequence)
 	}
@@ -919,7 +943,7 @@ func calcTxSequencesSingleHash(ins []*TxInput) [32]byte {
 }
 
 func serializeIssuances(ins []*TxInput) []byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		if iss := in.Issuance; iss != nil {
 			s.WriteSlice(iss.AssetBlindingNonce)
@@ -944,7 +968,7 @@ func calcTxIssuancesSingleHash(ins []*TxInput) [32]byte {
 }
 
 func serializeOutputs(outs []*TxOutput) []byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, out := range outs {
 		s.WriteSlice(out.Asset)
 		s.WriteSlice(out.Value)
@@ -977,7 +1001,7 @@ func calcInputFlag(i *TxInput) uint8 {
 }
 
 func calcOutpointsFlagsSingleHash(ins []*TxInput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		s.WriteUint8(calcInputFlag(in))
 	}
@@ -985,7 +1009,7 @@ func calcOutpointsFlagsSingleHash(ins []*TxInput) [32]byte {
 }
 
 func calcAssetAmountSingleHash(prevoutAssets [][]byte, prevoutValues [][]byte) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 
 	for i := 0; i < len(prevoutAssets); i++ {
 		s.WriteSlice(prevoutAssets[i])
@@ -995,7 +1019,7 @@ func calcAssetAmountSingleHash(prevoutAssets [][]byte, prevoutValues [][]byte) [
 }
 
 func calcIssuanceProofsSingleHash(ins []*TxInput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, in := range ins {
 		if in.IssuanceRangeProof != nil {
 			s.WriteVarSlice(in.IssuanceRangeProof)
@@ -1013,7 +1037,7 @@ func calcIssuanceProofsSingleHash(ins []*TxInput) [32]byte {
 }
 
 func calcOutputWitnessesSingleHash(outs []*TxOutput) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, out := range outs {
 		if out.SurjectionProof != nil {
 			s.WriteVarSlice(out.SurjectionProof)
@@ -1031,7 +1055,7 @@ func calcOutputWitnessesSingleHash(outs []*TxOutput) [32]byte {
 }
 
 func calcScriptPubKeysSingleHash(scripts [][]byte) [32]byte {
-	s, _ := bufferutil.NewSerializer(nil)
+	s := bufferutil.NewSerializer(nil)
 	for _, script := range scripts {
 		s.WriteVarSlice(script)
 	}

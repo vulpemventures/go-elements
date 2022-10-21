@@ -3,13 +3,14 @@ package elementsutil
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
-// SatoshiToElementsValue method converts Satoshi value to Elements value
-func SatoshiToElementsValue(val uint64) ([]byte, error) {
+// ValueToBytes method converts Satoshi value to Elements value
+func ValueToBytes(val uint64) ([]byte, error) {
 	unconfPrefix := byte(1)
 	b := bytes.NewBuffer([]byte{})
 	if err := bufferutil.BinarySerializer.PutUint64(b, binary.LittleEndian, val); err != nil {
@@ -20,7 +21,7 @@ func SatoshiToElementsValue(val uint64) ([]byte, error) {
 }
 
 // ElementsToSatoshiValue method converts Elements value to Satoshi value
-func ElementsToSatoshiValue(val []byte) (uint64, error) {
+func ValueFromBytes(val []byte) (uint64, error) {
 	if len(val) != 9 {
 		return 0, errors.New("invalid elements value lenght")
 	}
@@ -30,6 +31,41 @@ func ElementsToSatoshiValue(val []byte) (uint64, error) {
 	reverseValueBuffer := ReverseBytes(val[1:])
 	d := bufferutil.NewDeserializer(bytes.NewBuffer(reverseValueBuffer))
 	return d.ReadUint64()
+}
+
+func AssetHashFromBytes(buffer []byte) string {
+	// We remove the first byte from the buffer array that represents if confidential or unconfidential
+	return hex.EncodeToString(ReverseBytes(buffer[1:]))
+}
+
+func AssetHashToBytes(str string) ([]byte, error) {
+	buffer, err := hex.DecodeString(str)
+	if err != nil {
+		return nil, err
+	}
+	buffer = ReverseBytes(buffer)
+	buffer = append([]byte{0x01}, buffer...)
+	return buffer, nil
+}
+
+func TxIDFromBytes(buffer []byte) string {
+	return hex.EncodeToString(ReverseBytes(buffer))
+}
+
+func TxIDToBytes(str string) ([]byte, error) {
+	buffer, err := hex.DecodeString(str)
+	if err != nil {
+		return nil, err
+	}
+	return ReverseBytes(buffer), nil
+}
+
+func CommitmentFromBytes(buffer []byte) string {
+	return hex.EncodeToString(buffer)
+}
+
+func CommitmentToBytes(str string) ([]byte, error) {
+	return hex.DecodeString(str)
 }
 
 // ReverseBytes returns a copy of the given byte slice with elems in reverse order.

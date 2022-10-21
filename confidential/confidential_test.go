@@ -376,3 +376,67 @@ func TestVerifySurjectionProof(t *testing.T) {
 		assert.Equal(t, expectedValid, isValid)
 	}
 }
+
+func TestSurjectionProofArgsInputsToUse(t *testing.T) {
+	type fields struct {
+		OutputAsset               []byte
+		OutputAssetBlindingFactor []byte
+		InputAssets               [][]byte
+		InputAssetBlindingFactors [][]byte
+		Seed                      []byte
+		NumberOfTargets           int
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   int
+	}{
+		{
+			name: "1",
+			fields: fields{
+				InputAssets:     [][]byte{{}, {}},
+				NumberOfTargets: 0,
+			},
+			want: 2,
+		},
+		{
+			name: "2",
+			fields: fields{
+				InputAssets:     [][]byte{{}, {}},
+				NumberOfTargets: 1,
+			},
+			want: 1,
+		},
+		{
+			name: "3",
+			fields: fields{
+				InputAssets:     [][]byte{{}, {}, {}},
+				NumberOfTargets: 0,
+			},
+			want: 3,
+		},
+		{
+			name: "4",
+			fields: fields{
+				InputAssets:     [][]byte{{}, {}, {}, {}},
+				NumberOfTargets: 0,
+			},
+			want: 3,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := SurjectionProofArgs{
+				OutputAsset:               tt.fields.OutputAsset,
+				OutputAssetBlindingFactor: tt.fields.OutputAssetBlindingFactor,
+				InputAssets:               tt.fields.InputAssets,
+				InputAssetBlindingFactors: tt.fields.InputAssetBlindingFactors,
+				Seed:                      tt.fields.Seed,
+				NumberOfTargets:           tt.fields.NumberOfTargets,
+			}
+			if got := a.nInputsToUse(); got != tt.want {
+				t.Errorf("nInputsToUse() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

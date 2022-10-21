@@ -47,10 +47,10 @@ func TestIssuanceGeneration(t *testing.T) {
 			t.FailNow()
 		}
 
-		resAssetAmount, _ := elementsutil.ElementsToSatoshiValue(
+		resAssetAmount, _ := elementsutil.ValueFromBytes(
 			issuance.TxIssuance.AssetAmount,
 		)
-		resTokenAmount, _ := elementsutil.ElementsToSatoshiValue(
+		resTokenAmount, _ := elementsutil.ValueFromBytes(
 			issuance.TxIssuance.TokenAmount,
 		)
 		assert.Equal(t, uint64(v["expectedAssetAmount"].(float64)), resAssetAmount)

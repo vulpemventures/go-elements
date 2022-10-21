@@ -10,15 +10,11 @@ type Serializer struct {
 }
 
 // NewSerializer returns an instance of Serializer.
-func NewSerializer(buf *bytes.Buffer) (*Serializer, error) {
-	buffer := bytes.NewBuffer([]byte{})
-	if buf != nil {
-		_, err := buffer.Write(buf.Bytes())
-		if err != nil {
-			return nil, err
-		}
+func NewSerializer(buf *bytes.Buffer) *Serializer {
+	if buf == nil {
+		buf = bytes.NewBuffer([]byte{})
 	}
-	return &Serializer{buffer}, nil
+	return &Serializer{buf}
 }
 
 // Bytes returns writer's buffer

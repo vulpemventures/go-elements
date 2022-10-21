@@ -199,7 +199,7 @@ func TestHashForWitnessV0(t *testing.T) {
 		inIndex := int(testVector["inIndex"].(float64))
 		script, _ := hex.DecodeString(testVector["script"].(string))
 		hashType := txscript.SigHashType(testVector["hashType"].(float64))
-		value, _ := elementsutil.SatoshiToElementsValue(uint64(testVector["amount"].(float64)))
+		value, _ := elementsutil.ValueToBytes(uint64(testVector["amount"].(float64)))
 
 		hash := tx.HashForWitnessV0(inIndex, script, value[:], hashType)
 		expectedHash := testVector["expectedHash"].(string)

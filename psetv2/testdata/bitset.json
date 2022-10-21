@@ -1,0 +1,20 @@
+{
+  "valid": [
+    {
+      "value": 0,
+      "expected": "00000000"
+    },
+    {
+      "value": 1,
+      "expected": "00000001"
+    },
+    {
+      "value": 2,
+      "expected": "00000010"
+    },
+    {
+      "value": 255,
+      "expected": "11111111"
+    }
+  ]
+}

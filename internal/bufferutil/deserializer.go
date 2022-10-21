@@ -15,6 +15,11 @@ func NewDeserializer(buffer *bytes.Buffer) *Deserializer {
 	return &Deserializer{buffer}
 }
 
+// ReadToEnd returns bytes left in buffer
+func (d *Deserializer) ReadToEnd() []byte {
+	return d.buffer.Bytes()
+}
+
 // ReadUint8 reads a uint8 value from reader's buffer.
 func (d *Deserializer) ReadUint8() (uint8, error) {
 	return BinarySerializer.Uint8(d.buffer)

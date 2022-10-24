@@ -223,7 +223,11 @@ func (p *Pset) UnsignedTx() (*transaction.Transaction, error) {
 			}
 			tokenValue := in.IssuanceInflationKeysCommitment
 			if tokenValue == nil {
-				tokenValue, _ = elementsutil.ValueToBytes(in.IssuanceInflationKeys)
+				if in.IssuanceInflationKeys > 0 {
+					tokenValue, _ = elementsutil.ValueToBytes(in.IssuanceInflationKeys)
+				} else {
+					tokenValue = []byte{0x00}
+				}
 			}
 			txIn.Issuance = &transaction.TxIssuance{
 				AssetEntropy:       in.IssuanceAssetEntropy,

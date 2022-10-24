@@ -205,6 +205,10 @@ func (i *Input) HasIssuanceBlinded() bool {
 }
 
 func (i *Input) HasReissuance() bool {
+	if len(i.IssuanceBlindingNonce) <= 0 {
+		return false
+	}
+
 	return !bytes.Equal(i.IssuanceBlindingNonce, transaction.Zero[:])
 }
 

@@ -643,6 +643,9 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
+	b64, err := ptx.ToBase64()
+	require.NoError(t, err)
+	print(b64)
 	_, err = broadcastTransaction(ptx)
 	require.NoError(t, err)
 }
@@ -766,7 +769,10 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 			TxIndex: 0,
 			Txid:    issuanceTx.TxHash().String(),
 		},
-		{Txid: issuanceTx.TxHash().String(), TxIndex: 3},
+		{
+			Txid:    issuanceTx.TxHash().String(),
+			TxIndex: 3,
+		},
 	}
 
 	reissuanceOutputArgs := []psetv2.OutputArgs{
@@ -801,8 +807,7 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	err = updater.AddInUtxoRangeProof(1, issuanceTx.Outputs[3].RangeProof)
 	require.NoError(t, err)
 
-	issuanceTxID := issuanceTx.TxHash()
-	entropy, err := transaction.ComputeEntropy(issuanceTxID[:], 0, nil)
+	entropy, err := transaction.ComputeEntropy(issuanceTx.Inputs[0].Hash, issuanceTx.Inputs[0].Index, issuanceTx.Inputs[0].Issuance.AssetEntropy)
 	require.NoError(t, err)
 
 	err = updater.AddInReissuance(1, psetv2.AddInReissuanceArgs{
@@ -815,25 +820,7 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assetIssued, err := transaction.ComputeAsset(entropy)
-	require.NoError(t, err)
-
-	zkpGenerator, err = confidential.NewZKPGeneratorFromOwnedInputs(map[uint32]psetv2.OwnedInput{
-		0: psetv2.OwnedInput{
-			Index:        0,
-			Value:        99999000,
-			Asset:        lbtc,
-			AssetBlinder: outBlindingArgs[0].AssetBlinder,
-			ValueBlinder: outBlindingArgs[0].ValueBlinder,
-		},
-		1: psetv2.OwnedInput{
-			Index:        1,
-			Value:        1,
-			Asset:        elementsutil.AssetHashFromBytes(assetIssued),
-			ValueBlinder: outBlindingArgs[2].ValueBlinder,
-			AssetBlinder: outBlindingArgs[2].AssetBlinder,
-		},
-	}, nil)
+	zkpGenerator = confidential.NewZKPGeneratorFromBlindingKeys([][]byte{blindingPrivateKey.Serialize()}, nil)
 	require.NoError(t, err)
 
 	ownedInputs, err = zkpGenerator.UnblindInputs(reissuancePtx, nil)
@@ -845,8 +832,6 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	inReissuanceBlindingArgs, err := zkpGenerator.BlindIssuances(reissuancePtx, reissuanceKeysByIndex)
 	require.NoError(t, err)
 
-	print(reissuancePtx.ToBase64())
-
 	outBlindingArgsReissuance, err := zkpGenerator.BlindOutputs(reissuancePtx, nil, inReissuanceBlindingArgs)
 	require.NoError(t, err)
 
@@ -856,6 +841,8 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	err = blinder.BlindLast(inReissuanceBlindingArgs, outBlindingArgsReissuance)
 	require.NoError(t, err)
 
+	prvKeys = append(prvKeys, privkey)
+	scripts = [][]byte{p2wpkh.Script, p2wpkh.Script}
 	err = signTransaction(reissuancePtx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 

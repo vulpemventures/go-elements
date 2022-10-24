@@ -323,12 +323,15 @@ func (u *Updater) AddInIssuance(inputIndex int, arg AddInIssuanceArgs) error {
 	p := u.Pset.Copy()
 	input := p.Inputs[inputIndex]
 
-	issuance, _ := transaction.NewTxIssuance(
+	issuance, err := transaction.NewTxIssuance(
 		arg.AssetAmount,
 		arg.TokenAmount,
 		arg.Precision,
 		arg.Contract,
 	)
+	if err != nil {
+		return err
+	}
 
 	if err := issuance.GenerateEntropy(input.PreviousTxid, input.PreviousTxIndex); err != nil {
 		return err
@@ -471,14 +474,23 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 
 	p := u.Pset.Copy()
 
-	entropy, _ := hex.DecodeString(arg.Entropy)
+	entropy, err := hex.DecodeString(arg.Entropy)
+	if err != nil {
+		return err
+	}
 	entropy = elementsutil.ReverseBytes(entropy)
 	issuance := transaction.NewTxIssuanceFromEntropy(entropy)
 
-	rawAsset, _ := issuance.GenerateAsset()
+	rawAsset, err := issuance.GenerateAsset()
+	if err != nil {
+		return err
+	}
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	reissuedAsset := elementsutil.AssetHashFromBytes(rawAsset)
-	addr, _ := address.FromConfidential(arg.AssetAddress)
+	addr, err := address.FromConfidential(arg.AssetAddress)
+	if err != nil {
+		return err
+	}
 	reissuanceOut := OutputArgs{
 		Asset:        reissuedAsset,
 		Amount:       arg.AssetAmount,
@@ -494,12 +506,20 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 		return err
 	}
 
-	rawAsset, _ = issuance.GenerateReissuanceToken(
+	rawAsset, err = issuance.GenerateReissuanceToken(
 		ConfidentialReissuanceTokenFlag,
 	)
+	if err != nil {
+		return err
+	}
+
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	tokenAsset := elementsutil.AssetHashFromBytes(rawAsset)
-	addr, _ = address.FromConfidential(arg.TokenAddress)
+	addr, err = address.FromConfidential(arg.TokenAddress)
+	if err != nil {
+		return err
+	}
+
 	tokenOut := OutputArgs{
 		Asset:        tokenAsset,
 		Amount:       arg.TokenAmount,
@@ -517,7 +537,7 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 
 	// add the (re)issuance to the token input. The token amount of the issuance
 	// must not be defined for reissunces.
-	p.Inputs[inputIndex].IssuanceAssetEntropy = issuance.AssetEntropy
+	p.Inputs[inputIndex].IssuanceAssetEntropy = entropy
 	p.Inputs[inputIndex].IssuanceValue = arg.AssetAmount
 	p.Inputs[inputIndex].IssuanceBlindingNonce = arg.TokenPrevOutBlinder
 

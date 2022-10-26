@@ -57,6 +57,11 @@ const (
 	InputUtxoRangeProof                  = 0x0e
 	InputIssuanceBlindValueProof         = 0x0f
 	InputIssuanceBlindInflationKeysProof = 0x10
+	InputExplicitValue                   = 0x11
+	InputValueProof                      = 0x12
+	InputExplicitAsset                   = 0x13
+	InputAssetProof                      = 0x14
+	InputBlindedIssuanceValue            = 0x15
 )
 
 var (
@@ -129,6 +134,9 @@ var (
 	ErrInDuplicatedField     = func(field string) error {
 		return fmt.Errorf("duplicated input %s", field)
 	}
+	ErrInInvalidExplicitValue        = fmt.Errorf("invalid input explicit value")
+	ErrInInvalidExplicitAsset        = fmt.Errorf("invalid input explicit asset")
+	ErrInInvalidBlindedIssuanceValue = fmt.Errorf("invalid input blinded issuance value")
 )
 
 type Input struct {
@@ -167,6 +175,11 @@ type Input struct {
 	UtxoRangeProof                  []byte
 	IssuanceBlindValueProof         []byte
 	IssuanceBlindInflationKeysProof []byte
+	ExplicitValue                   uint64
+	ValueProof                      []byte
+	ExplicitAsset                   []byte
+	AssetProof                      []byte
+	BlindedIssuance                 bool
 	ProprietaryData                 []ProprietaryData
 	Unknowns                        []KeyPair
 }
@@ -193,6 +206,15 @@ func (i *Input) SanityCheck() error {
 		issuanceTokenCommitSet != issuanceBlindTokenProofSet {
 		return ErrInMissingIssuanceBlindInflationKeysProof
 	}
+
+	if i.ExplicitValue > 0 && len(i.ValueProof) == 0 || i.ExplicitValue == 0 && len(i.ValueProof) > 0 {
+		return ErrInInvalidExplicitValue
+	}
+
+	if len(i.ExplicitAsset) > 0 && len(i.AssetProof) == 0 || len(i.ExplicitAsset) == 0 && len(i.AssetProof) > 0 {
+		return ErrInInvalidExplicitAsset
+	}
+
 	return nil
 }
 
@@ -690,6 +712,66 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, issuanceBlindInflationKeysProofKeyPair)
 	}
 
+	if i.ExplicitValue != 0 {
+		var explicitValueBytes []byte
+		binary.LittleEndian.PutUint64(explicitValueBytes, i.ExplicitValue)
+
+		explicitValueKeyPair := KeyPair{
+			Key: Key{
+				KeyType: PsetProprietary,
+				KeyData: proprietaryKey(InputExplicitValue, nil),
+			},
+			Value: explicitValueBytes,
+		}
+		keyPairs = append(keyPairs, explicitValueKeyPair)
+	}
+
+	if len(i.ValueProof) > 0 {
+		valueProofKeyPair := KeyPair{
+			Key: Key{
+				KeyType: PsetProprietary,
+				KeyData: proprietaryKey(InputValueProof, nil),
+			},
+			Value: i.ValueProof,
+		}
+		keyPairs = append(keyPairs, valueProofKeyPair)
+	}
+
+	if len(i.ExplicitAsset) > 0 {
+		explicitAssetKeyPair := KeyPair{
+			Key: Key{
+				KeyType: PsetProprietary,
+				KeyData: proprietaryKey(InputExplicitAsset, nil),
+			},
+			Value: i.ExplicitAsset,
+		}
+		keyPairs = append(keyPairs, explicitAssetKeyPair)
+	}
+
+	if len(i.AssetProof) > 0 {
+		assetProofKeyPair := KeyPair{
+			Key: Key{
+				KeyType: PsetProprietary,
+				KeyData: proprietaryKey(InputAssetProof, nil),
+			},
+			Value: i.AssetProof,
+		}
+		keyPairs = append(keyPairs, assetProofKeyPair)
+	}
+
+	blindedIssuance := []byte{0}
+	if i.BlindedIssuance {
+		blindedIssuance = []byte{1}
+	}
+	assetProofKeyPair := KeyPair{
+		Key: Key{
+			KeyType: PsetProprietary,
+			KeyData: proprietaryKey(InputBlindedIssuanceValue, nil),
+		},
+		Value: blindedIssuance,
+	}
+	keyPairs = append(keyPairs, assetProofKeyPair)
+
 	for _, v := range i.ProprietaryData {
 		kp := KeyPair{
 			Key: Key{
@@ -1034,6 +1116,36 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 						return ErrInDuplicatedField("issuance blind inflation keys proof")
 					}
 					i.IssuanceBlindInflationKeysProof = kp.Value
+				case InputExplicitValue:
+					if i.ExplicitValue != 0 {
+						return ErrInDuplicatedField("explicit value")
+					}
+					if len(kp.Value) != 8 {
+						return ErrInInvalidExplicitValue
+					}
+					i.ExplicitValue = binary.LittleEndian.Uint64(kp.Value)
+				case InputValueProof:
+					if len(i.ValueProof) > 0 {
+						return ErrInDuplicatedField("value proof")
+					}
+					i.ValueProof = kp.Value
+				case InputExplicitAsset:
+					if len(i.ExplicitAsset) > 0 {
+						return ErrInDuplicatedField("explicit asset")
+					}
+					if len(kp.Value) != 32 {
+						return ErrInInvalidExplicitAsset
+					}
+				case InputAssetProof:
+					if len(i.AssetProof) > 0 {
+						return ErrInDuplicatedField("asset proof")
+					}
+					i.AssetProof = kp.Value
+				case InputBlindedIssuanceValue:
+					if len(kp.Value) != 1 {
+						return ErrInInvalidBlindedIssuanceValue
+					}
+					i.BlindedIssuance = kp.Value[0] == 1
 				default:
 					i.ProprietaryData = append(i.ProprietaryData, pd)
 				}

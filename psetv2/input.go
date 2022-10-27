@@ -179,7 +179,7 @@ type Input struct {
 	ValueProof                      []byte
 	ExplicitAsset                   []byte
 	AssetProof                      []byte
-	BlindedIssuance                 bool
+	BlindedIssuance                 *bool
 	ProprietaryData                 []ProprietaryData
 	Unknowns                        []KeyPair
 }
@@ -759,18 +759,20 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, assetProofKeyPair)
 	}
 
-	blindedIssuance := []byte{0}
-	if i.BlindedIssuance {
-		blindedIssuance = []byte{1}
+	if i.BlindedIssuance != nil {
+		blindedIssuance := []byte{0}
+		if *i.BlindedIssuance {
+			blindedIssuance = []byte{1}
+		}
+		assetProofKeyPair := KeyPair{
+			Key: Key{
+				KeyType: PsetProprietary,
+				KeyData: proprietaryKey(InputBlindedIssuanceValue, nil),
+			},
+			Value: blindedIssuance,
+		}
+		keyPairs = append(keyPairs, assetProofKeyPair)
 	}
-	assetProofKeyPair := KeyPair{
-		Key: Key{
-			KeyType: PsetProprietary,
-			KeyData: proprietaryKey(InputBlindedIssuanceValue, nil),
-		},
-		Value: blindedIssuance,
-	}
-	keyPairs = append(keyPairs, assetProofKeyPair)
 
 	for _, v := range i.ProprietaryData {
 		kp := KeyPair{
@@ -1145,7 +1147,9 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					if len(kp.Value) != 1 {
 						return ErrInInvalidBlindedIssuanceValue
 					}
-					i.BlindedIssuance = kp.Value[0] == 1
+
+					b := kp.Value[0] == 1
+					i.BlindedIssuance = &b
 				default:
 					i.ProprietaryData = append(i.ProprietaryData, pd)
 				}

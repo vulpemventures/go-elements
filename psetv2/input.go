@@ -1135,9 +1135,12 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					if len(i.ExplicitAsset) > 0 {
 						return ErrInDuplicatedField("explicit asset")
 					}
+
 					if len(kp.Value) != 32 {
 						return ErrInInvalidExplicitAsset
 					}
+
+					i.ExplicitAsset = kp.Value
 				case InputAssetProof:
 					if len(i.AssetProof) > 0 {
 						return ErrInDuplicatedField("asset proof")
@@ -1146,6 +1149,10 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 				case InputBlindedIssuanceValue:
 					if len(kp.Value) != 1 {
 						return ErrInInvalidBlindedIssuanceValue
+					}
+
+					if i.BlindedIssuance != nil {
+						return ErrInDuplicatedField("blinded issuance flag")
 					}
 
 					b := kp.Value[0] == 1

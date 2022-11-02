@@ -474,23 +474,14 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 
 	p := u.Pset.Copy()
 
-	entropy, err := hex.DecodeString(arg.Entropy)
-	if err != nil {
-		return err
-	}
+	entropy, _ := hex.DecodeString(arg.Entropy)
 	entropy = elementsutil.ReverseBytes(entropy)
 	issuance := transaction.NewTxIssuanceFromEntropy(entropy)
 
-	rawAsset, err := issuance.GenerateAsset()
-	if err != nil {
-		return err
-	}
+	rawAsset, _ := issuance.GenerateAsset()
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	reissuedAsset := elementsutil.AssetHashFromBytes(rawAsset)
-	addr, err := address.FromConfidential(arg.AssetAddress)
-	if err != nil {
-		return err
-	}
+	addr, _ := address.FromConfidential(arg.AssetAddress)
 	reissuanceOut := OutputArgs{
 		Asset:        reissuedAsset,
 		Amount:       arg.AssetAmount,
@@ -506,19 +497,12 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 		return err
 	}
 
-	rawAsset, err = issuance.GenerateReissuanceToken(
+	rawAsset, _ = issuance.GenerateReissuanceToken(
 		ConfidentialReissuanceTokenFlag,
 	)
-	if err != nil {
-		return err
-	}
-
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	tokenAsset := elementsutil.AssetHashFromBytes(rawAsset)
-	addr, err = address.FromConfidential(arg.TokenAddress)
-	if err != nil {
-		return err
-	}
+	addr, _ = address.FromConfidential(arg.TokenAddress)
 
 	tokenOut := OutputArgs{
 		Asset:        tokenAsset,

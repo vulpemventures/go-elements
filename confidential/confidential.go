@@ -204,7 +204,7 @@ func (a SurjectionProofArgs) nInputsToUse() int {
 	return min
 }
 
-//SurjectionProof method generates surjection proof
+// SurjectionProof method generates surjection proof
 func SurjectionProof(args SurjectionProofArgs) ([]byte, bool) {
 	return surjectionProof(args)
 }

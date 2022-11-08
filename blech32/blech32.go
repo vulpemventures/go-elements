@@ -26,7 +26,7 @@ func EncodingTypeFromSegwitVersion(version byte) (EncodingType, error) {
 
 const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
-//new generators, 7 bytes compared to bech32
+// new generators, 7 bytes compared to bech32
 var gen = []int64{0x7d52fba40bd886, 0x5e8dbf1a03950c, 0x1c3a3c74072a18, 0x385d72fa0e5139, 0x7093e5a608865b}
 
 // Decode decodes a blech32 encoded string, returning the human-readable

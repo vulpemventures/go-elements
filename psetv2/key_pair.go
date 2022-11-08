@@ -14,9 +14,9 @@ var (
 )
 
 // keyPair format:
-//<keypair> := <key> <value>
-//<key> := <keylen> <keytype> <keydata>
-//<value> := <valuelen> <valuedata>
+// <keypair> := <key> <value>
+// <key> := <keylen> <keytype> <keydata>
+// <value> := <valuelen> <valuedata>
 type KeyPair struct {
 	Key   Key
 	Value []byte

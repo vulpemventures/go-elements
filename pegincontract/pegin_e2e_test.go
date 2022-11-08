@@ -24,7 +24,7 @@ import (
 	"github.com/vulpemventures/go-elements/pegin"
 )
 
-//TestClaimPegin test e2e pegin procedure which is usually achieved using Btc Core
+// TestClaimPegin test e2e pegin procedure which is usually achieved using Btc Core
 // and Elements node by doing following:
 // 1. invoke elements cli command getpeginaddress
 // 2. invoke btc cli command sendtoaddress to send some btc to mainchain address

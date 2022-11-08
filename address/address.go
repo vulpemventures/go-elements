@@ -185,7 +185,8 @@ func ToBech32(bc *Bech32) (string, error) {
 }
 
 // FromBase58Confidential decodes a confidenail address that was base58 encoded
-//  and verifies the checksum.
+//
+//	and verifies the checksum.
 func FromBase58Confidential(address string) (*Base58Confidential, error) {
 	decoded, version, err := base58.CheckDecode(address)
 	if err != nil {
@@ -444,8 +445,8 @@ func NetworkForAddress(address string) (*network.Network, error) {
 	return nil, errors.New("unknown prefix for address")
 }
 
-//ToOutputScript creates a new script to pay a transaction output to a the
-//specified address
+// ToOutputScript creates a new script to pay a transaction output to a the
+// specified address
 func ToOutputScript(address string) ([]byte, error) {
 	addressType, err := DecodeType(address)
 	if err != nil {
@@ -557,7 +558,7 @@ func GetScriptType(script []byte) int {
 	}
 }
 
-//DecodeType returns address type
+// DecodeType returns address type
 func DecodeType(address string) (int, error) {
 	net, err := NetworkForAddress(address)
 	if err != nil {

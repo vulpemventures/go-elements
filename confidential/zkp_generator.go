@@ -249,7 +249,7 @@ func (g *zkpGenerator) BlindIssuances(
 		}
 
 		if in.IssuanceInflationKeys > 0 {
-			token = in.GetIssuanceInflationKeysHash(true)
+			token = in.GetIssuanceInflationKeysHash()
 			tokenBlinder, err = g.rng()
 			if err != nil {
 				return nil, fmt.Errorf(
@@ -327,7 +327,6 @@ func (g *zkpGenerator) BlindIssuances(
 
 func (g *zkpGenerator) BlindOutputs(
 	p *psetv2.Pset, outputIndexes []uint32,
-	inIssuances []psetv2.InputIssuanceBlindingArgs,
 ) ([]psetv2.OutputBlindingArgs, error) {
 	if err := validatePset(p); err != nil {
 		return nil, err
@@ -346,12 +345,14 @@ func (g *zkpGenerator) BlindOutputs(
 
 	maybeUnblindedIns := g.revealInputs(p.Inputs)
 	inputAssets, inputAssetBlinders := maybeUnblindedIns.assetsAndBlinders()
-	for _, i := range inIssuances {
-		inputAssets = append(inputAssets, i.IssuanceAsset)
-		inputAssetBlinders = append(inputAssetBlinders, Zero)
-		if len(i.IssuanceToken) > 0 {
-			inputAssets = append(inputAssets, i.IssuanceToken)
+	for _, i := range p.Inputs {
+		if i.HasIssuance() {
+			inputAssets = append(inputAssets, i.GetIssuanceAssetHash())
 			inputAssetBlinders = append(inputAssetBlinders, Zero)
+			if !i.HasReissuance() {
+				inputAssets = append(inputAssets, i.GetIssuanceInflationKeysHash())
+				inputAssetBlinders = append(inputAssetBlinders, Zero)
+			}
 		}
 	}
 

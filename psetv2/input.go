@@ -249,7 +249,15 @@ func (i *Input) GetIssuanceAssetHash() []byte {
 	return assetHash
 }
 
-func (i *Input) GetIssuanceInflationKeysHash(blindedIssuance bool) []byte {
+func (i *Input) isBlindedIssuance() bool {
+	if i.BlindedIssuance == nil {
+		return true
+	}
+	return *i.BlindedIssuance
+}
+
+func (i *Input) GetIssuanceInflationKeysHash() []byte {
+	// return nil if there is no issuance (or reissuance) object attached to the input
 	if !i.HasIssuance() {
 		return nil
 	}
@@ -260,10 +268,11 @@ func (i *Input) GetIssuanceInflationKeysHash(blindedIssuance bool) []byte {
 		issuance.GenerateEntropy(i.PreviousTxid, i.PreviousTxIndex)
 	}
 
-	var flag uint
-	if blindedIssuance {
-		flag = 1
+	flag := NonConfidentialReissuanceTokenFlag
+	if i.isBlindedIssuance() {
+		flag = ConfidentialReissuanceTokenFlag
 	}
+
 	assetHash, _ := issuance.GenerateReissuanceToken(flag)
 	return assetHash
 }

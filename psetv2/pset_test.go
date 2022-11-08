@@ -284,7 +284,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{1}, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{1})
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -395,7 +395,7 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{2}, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{2})
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -510,18 +510,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// For unblinded issuances is enough to specify input index and
-	// issuance asset and token (if token amount > 0, like in this case).
-	// These are needed only to generate output blinding args.
-	// They won't be passed to the blinder role
-	inIssuanceBlindingArgs := []psetv2.InputIssuanceBlindingArgs{
-		{
-			Index:         0,
-			IssuanceAsset: ptx.Inputs[0].GetIssuanceAssetHash(),
-			IssuanceToken: ptx.Inputs[0].GetIssuanceInflationKeysHash(false),
-		},
-	}
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -632,7 +621,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	inIssuanceBlindingArgs, err := zkpGenerator.BlindIssuances(ptx, issuanceKeysByIndex)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
@@ -643,9 +632,6 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
 	require.NoError(t, err)
 
-	b64, err := ptx.ToBase64()
-	require.NoError(t, err)
-	print(b64)
 	_, err = broadcastTransaction(ptx)
 	require.NoError(t, err)
 }
@@ -746,7 +732,7 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	inIssuanceBlindingArgs, err := zkpGenerator.BlindIssuances(ptx, issuanceKeysByIndex)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
@@ -832,7 +818,7 @@ func TestBroadcastBlindedReissuanceTx(t *testing.T) {
 	inReissuanceBlindingArgs, err := zkpGenerator.BlindIssuances(reissuancePtx, reissuanceKeysByIndex)
 	require.NoError(t, err)
 
-	outBlindingArgsReissuance, err := zkpGenerator.BlindOutputs(reissuancePtx, nil, inReissuanceBlindingArgs)
+	outBlindingArgsReissuance, err := zkpGenerator.BlindOutputs(reissuancePtx, nil)
 	require.NoError(t, err)
 
 	blinder, err = psetv2.NewBlinder(reissuancePtx, ownedInputs, zkpValidator, zkpGenerator)
@@ -1014,7 +1000,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
 	require.NoError(t, err)
 
 	// Bob blinds the pset as last blinder.

@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	NonConfidentialReissuanceTokenFlag = 0
-	ConfidentialReissuanceTokenFlag    = 1
+	NonConfidentialReissuanceTokenFlag = uint(0)
+	ConfidentialReissuanceTokenFlag    = uint(1)
 )
 
 var (
@@ -341,6 +341,7 @@ func (u *Updater) AddInIssuance(inputIndex int, arg AddInIssuanceArgs) error {
 	p.Inputs[inputIndex].IssuanceValue = arg.AssetAmount
 	p.Inputs[inputIndex].IssuanceInflationKeys = arg.TokenAmount
 	p.Inputs[inputIndex].IssuanceBlindingNonce = issuance.TxIssuance.AssetBlindingNonce
+	p.Inputs[inputIndex].BlindedIssuance = &arg.BlindedIssuance
 
 	rawAsset, _ := issuance.GenerateAsset()
 	// prepend with a 0x01 prefix
@@ -394,16 +395,17 @@ func (u *Updater) AddInIssuance(inputIndex int, arg AddInIssuanceArgs) error {
 
 // AddInReissuanceArgs defines the mandatory fields that one needs to pass to
 // the AddInReissuance method of the *Updater type
-// 		PrevOutHash: the prevout hash of the token that will be added as input to the tx
-//		PrevOutIndex: the prevout index of the token that will be added as input to the tx
-//		PrevOutBlinder: the asset blinder used to blind the prevout token
-//		WitnessUtxo: the prevout token in case it is a witness one
-//		NonWitnessUtxo: the prevout tx that include the token output in case it is a non-witness one
-//		Entropy: the entropy used to generate token and asset
-//		AssetAmount: the amount of asset to re-issue
-//		TokenAmount: the same unblinded amount of the prevout token
-//		AssetAddress: the destination address of the re-issuing asset
-//		TokenAddress: the destination address of the re-issuance token
+//
+//	PrevOutHash: the prevout hash of the token that will be added as input to the tx
+//	PrevOutIndex: the prevout index of the token that will be added as input to the tx
+//	PrevOutBlinder: the asset blinder used to blind the prevout token
+//	WitnessUtxo: the prevout token in case it is a witness one
+//	NonWitnessUtxo: the prevout tx that include the token output in case it is a non-witness one
+//	Entropy: the entropy used to generate token and asset
+//	AssetAmount: the amount of asset to re-issue
+//	TokenAmount: the same unblinded amount of the prevout token
+//	AssetAddress: the destination address of the re-issuing asset
+//	TokenAddress: the destination address of the re-issuance token
 type AddInReissuanceArgs struct {
 	TokenPrevOutBlinder []byte
 	Entropy             string

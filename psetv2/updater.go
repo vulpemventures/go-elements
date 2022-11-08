@@ -249,21 +249,8 @@ func (arg AddInIssuanceArgs) validate() error {
 			return fmt.Errorf("invalid issuance token address: %s", err)
 		}
 	}
-	if !arg.matchAddressTypes() {
-		return ErrInIssuanceAddressesMismatch
-	}
 
 	return nil
-}
-
-func (arg AddInIssuanceArgs) matchAddressTypes() bool {
-	if len(arg.TokenAddress) <= 0 {
-		return true
-	}
-
-	a, _ := address.IsConfidential(arg.AssetAddress)
-	b, _ := address.IsConfidential(arg.TokenAddress)
-	return a == b
 }
 
 func (arg AddInIssuanceArgs) tokenFlag() uint {
@@ -273,24 +260,22 @@ func (arg AddInIssuanceArgs) tokenFlag() uint {
 	return uint(NonConfidentialReissuanceTokenFlag)
 }
 
-func (arg AddInIssuanceArgs) parseAssetAddress() ([]byte, []byte) {
-	script, _ := address.ToOutputScript(arg.AssetAddress)
-	isConf, _ := address.IsConfidential(arg.AssetAddress)
+func parseAddress(addr string) ([]byte, []byte) {
+	script, _ := address.ToOutputScript(addr)
+	isConf, _ := address.IsConfidential(addr)
 	if !isConf {
 		return script, nil
 	}
-	info, _ := address.FromConfidential(arg.AssetAddress)
+	info, _ := address.FromConfidential(addr)
 	return info.Script, info.BlindingKey
 }
 
+func (arg AddInIssuanceArgs) parseAssetAddress() ([]byte, []byte) {
+	return parseAddress(arg.AssetAddress)
+}
+
 func (arg AddInIssuanceArgs) parseTokenAddress() ([]byte, []byte) {
-	script, _ := address.ToOutputScript(arg.TokenAddress)
-	isConf, _ := address.IsConfidential(arg.TokenAddress)
-	if !isConf {
-		return script, nil
-	}
-	info, _ := address.FromConfidential(arg.TokenAddress)
-	return info.Script, info.BlindingKey
+	return parseAddress(arg.TokenAddress)
 }
 
 func (u *Updater) validateInputIndexForIssuance(inputIndex int) error {
@@ -447,17 +432,8 @@ func (arg AddInReissuanceArgs) validate() error {
 	if _, err := address.DecodeType(arg.TokenAddress); err != nil {
 		return fmt.Errorf("invalid reissuance token address: %s", err)
 	}
-	if !arg.areAddressesConfidential() {
-		return fmt.Errorf("asset and token address must be both confidential")
-	}
 
 	return nil
-}
-
-func (arg AddInReissuanceArgs) areAddressesConfidential() bool {
-	a, _ := address.IsConfidential(arg.AssetAddress)
-	b, _ := address.IsConfidential(arg.TokenAddress)
-	return a && b
 }
 
 // AddInReissuance takes care of adding an input (the prevout token) and 2
@@ -483,14 +459,19 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 	rawAsset, _ := issuance.GenerateAsset()
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	reissuedAsset := elementsutil.AssetHashFromBytes(rawAsset)
-	addr, _ := address.FromConfidential(arg.AssetAddress)
+
+	script, blindingKey := parseAddress(arg.AssetAddress)
+
 	reissuanceOut := OutputArgs{
-		Asset:        reissuedAsset,
-		Amount:       arg.AssetAmount,
-		Script:       addr.Script,
-		BlindingKey:  addr.BlindingKey,
-		BlinderIndex: 0,
+		Asset:       reissuedAsset,
+		Amount:      arg.AssetAmount,
+		Script:      script,
+		BlindingKey: blindingKey,
 	}
+	if blindingKey != nil {
+		reissuanceOut.BlinderIndex = uint32(inputIndex)
+	}
+
 	out := reissuanceOut.toPartialOutput()
 	if out.NeedsBlinding() {
 		out.BlinderIndex = uint32(inputIndex)
@@ -504,14 +485,17 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 	)
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	tokenAsset := elementsutil.AssetHashFromBytes(rawAsset)
-	addr, _ = address.FromConfidential(arg.TokenAddress)
+
+	tokenScript, tokenBlindingKey := parseAddress(arg.TokenAddress)
 
 	tokenOut := OutputArgs{
-		Asset:        tokenAsset,
-		Amount:       arg.TokenAmount,
-		Script:       addr.Script,
-		BlindingKey:  addr.BlindingKey,
-		BlinderIndex: 0,
+		Asset:       tokenAsset,
+		Amount:      arg.TokenAmount,
+		Script:      tokenScript,
+		BlindingKey: tokenBlindingKey,
+	}
+	if tokenBlindingKey != nil {
+		tokenOut.BlinderIndex = uint32(inputIndex)
 	}
 	out = tokenOut.toPartialOutput()
 	if out.NeedsBlinding() {

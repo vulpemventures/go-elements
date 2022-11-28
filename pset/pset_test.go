@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/louisinger/btcd/btcec/v2"
+	"github.com/louisinger/btcd/btcec/v2/ecdsa"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/confidential"
 	"github.com/vulpemventures/go-elements/elementsutil"

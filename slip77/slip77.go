@@ -6,7 +6,7 @@ import (
 	"crypto/sha512"
 	"errors"
 
-	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/louisinger/btcd/btcec/v2"
 )
 
 var (

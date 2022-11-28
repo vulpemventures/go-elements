@@ -13,7 +13,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 
-	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/louisinger/btcd/btcec/v2"
 
 	"github.com/btcsuite/btcd/btcutil"
 )

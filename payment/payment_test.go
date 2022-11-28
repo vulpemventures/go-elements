@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/louisinger/btcd/btcec/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"

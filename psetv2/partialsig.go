@@ -3,8 +3,8 @@ package psetv2
 import (
 	"bytes"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
+	"github.com/louisinger/btcd/btcec/v2"
+	"github.com/louisinger/btcd/btcec/v2/ecdsa"
 )
 
 //TODO add ref to btcutil

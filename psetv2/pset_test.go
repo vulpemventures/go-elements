@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/louisinger/btcd/btcec/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/vulpemventures/go-elements/confidential"

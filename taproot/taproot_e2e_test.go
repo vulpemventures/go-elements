@@ -213,7 +213,7 @@ func TestKeyPathMusig2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	taprootPay, err := payment.FromTweakedKey(aggregateKey.PreTweakedKey, &network.Regtest, blindingKey.PubKey())
+	taprootPay, err := payment.FromTweakedKey(aggregateKey.FinalKey, &network.Regtest, blindingKey.PubKey())
 	if err != nil {
 		t.Fatal(err)
 	}

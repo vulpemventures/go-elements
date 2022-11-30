@@ -308,15 +308,12 @@ func (u *Updater) AddInIssuance(inputIndex int, arg AddInIssuanceArgs) error {
 	p := u.Pset.Copy()
 	input := p.Inputs[inputIndex]
 
-	issuance, err := transaction.NewTxIssuance(
+	issuance, _ := transaction.NewTxIssuance(
 		arg.AssetAmount,
 		arg.TokenAmount,
 		arg.Precision,
 		arg.Contract,
 	)
-	if err != nil {
-		return err
-	}
 
 	if err := issuance.GenerateEntropy(input.PreviousTxid, input.PreviousTxIndex); err != nil {
 		return err
@@ -380,7 +377,6 @@ func (u *Updater) AddInIssuance(inputIndex int, arg AddInIssuanceArgs) error {
 
 // AddInReissuanceArgs defines the mandatory fields that one needs to pass to
 // the AddInReissuance method of the *Updater type
-//
 //	PrevOutHash: the prevout hash of the token that will be added as input to the tx
 //	PrevOutIndex: the prevout index of the token that will be added as input to the tx
 //	PrevOutBlinder: the asset blinder used to blind the prevout token
@@ -436,6 +432,14 @@ func (arg AddInReissuanceArgs) validate() error {
 	return nil
 }
 
+func (arg AddInReissuanceArgs) parseAssetAddress() ([]byte, []byte) {
+	return parseAddress(arg.AssetAddress)
+}
+
+func (arg AddInReissuanceArgs) parseTokenAddress() ([]byte, []byte) {
+	return parseAddress(arg.TokenAddress)
+}
+
 // AddInReissuance takes care of adding an input (the prevout token) and 2
 // outputs to the partial transaction. It also creates a new (re)issuance with
 // the provided entropy, blinder and amounts and attaches it to the new input.
@@ -460,7 +464,7 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	reissuedAsset := elementsutil.AssetHashFromBytes(rawAsset)
 
-	script, blindingKey := parseAddress(arg.AssetAddress)
+	script, blindingKey := arg.parseAssetAddress()
 
 	reissuanceOut := OutputArgs{
 		Asset:       reissuedAsset,
@@ -486,7 +490,7 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 	rawAsset = append([]byte{0x01}, rawAsset...)
 	tokenAsset := elementsutil.AssetHashFromBytes(rawAsset)
 
-	tokenScript, tokenBlindingKey := parseAddress(arg.TokenAddress)
+	tokenScript, tokenBlindingKey := arg.parseTokenAddress()
 
 	tokenOut := OutputArgs{
 		Asset:       tokenAsset,

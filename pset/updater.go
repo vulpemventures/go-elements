@@ -539,7 +539,6 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 
 // AddReissuanceArgs defines the mandatory fields that one needs to pass to
 // the AddReissuance method of the *Updater type
-//
 //	PrevOutHash: the prevout hash of the token that will be added as input to the tx
 //	PrevOutIndex: the prevout index of the token that will be added as input to the tx
 //	PrevOutBlinder: the asset blinder used to blind the prevout token

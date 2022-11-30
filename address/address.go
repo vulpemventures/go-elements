@@ -185,8 +185,7 @@ func ToBech32(bc *Bech32) (string, error) {
 }
 
 // FromBase58Confidential decodes a confidenail address that was base58 encoded
-//
-//	and verifies the checksum.
+// and verifies the checksum.
 func FromBase58Confidential(address string) (*Base58Confidential, error) {
 	decoded, version, err := base58.CheckDecode(address)
 	if err != nil {

@@ -498,9 +498,7 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 		Script:      tokenScript,
 		BlindingKey: tokenBlindingKey,
 	}
-	if tokenBlindingKey != nil {
-		tokenOut.BlinderIndex = uint32(inputIndex)
-	}
+
 	out = tokenOut.toPartialOutput()
 	if out.NeedsBlinding() {
 		out.BlinderIndex = uint32(inputIndex)

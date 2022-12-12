@@ -472,7 +472,7 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 		Script:      script,
 		BlindingKey: blindingKey,
 	}
-	if blindingKey != nil {
+	if reissuanceOut.NeedsBlinding() {
 		reissuanceOut.BlinderIndex = uint32(inputIndex)
 	}
 

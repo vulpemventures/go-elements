@@ -372,7 +372,7 @@ func (b *Blinder) blind(
 	}
 
 	if err := b.validateBlindingArgs(
-		isLastBlinder, inIssuanceBlindingArgs, outBlindingArgs,
+		isLastBlinder, outBlindingArgs,
 	); err != nil {
 		return err
 	}
@@ -464,8 +464,7 @@ func (b *Blinder) ownOutput(blinderIndex uint32) bool {
 }
 
 func (b *Blinder) validateBlindingArgs(
-	isLastBlinder bool, inIssuanceBlindingArgs []InputIssuanceBlindingArgs,
-	outBlindingArgs []OutputBlindingArgs,
+	isLastBlinder bool, outBlindingArgs []OutputBlindingArgs,
 ) error {
 	isOwnedInput := func(index int) *OwnedInput {
 		for _, ownedIn := range b.OwnedInputs {
@@ -474,14 +473,6 @@ func (b *Blinder) validateBlindingArgs(
 			}
 		}
 		return nil
-	}
-	isBlindedIssuance := func(index int) bool {
-		for _, args := range inIssuanceBlindingArgs {
-			if args.Index == uint32(index) {
-				return true
-			}
-		}
-		return false
 	}
 
 	inAssets := make([][]byte, 0, b.Pset.Global.InputCount)
@@ -505,7 +496,7 @@ func (b *Blinder) validateBlindingArgs(
 			inIssuanceAssets = append(inIssuanceAssets, in.GetIssuanceAssetHash())
 			inIssuanceAssetBlinders = append(inIssuanceAssetBlinders, zeroBlinder)
 			if in.IssuanceInflationKeys > 0 {
-				inIssuanceAssets = append(inIssuanceAssets, in.GetIssuanceInflationKeysHash(isBlindedIssuance(i)))
+				inIssuanceAssets = append(inIssuanceAssets, in.GetIssuanceInflationKeysHash())
 				inIssuanceAssetBlinders = append(inIssuanceAssetBlinders, zeroBlinder)
 			}
 		}

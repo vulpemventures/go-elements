@@ -2,6 +2,7 @@ package psetv2_test
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"testing"
@@ -182,7 +183,7 @@ func TestBroadcastUnblindedIssuanceTx(t *testing.T) {
 	err = updater.AddInWitnessUtxo(0, witnessUtxo)
 	require.NoError(t, err)
 
-	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
 		AssetAmount:  1000,
 		TokenAmount:  1,
 		AssetAddress: address,
@@ -283,7 +284,7 @@ func TestBroadcastBlindedTx(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{1}, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{1})
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -394,7 +395,7 @@ func TestBroadcastBlindedTxWithDummyConfidentialOutputs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{2}, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{2})
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -486,7 +487,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
-	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
 		AssetAmount:     1000,
 		TokenAmount:     1,
 		AssetAddress:    address,
@@ -509,18 +510,7 @@ func TestBroadcastUnblindedIssuanceTxWithBlindedOutputs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// For unblinded issuances is enough to specify input index and
-	// issuance asset and token (if token amount > 0, like in this case).
-	// These are needed only to generate output blinding args.
-	// They won't be passed to the blinder role
-	inIssuanceBlindingArgs := []psetv2.InputIssuanceBlindingArgs{
-		{
-			Index:         0,
-			IssuanceAsset: ptx.Inputs[0].GetIssuanceAssetHash(),
-			IssuanceToken: ptx.Inputs[0].GetIssuanceInflationKeysHash(false),
-		},
-	}
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(nil, outBlindingArgs)
@@ -604,7 +594,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
 	require.NoError(t, err)
 
-	err = updater.AddInIssuance(psetv2.AddInIssuanceArgs{
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
 		AssetAmount:     1000,
 		TokenAmount:     1,
 		AssetAddress:    address,
@@ -631,7 +621,7 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	inIssuanceBlindingArgs, err := zkpGenerator.BlindIssuances(ptx, issuanceKeysByIndex)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, inIssuanceBlindingArgs)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
 	require.NoError(t, err)
 
 	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
@@ -643,6 +633,519 @@ func TestBroadcastBlindedIssuanceTx(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = broadcastTransaction(ptx)
+	require.NoError(t, err)
+}
+
+func TestBroadcastBlindedIssuanceTxWithConfAndUnconfAddresses(t *testing.T) {
+	blindingPrivateKey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	blindingPublicKey := blindingPrivateKey.PubKey()
+
+	privkey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	pubkey := privkey.PubKey()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
+	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
+	unconfAddress, _ := p2wpkh.WitnessPubKeyHash()
+
+	// Fund sender address.
+	_, err = faucet(address)
+	require.NoError(t, err)
+	time.Sleep(time.Second * 3)
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	require.NoError(t, err)
+
+	prevoutIndex := uint32(utxos[0]["vout"].(float64))
+	prevoutTxid := utxos[0]["txid"].(string)
+
+	inputArgs := []psetv2.InputArgs{
+		{
+			TxIndex: prevoutIndex,
+			Txid:    prevoutTxid,
+		},
+	}
+
+	outputArgs := []psetv2.OutputArgs{
+		{
+			Asset:        lbtc,
+			Amount:       99999000,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
+		},
+		{
+			Asset:  lbtc,
+			Amount: 1000,
+		},
+	}
+
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
+	require.NoError(t, err)
+
+	updater, err := psetv2.NewUpdater(ptx)
+	require.NoError(t, err)
+
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	require.NoError(t, err)
+
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: p2wpkh.WitnessScript,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
+	}
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
+	require.NoError(t, err)
+
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
+		AssetAmount:     1000,
+		TokenAmount:     1,
+		AssetAddress:    address,
+		TokenAddress:    unconfAddress,
+		BlindedIssuance: true,
+	})
+	require.NoError(t, err)
+
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
+		[][]byte{blindingPrivateKey.Serialize()},
+		nil,
+	)
+
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
+	require.NoError(t, err)
+
+	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, zkpValidator, zkpGenerator)
+	require.NoError(t, err)
+
+	issuanceKeysByIndex := map[uint32][]byte{
+		0: blindingPrivateKey.Serialize(),
+	}
+	inIssuanceBlindingArgs, err := zkpGenerator.BlindIssuances(ptx, issuanceKeysByIndex)
+	require.NoError(t, err)
+
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
+	require.NoError(t, err)
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
+	require.NoError(t, err)
+
+	_, err = broadcastTransaction(ptx)
+	require.NoError(t, err)
+}
+
+func TestBroadcastBlindedReissuanceTx(t *testing.T) {
+	blindingPrivateKey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	blindingPublicKey := blindingPrivateKey.PubKey()
+
+	privkey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	pubkey := privkey.PubKey()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
+	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
+
+	// Fund sender address.
+	_, err = faucet(address)
+	require.NoError(t, err)
+	time.Sleep(time.Second * 3)
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	require.NoError(t, err)
+
+	prevoutIndex := uint32(utxos[0]["vout"].(float64))
+	prevoutTxid := utxos[0]["txid"].(string)
+
+	inputArgs := []psetv2.InputArgs{
+		{
+			TxIndex: prevoutIndex,
+			Txid:    prevoutTxid,
+		},
+	}
+
+	outputArgs := []psetv2.OutputArgs{
+		{
+			Asset:        lbtc,
+			Amount:       99999000,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
+		},
+		{
+			Asset:  lbtc,
+			Amount: 1000,
+		},
+	}
+
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
+	require.NoError(t, err)
+
+	updater, err := psetv2.NewUpdater(ptx)
+	require.NoError(t, err)
+
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	require.NoError(t, err)
+
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: p2wpkh.WitnessScript,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
+	}
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
+	require.NoError(t, err)
+
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
+		AssetAmount:     1000,
+		TokenAmount:     1,
+		AssetAddress:    address,
+		TokenAddress:    address,
+		BlindedIssuance: true,
+	})
+	require.NoError(t, err)
+
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
+		[][]byte{blindingPrivateKey.Serialize()},
+		nil,
+	)
+
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
+	require.NoError(t, err)
+
+	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, zkpValidator, zkpGenerator)
+	require.NoError(t, err)
+
+	issuanceKeysByIndex := map[uint32][]byte{
+		0: blindingPrivateKey.Serialize(),
+	}
+	inIssuanceBlindingArgs, err := zkpGenerator.BlindIssuances(ptx, issuanceKeysByIndex)
+	require.NoError(t, err)
+
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
+	require.NoError(t, err)
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
+	require.NoError(t, err)
+
+	_, err = broadcastTransaction(ptx)
+	require.NoError(t, err)
+
+	issuanceTx, err := ptx.UnsignedTx()
+	require.NoError(t, err)
+
+	// Reissue.
+	reissuanceInputs := []psetv2.InputArgs{
+		{
+			TxIndex: 0,
+			Txid:    issuanceTx.TxHash().String(),
+		},
+		{
+			Txid:    issuanceTx.TxHash().String(),
+			TxIndex: 3,
+		},
+	}
+
+	reissuanceOutputArgs := []psetv2.OutputArgs{
+		{
+			Asset:        lbtc,
+			Amount:       99998000,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
+		},
+		{
+			Asset:  lbtc,
+			Amount: 1000,
+		},
+	}
+
+	reissuancePtx, err := psetv2.New(reissuanceInputs, reissuanceOutputArgs, nil)
+	require.NoError(t, err)
+
+	updater, err = psetv2.NewUpdater(reissuancePtx)
+	require.NoError(t, err)
+
+	err = updater.AddInWitnessUtxo(0, issuanceTx.Outputs[0])
+	require.NoError(t, err)
+
+	err = updater.AddInUtxoRangeProof(0, issuanceTx.Outputs[0].RangeProof)
+	require.NoError(t, err)
+
+	err = updater.AddInWitnessUtxo(1, issuanceTx.Outputs[3])
+	require.NoError(t, err)
+
+	err = updater.AddInUtxoRangeProof(1, issuanceTx.Outputs[3].RangeProof)
+	require.NoError(t, err)
+
+	entropy, err := transaction.ComputeEntropy(issuanceTx.Inputs[0].Hash, issuanceTx.Inputs[0].Index, issuanceTx.Inputs[0].Issuance.AssetEntropy)
+	require.NoError(t, err)
+
+	err = updater.AddInReissuance(1, psetv2.AddInReissuanceArgs{
+		TokenPrevOutBlinder: outBlindingArgs[2].AssetBlinder,
+		Entropy:             hex.EncodeToString(elementsutil.ReverseBytes(entropy)),
+		AssetAmount:         1000,
+		AssetAddress:        "el1qq0k562f2kgxruw6z5gztxhxegls8mjlxxccmuham3dhxu8r207pkl3nuydlvy22g00nx6s47xudtm3y0sw32jwpjsd3vps070",
+		TokenAmount:         1,
+		TokenAddress:        "el1qq0k562f2kgxruw6z5gztxhxegls8mjlxxccmuham3dhxu8r207pkl3nuydlvy22g00nx6s47xudtm3y0sw32jwpjsd3vps070",
+	})
+	require.NoError(t, err)
+
+	zkpGenerator = confidential.NewZKPGeneratorFromBlindingKeys([][]byte{blindingPrivateKey.Serialize()}, nil)
+	require.NoError(t, err)
+
+	ownedInputs, err = zkpGenerator.UnblindInputs(reissuancePtx, nil)
+	require.NoError(t, err)
+
+	reissuanceKeysByIndex := map[uint32][]byte{
+		1: blindingPrivateKey.Serialize(),
+	}
+	inReissuanceBlindingArgs, err := zkpGenerator.BlindIssuances(reissuancePtx, reissuanceKeysByIndex)
+	require.NoError(t, err)
+
+	outBlindingArgsReissuance, err := zkpGenerator.BlindOutputs(reissuancePtx, nil)
+	require.NoError(t, err)
+
+	blinder, err = psetv2.NewBlinder(reissuancePtx, ownedInputs, zkpValidator, zkpGenerator)
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(inReissuanceBlindingArgs, outBlindingArgsReissuance)
+	require.NoError(t, err)
+
+	prvKeys = append(prvKeys, privkey)
+	scripts = [][]byte{p2wpkh.Script, p2wpkh.Script}
+	err = signTransaction(reissuancePtx, prvKeys, scripts, true, sighashAll, nil)
+	require.NoError(t, err)
+
+	_, err = broadcastTransaction(reissuancePtx)
+	require.NoError(t, err)
+}
+
+func TestBroadcastBlindedReissuanceTxWithUnconfidentialTokenAddress(t *testing.T) {
+	blindingPrivateKey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	blindingPublicKey := blindingPrivateKey.PubKey()
+
+	privkey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	pubkey := privkey.PubKey()
+	p2wpkh := payment.FromPublicKey(pubkey, &network.Regtest, blindingPublicKey)
+	address, _ := p2wpkh.ConfidentialWitnessPubKeyHash()
+	unconfAddress, _ := p2wpkh.WitnessPubKeyHash()
+
+	// Fund sender address.
+	_, err = faucet(address)
+	require.NoError(t, err)
+	time.Sleep(time.Second * 3)
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	require.NoError(t, err)
+
+	prevoutIndex := uint32(utxos[0]["vout"].(float64))
+	prevoutTxid := utxos[0]["txid"].(string)
+
+	inputArgs := []psetv2.InputArgs{
+		{
+			TxIndex: prevoutIndex,
+			Txid:    prevoutTxid,
+		},
+	}
+
+	outputArgs := []psetv2.OutputArgs{
+		{
+			Asset:        lbtc,
+			Amount:       99999000,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
+		},
+		{
+			Asset:  lbtc,
+			Amount: 1000,
+		},
+	}
+
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
+	require.NoError(t, err)
+
+	updater, err := psetv2.NewUpdater(ptx)
+	require.NoError(t, err)
+
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	require.NoError(t, err)
+
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: p2wpkh.WitnessScript,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
+	}
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
+	require.NoError(t, err)
+
+	err = updater.AddInIssuance(0, psetv2.AddInIssuanceArgs{
+		AssetAmount:     1000,
+		TokenAmount:     1,
+		AssetAddress:    address,
+		TokenAddress:    address,
+		BlindedIssuance: true,
+	})
+	require.NoError(t, err)
+
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
+		[][]byte{blindingPrivateKey.Serialize()},
+		nil,
+	)
+
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
+	require.NoError(t, err)
+
+	blinder, err := psetv2.NewBlinder(ptx, ownedInputs, zkpValidator, zkpGenerator)
+	require.NoError(t, err)
+
+	issuanceKeysByIndex := map[uint32][]byte{
+		0: blindingPrivateKey.Serialize(),
+	}
+	inIssuanceBlindingArgs, err := zkpGenerator.BlindIssuances(ptx, issuanceKeysByIndex)
+	require.NoError(t, err)
+
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(inIssuanceBlindingArgs, outBlindingArgs)
+	require.NoError(t, err)
+
+	prvKeys := []*btcec.PrivateKey{privkey}
+	scripts := [][]byte{p2wpkh.Script}
+	err = signTransaction(ptx, prvKeys, scripts, true, sighashAll, nil)
+	require.NoError(t, err)
+
+	_, err = broadcastTransaction(ptx)
+	require.NoError(t, err)
+
+	issuanceTx, err := ptx.UnsignedTx()
+	require.NoError(t, err)
+
+	// Reissue.
+	reissuanceInputs := []psetv2.InputArgs{
+		{
+			TxIndex: 0,
+			Txid:    issuanceTx.TxHash().String(),
+		},
+		{
+			Txid:    issuanceTx.TxHash().String(),
+			TxIndex: 3,
+		},
+	}
+
+	reissuanceOutputArgs := []psetv2.OutputArgs{
+		{
+			Asset:        lbtc,
+			Amount:       99998000,
+			Script:       p2wpkh.WitnessScript,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
+		},
+		{
+			Asset:  lbtc,
+			Amount: 1000,
+		},
+	}
+
+	reissuancePtx, err := psetv2.New(reissuanceInputs, reissuanceOutputArgs, nil)
+	require.NoError(t, err)
+
+	updater, err = psetv2.NewUpdater(reissuancePtx)
+	require.NoError(t, err)
+
+	err = updater.AddInWitnessUtxo(0, issuanceTx.Outputs[0])
+	require.NoError(t, err)
+
+	err = updater.AddInUtxoRangeProof(0, issuanceTx.Outputs[0].RangeProof)
+	require.NoError(t, err)
+
+	err = updater.AddInWitnessUtxo(1, issuanceTx.Outputs[3])
+	require.NoError(t, err)
+
+	err = updater.AddInUtxoRangeProof(1, issuanceTx.Outputs[3].RangeProof)
+	require.NoError(t, err)
+
+	entropy, err := transaction.ComputeEntropy(issuanceTx.Inputs[0].Hash, issuanceTx.Inputs[0].Index, issuanceTx.Inputs[0].Issuance.AssetEntropy)
+	require.NoError(t, err)
+
+	err = updater.AddInReissuance(1, psetv2.AddInReissuanceArgs{
+		TokenPrevOutBlinder: outBlindingArgs[2].AssetBlinder,
+		Entropy:             hex.EncodeToString(elementsutil.ReverseBytes(entropy)),
+		AssetAmount:         1000,
+		AssetAddress:        "el1qq0k562f2kgxruw6z5gztxhxegls8mjlxxccmuham3dhxu8r207pkl3nuydlvy22g00nx6s47xudtm3y0sw32jwpjsd3vps070",
+		TokenAmount:         1,
+		TokenAddress:        unconfAddress,
+	})
+	require.NoError(t, err)
+
+	zkpGenerator = confidential.NewZKPGeneratorFromBlindingKeys([][]byte{blindingPrivateKey.Serialize()}, nil)
+	require.NoError(t, err)
+
+	ownedInputs, err = zkpGenerator.UnblindInputs(reissuancePtx, nil)
+	require.NoError(t, err)
+
+	reissuanceKeysByIndex := map[uint32][]byte{
+		1: blindingPrivateKey.Serialize(),
+	}
+	inReissuanceBlindingArgs, err := zkpGenerator.BlindIssuances(reissuancePtx, reissuanceKeysByIndex)
+	require.NoError(t, err)
+
+	outBlindingArgsReissuance, err := zkpGenerator.BlindOutputs(reissuancePtx, nil)
+	require.NoError(t, err)
+
+	blinder, err = psetv2.NewBlinder(reissuancePtx, ownedInputs, zkpValidator, zkpGenerator)
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(inReissuanceBlindingArgs, outBlindingArgsReissuance)
+	require.NoError(t, err)
+
+	prvKeys = append(prvKeys, privkey)
+	scripts = [][]byte{p2wpkh.Script, p2wpkh.Script}
+	err = signTransaction(reissuancePtx, prvKeys, scripts, true, sighashAll, nil)
+	require.NoError(t, err)
+
+	_, err = broadcastTransaction(reissuancePtx)
 	require.NoError(t, err)
 }
 
@@ -810,7 +1313,7 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil, nil)
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, nil)
 	require.NoError(t, err)
 
 	// Bob blinds the pset as last blinder.

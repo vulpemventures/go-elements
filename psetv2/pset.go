@@ -53,16 +53,16 @@ var (
 )
 
 // Pset - Partially Signed Elements Transaction
-//Format:
-//<pset> := <magic> <global-map> <input-map>* <output-map>*
-//<magic> := 0x70 0x73 0x65 0x74 0xFF -> pset starts with magic bytes, after which goes global map
-//followed by more input-map's and output-map's
-//<global-map> := <keypair>* 0x00 -> there is one global-map, there can be many keypair's, global map ends with separator
-//<input-map> := <keypair>* 0x00 -> there can be many input-map's, there can be many keypair's, input map ends with separator
-//<output-map> := <keypair>* 0x00 -> there can be many output-map's, there can be many keypair's, output map ends with separator
-//<keypair> := <key> <value>
-//<key> := <keylen> <keytype> <keydata>
-//<value> := <valuelen> <valuedata>
+// Format:
+// <pset> := <magic> <global-map> <input-map>* <output-map>*
+// <magic> := 0x70 0x73 0x65 0x74 0xFF -> pset starts with magic bytes, after which goes global map
+// followed by more input-map's and output-map's
+// <global-map> := <keypair>* 0x00 -> there is one global-map, there can be many keypair's, global map ends with separator
+// <input-map> := <keypair>* 0x00 -> there can be many input-map's, there can be many keypair's, input map ends with separator
+// <output-map> := <keypair>* 0x00 -> there can be many output-map's, there can be many keypair's, output map ends with separator
+// <keypair> := <key> <value>
+// <key> := <keylen> <keytype> <keydata>
+// <value> := <valuelen> <valuedata>
 // Each map can contain ProprietaryData data and unknowns keypair's
 // Full spec: https://github.com/ElementsProject/elements/blob/master/doc/pset.mediawiki
 type Pset struct {
@@ -223,7 +223,11 @@ func (p *Pset) UnsignedTx() (*transaction.Transaction, error) {
 			}
 			tokenValue := in.IssuanceInflationKeysCommitment
 			if tokenValue == nil {
-				tokenValue, _ = elementsutil.ValueToBytes(in.IssuanceInflationKeys)
+				if in.IssuanceInflationKeys > 0 {
+					tokenValue, _ = elementsutil.ValueToBytes(in.IssuanceInflationKeys)
+				} else {
+					tokenValue = []byte{0x00}
+				}
 			}
 			txIn.Issuance = &transaction.TxIssuance{
 				AssetEntropy:       in.IssuanceAssetEntropy,

@@ -539,16 +539,16 @@ func (p *Updater) AddIssuance(arg AddIssuanceArgs) error {
 
 // AddReissuanceArgs defines the mandatory fields that one needs to pass to
 // the AddReissuance method of the *Updater type
-// 		PrevOutHash: the prevout hash of the token that will be added as input to the tx
-//		PrevOutIndex: the prevout index of the token that will be added as input to the tx
-//		PrevOutBlinder: the asset blinder used to blind the prevout token
-//		WitnessUtxo: the prevout token in case it is a witness one
-//		NonWitnessUtxo: the prevout tx that include the token output in case it is a non witness one
-//		Entropy: the entropy used to generate token and asset
-//		AssetAmount: the amount of asset to re-issue
-//		TokenAmount: the same unblinded amount of the prevout token
-//		AssetAddress: the destination address of the re-issuing asset
-//		TokenAddress: the destination address of the re-issuance token
+//	PrevOutHash: the prevout hash of the token that will be added as input to the tx
+//	PrevOutIndex: the prevout index of the token that will be added as input to the tx
+//	PrevOutBlinder: the asset blinder used to blind the prevout token
+//	WitnessUtxo: the prevout token in case it is a witness one
+//	NonWitnessUtxo: the prevout tx that include the token output in case it is a non witness one
+//	Entropy: the entropy used to generate token and asset
+//	AssetAmount: the amount of asset to re-issue
+//	TokenAmount: the same unblinded amount of the prevout token
+//	AssetAddress: the destination address of the re-issuing asset
+//	TokenAddress: the destination address of the re-issuance token
 type AddReissuanceArgs struct {
 	PrevOutHash    string
 	PrevOutIndex   uint32

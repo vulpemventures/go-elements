@@ -213,8 +213,9 @@ func (u *Updater) AddInUtxoRangeProof(
 	return u.Pset.SanityCheck()
 }
 
-// AddInExplicitAsset adds the unconfidential asset hash to the given
-// confidential input.
+// AddInExplicitAsset adds the unconfidential asset hash and related blinding
+// proof to the given confidential input.
+// The proof should be calculate with confidential.CreateBlindAssetProof API.
 func (u *Updater) AddInExplicitAsset(inIndex int, asset, proof []byte) error {
 	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
@@ -241,8 +242,9 @@ func (u *Updater) AddInExplicitAsset(inIndex int, asset, proof []byte) error {
 	return u.Pset.SanityCheck()
 }
 
-// AddInExplicitValue adds the unconfidential value to the given confidential
-// input.
+// AddInExplicitValue adds the unconfidential value and related blinding proof
+// to the given confidential input.
+// The proof should be calculate with confidential.CreateBlindValueProof API.
 func (u *Updater) AddInExplicitValue(inIndex int, value uint64, proof []byte) error {
 	if inIndex > int(u.Pset.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange

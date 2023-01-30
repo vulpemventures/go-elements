@@ -723,7 +723,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 	}
 
 	if i.ExplicitValue != 0 {
-		var explicitValueBytes []byte
+		explicitValueBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(explicitValueBytes, i.ExplicitValue)
 
 		explicitValueKeyPair := KeyPair{

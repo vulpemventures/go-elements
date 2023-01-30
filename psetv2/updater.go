@@ -12,7 +12,6 @@ import (
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/txscript"
-
 	"github.com/vulpemventures/go-elements/address"
 	"github.com/vulpemventures/go-elements/elementsutil"
 	"github.com/vulpemventures/go-elements/transaction"
@@ -214,6 +213,64 @@ func (u *Updater) AddInUtxoRangeProof(
 	return u.Pset.SanityCheck()
 }
 
+// AddInExplicitAsset adds the unconfidential asset hash and related blinding
+// proof to the given confidential input.
+// The proof should be calculate with confidential.CreateBlindAssetProof API.
+func (u *Updater) AddInExplicitAsset(inIndex int, asset, proof []byte) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
+		return ErrInputIndexOutOfRange
+	}
+	if len(asset) != 32 {
+		return fmt.Errorf("explicit asset must be exactly 32 bytes")
+	}
+	if len(proof) == 0 {
+		return fmt.Errorf("missing asset blind proof")
+	}
+
+	prevout := u.Pset.Inputs[inIndex].GetUtxo()
+	if prevout == nil {
+		return fmt.Errorf("missing input prevout")
+	}
+	if !prevout.IsConfidential() {
+		return fmt.Errorf(
+			"explicit asset must be set only for confidential inputs",
+		)
+	}
+
+	u.Pset.Inputs[inIndex].ExplicitAsset = asset
+	u.Pset.Inputs[inIndex].AssetProof = proof
+	return u.Pset.SanityCheck()
+}
+
+// AddInExplicitValue adds the unconfidential value and related blinding proof
+// to the given confidential input.
+// The proof should be calculate with confidential.CreateBlindValueProof API.
+func (u *Updater) AddInExplicitValue(inIndex int, value uint64, proof []byte) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
+		return ErrInputIndexOutOfRange
+	}
+	if int(value) <= 0 {
+		return fmt.Errorf("explicit value must be greater than 0")
+	}
+	if len(proof) == 0 {
+		return fmt.Errorf("missing value blind proof")
+	}
+
+	prevout := u.Pset.Inputs[inIndex].GetUtxo()
+	if prevout == nil {
+		return fmt.Errorf("missing input prevout")
+	}
+	if !prevout.IsConfidential() {
+		return fmt.Errorf(
+			"explicit asset must be set only for confidential inputs",
+		)
+	}
+
+	u.Pset.Inputs[inIndex].ExplicitValue = value
+	u.Pset.Inputs[inIndex].ValueProof = proof
+	return u.Pset.SanityCheck()
+}
+
 // AddInIssuanceArgs is a struct encapsulating all the issuance data that
 // can be attached to any specific transaction of the PSBT.
 type AddInIssuanceArgs struct {
@@ -377,6 +434,7 @@ func (u *Updater) AddInIssuance(inputIndex int, arg AddInIssuanceArgs) error {
 
 // AddInReissuanceArgs defines the mandatory fields that one needs to pass to
 // the AddInReissuance method of the *Updater type
+//
 //	PrevOutHash: the prevout hash of the token that will be added as input to the tx
 //	PrevOutIndex: the prevout index of the token that will be added as input to the tx
 //	PrevOutBlinder: the asset blinder used to blind the prevout token

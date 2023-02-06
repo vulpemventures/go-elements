@@ -204,7 +204,7 @@ func (a SurjectionProofArgs) nInputsToUse() int {
 	return min
 }
 
-//SurjectionProof method generates surjection proof
+// SurjectionProof method generates surjection proof
 func SurjectionProof(args SurjectionProofArgs) ([]byte, bool) {
 	return surjectionProof(args)
 }
@@ -434,6 +434,9 @@ func CreateBlindValueProof(
 	ctx, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
 	defer secp256k1.ContextDestroy(ctx)
 
+	if rng == nil {
+		rng = generateRandomNumber
+	}
 	r, err := rng()
 	if err != nil {
 		return nil, err

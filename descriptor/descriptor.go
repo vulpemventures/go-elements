@@ -28,7 +28,7 @@ type ScriptOpts struct {
 }
 
 // WithIndex defines exact child index for which script should be generated for
-//range wallet descriptor
+// range wallet descriptor
 func WithIndex(index uint32) *ScriptOpts {
 	return &ScriptOpts{
 		index: &index,

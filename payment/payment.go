@@ -193,7 +193,7 @@ func (p *Payment) PubKeyHash() (string, error) {
 }
 
 // ConfidentialPubKeyHash is a method of the Payment struct to derive a
-//base58 confidential p2pkh address
+// base58 confidential p2pkh address
 func (p *Payment) ConfidentialPubKeyHash() (string, error) {
 	if p.Hash == nil || len(p.Hash) == 0 {
 		return "", errors.New("payment's hash can't be empty or nil")
@@ -224,7 +224,7 @@ func (p *Payment) ScriptHash() (string, error) {
 }
 
 // ConfidentialScriptHash is a method of the Payment struct to derive a
-//base58 confidential p2sh address
+// base58 confidential p2sh address
 func (p *Payment) ConfidentialScriptHash() (string, error) {
 	if p.Hash == nil || len(p.Hash) == 0 {
 		return "", errors.New("payment's hash can't be empty or nil")
@@ -260,7 +260,7 @@ func (p *Payment) WitnessPubKeyHash() (string, error) {
 }
 
 // ConfidentialWitnessPubKeyHash is a method of the Payment struct to derive
-//a confidential blech32 p2wpkh address
+// a confidential blech32 p2wpkh address
 func (p *Payment) ConfidentialWitnessPubKeyHash() (string, error) {
 	if p.WitnessHash == nil || len(p.WitnessHash) == 0 {
 		return "", errors.New("payment's hash can't be empty or nil")
@@ -296,7 +296,7 @@ func (p *Payment) WitnessScriptHash() (string, error) {
 }
 
 // ConfidentialWitnessScriptHash is a method of the Payment struct to derive
-//a confidential blech32 p2wsh address
+// a confidential blech32 p2wsh address
 func (p *Payment) ConfidentialWitnessScriptHash() (string, error) {
 	if p.WitnessHash == nil || len(p.WitnessHash) == 0 {
 		return "", errors.New("payment's hash can't be empty or nil")

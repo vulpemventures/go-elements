@@ -22,8 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//some of fixtures taken from:
-//https://github.com/ElementsProject/rust-elements/blob/0d67c57afa1137ab27861bb8c2190413929d4301/src/block.rs#L621
+// some of fixtures taken from:
+// https://github.com/ElementsProject/rust-elements/blob/0d67c57afa1137ab27861bb8c2190413929d4301/src/block.rs#L621
 // https://github.com/ElementsProject/rust-elements/blob/0d67c57afa1137ab27861bb8c2190413929d4301/src/block.rs#L703
 func TestBlockDeserialization(t *testing.T) {
 	file, err := ioutil.ReadFile("testdata/deserialize.json")

@@ -54,7 +54,7 @@ func trimAndValidateChecksum(descriptor string) (string, error) {
 	}
 }
 
-//TODO impl validate checksum of descriptor
+// TODO impl validate checksum of descriptor
 func validateChecksum(checksum string) error {
 	if len(checksum) != 8 {
 		return ErrInvalidChecksumLength

@@ -272,7 +272,6 @@ func GetPeginTxOutIndexAndAmount(
 		if err != nil {
 			return 0, 0, err
 		}
-		mainChainScript = p2wsh.ScriptAddress()
 
 		prefix := []byte{txscript.OP_0, byte(len(p2wsh.ScriptAddress()))}
 		mainChainScript = append(prefix, p2wsh.ScriptAddress()...)

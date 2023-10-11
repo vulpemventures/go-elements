@@ -11,7 +11,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1
 	github.com/stretchr/testify v1.7.2
 	github.com/vulpemventures/fastsha256 v0.0.0-20160815193821-637e65642941
-	github.com/vulpemventures/go-secp256k1-zkp v1.1.5
+	github.com/vulpemventures/go-secp256k1-zkp v1.1.6
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 )
 

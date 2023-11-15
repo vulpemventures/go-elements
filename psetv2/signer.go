@@ -154,11 +154,7 @@ func (s *Signer) SignTaprootInputKeySig(
 		return nil
 	}
 
-	if p.Inputs[inIndex].TapScriptSig != nil {
-		return ErrInDuplicatedField("tapscript sig")
-	}
-
-	if p.Inputs[inIndex].TapScriptSig != nil && len(p.Inputs[inIndex].TapScriptSig) > 0 {
+	if len(p.Inputs[inIndex].TapScriptSig) > 0 {
 		return ErrSignerForbiddenTaprootKeySigHasTapscriptSigs
 	}
 
@@ -185,7 +181,7 @@ func (s *Signer) SignTaprootInputTapscriptSig(
 		return nil
 	}
 
-	if p.Inputs[inIndex].TapKeySig != nil {
+	if len(p.Inputs[inIndex].TapKeySig) > 0 {
 		return ErrSignerForbiddenTaprootScriptSigHasKeySig
 	}
 

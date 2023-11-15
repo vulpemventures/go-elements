@@ -185,7 +185,7 @@ func NewTapLeafScript(leafProof taproot.TapscriptElementsProof, internalKey *sec
 }
 
 func (t *TapLeafScript) sanityCheck() error {
-	if t.Script == nil {
+	if len(t.Script) == 0 {
 		return ErrInInvalidTapLeafScript
 	}
 	return nil
@@ -197,10 +197,10 @@ type TapScriptSig struct {
 }
 
 func (t *TapScriptSig) sanityCheck() error {
-	if t.PubKey == nil || len(t.PubKey) != 32 {
+	if len(t.PubKey) != 32 {
 		return ErrInInvalidTapScriptSigSignature
 	}
-	if t.Signature == nil || (len(t.Signature) != 64 && len(t.Signature) != 65) {
+	if len(t.Signature) != 64 && len(t.Signature) != 65 {
 		return ErrInInvalidTapScriptSigSignature
 	}
 	return nil
@@ -288,39 +288,33 @@ func (i *Input) SanityCheck() error {
 		return ErrInInvalidExplicitAsset
 	}
 
-	if len(i.TapInternalKey) >0 && len(i.TapInternalKey) != 32 {
+	if len(i.TapInternalKey) > 0 && len(i.TapInternalKey) != 32 {
 		return ErrInInvalidTapInternalKey
 	}
 
-	if ilen(.TapMerkleRoot) > 0 && len(i.TapMerkleRoot) != 32 {
+	if len(i.TapMerkleRoot) > 0 && len(i.TapMerkleRoot) != 32 {
 		return ErrInInvalidTapMerkleRoot
 	}
 
-	if i.TapKeySig != nil && len(i.TapKeySig) != 64 && len(i.TapKeySig) != 65 {
+	if len(i.TapKeySig) > 0 && len(i.TapKeySig) != 64 && len(i.TapKeySig) != 65 {
 		return ErrInInvalidTapKeySig
 	}
 
-	if i.TapLeafScript != nil && len(i.TapLeafScript) > 0 {
-		for _, leaf := range i.TapLeafScript {
-			if err := leaf.sanityCheck(); err != nil {
-				return err
-			}
+	for _, leaf := range i.TapLeafScript {
+		if err := leaf.sanityCheck(); err != nil {
+			return err
 		}
 	}
 
-	if i.TapScriptSig != nil && len(i.TapScriptSig) > 0 {
-		for _, scriptSig := range i.TapScriptSig {
-			if err := scriptSig.sanityCheck(); err != nil {
-				return err
-			}
+	for _, scriptSig := range i.TapScriptSig {
+		if err := scriptSig.sanityCheck(); err != nil {
+			return err
 		}
 	}
 
-	if i.TapBip32Derivation != nil && len(i.TapBip32Derivation) > 0 {
-		for _, derivation := range i.TapBip32Derivation {
-			if err := derivation.sanityCheck(); err != nil {
-				return err
-			}
+	for _, derivation := range i.TapBip32Derivation {
+		if err := derivation.sanityCheck(); err != nil {
+			return err
 		}
 	}
 
@@ -893,7 +887,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, assetProofKeyPair)
 	}
 
-	if i.TapKeySig != nil {
+	if len(i.TapKeySig) > 0 {
 		kp := KeyPair{
 			Key: Key{
 				KeyType: InputTapKeySig,
@@ -904,66 +898,60 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, kp)
 	}
 
-	if i.TapScriptSig != nil && len(i.TapScriptSig) > 0 {
-		for _, tapScriptSig := range i.TapScriptSig {
-			kp := KeyPair{
-				Key: Key{
-					KeyType: InputTapScriptSig,
-					KeyData: append(tapScriptSig.PubKey, tapScriptSig.LeafHash...),
-				},
-				Value: tapScriptSig.Signature,
-			}
-			keyPairs = append(keyPairs, kp)
+	for _, tapScriptSig := range i.TapScriptSig {
+		kp := KeyPair{
+			Key: Key{
+				KeyType: InputTapScriptSig,
+				KeyData: append(tapScriptSig.PubKey, tapScriptSig.LeafHash...),
+			},
+			Value: tapScriptSig.Signature,
 		}
+		keyPairs = append(keyPairs, kp)
 	}
 
-	if i.TapLeafScript != nil && len(i.TapLeafScript) > 0 {
-		for _, tapLeafScript := range i.TapLeafScript {
-			controlBlockBytes, err := tapLeafScript.ControlBlock.ToBytes()
-			if err != nil {
-				return nil, err
-			}
-
-			kp := KeyPair{
-				Key: Key{
-					KeyType: InputTapLeafScript,
-					KeyData: controlBlockBytes,
-				},
-				Value: append(tapLeafScript.Script, byte(tapLeafScript.LeafVersion)),
-			}
-			keyPairs = append(keyPairs, kp)
+	for _, tapLeafScript := range i.TapLeafScript {
+		controlBlockBytes, err := tapLeafScript.ControlBlock.ToBytes()
+		if err != nil {
+			return nil, err
 		}
+
+		kp := KeyPair{
+			Key: Key{
+				KeyType: InputTapLeafScript,
+				KeyData: controlBlockBytes,
+			},
+			Value: append(tapLeafScript.Script, byte(tapLeafScript.LeafVersion)),
+		}
+		keyPairs = append(keyPairs, kp)
 	}
 
-	if len(i.TapBip32Derivation) > 0 {
-		for _, tapBip32Derivation := range i.TapBip32Derivation {
-			serializer := bufferutil.NewSerializer(nil)
-			if err := serializer.WriteVarInt(uint64(len(tapBip32Derivation.LeafHashes))); err != nil {
-				return nil, err
-			}
-			for _, leafHash := range tapBip32Derivation.LeafHashes {
-				if err := serializer.WriteSlice(leafHash[:]); err != nil {
-					return nil, err
-				}
-			}
-			encodedDerivation := SerializeBIP32Derivation(tapBip32Derivation.MasterKeyFingerprint, tapBip32Derivation.Bip32Path)
-			if err := serializer.WriteSlice(encodedDerivation); err != nil {
-				return nil, err
-			}
-
-			kp := KeyPair{
-				Key: Key{
-					KeyType: InputTapBip32Derivation,
-					KeyData: tapBip32Derivation.PubKey,
-				},
-				Value: serializer.Bytes(),
-			}
-
-			keyPairs = append(keyPairs, kp)
+	for _, tapBip32Derivation := range i.TapBip32Derivation {
+		serializer := bufferutil.NewSerializer(nil)
+		if err := serializer.WriteVarInt(uint64(len(tapBip32Derivation.LeafHashes))); err != nil {
+			return nil, err
 		}
+		for _, leafHash := range tapBip32Derivation.LeafHashes {
+			if err := serializer.WriteSlice(leafHash[:]); err != nil {
+				return nil, err
+			}
+		}
+		encodedDerivation := SerializeBIP32Derivation(tapBip32Derivation.MasterKeyFingerprint, tapBip32Derivation.Bip32Path)
+		if err := serializer.WriteSlice(encodedDerivation); err != nil {
+			return nil, err
+		}
+
+		kp := KeyPair{
+			Key: Key{
+				KeyType: InputTapBip32Derivation,
+				KeyData: tapBip32Derivation.PubKey,
+			},
+			Value: serializer.Bytes(),
+		}
+
+		keyPairs = append(keyPairs, kp)
 	}
 
-	if i.TapInternalKey != nil {
+	if len(i.TapInternalKey) > 0 {
 		kp := KeyPair{
 			Key: Key{
 				KeyType: InputTapInternalKey,
@@ -974,7 +962,7 @@ func (i *Input) getKeyPairs() ([]KeyPair, error) {
 		keyPairs = append(keyPairs, kp)
 	}
 
-	if i.TapMerkleRoot != nil {
+	if len(i.TapMerkleRoot) > 0 {
 		kp := KeyPair{
 			Key: Key{
 				KeyType: InputTapMerkleRoot,
@@ -1484,9 +1472,9 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 }
 
 func (i *Input) isTaproot() bool {
-	return i.TapKeySig != nil ||
-		i.TapInternalKey != nil ||
-		i.TapMerkleRoot != nil ||
-		(i.TapLeafScript != nil && len(i.TapLeafScript) > 0) ||
-		(i.TapScriptSig != nil && len(i.TapScriptSig) > 0)
+	return len(i.TapKeySig) > 0 ||
+		len(i.TapInternalKey) > 0 ||
+		len(i.TapMerkleRoot) > 0 ||
+		len(i.TapLeafScript) > 0 ||
+		len(i.TapScriptSig) > 0
 }

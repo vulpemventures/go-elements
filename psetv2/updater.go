@@ -581,7 +581,7 @@ func (u *Updater) AddInTapInternalKey(inIndex int, internalKey []byte) error {
 		return ErrInputIndexOutOfRange
 	}
 
-	if u.Pset.Inputs[inIndex].TapInternalKey != nil {
+	if len(u.Pset.Inputs[inIndex].TapInternalKey) > 0 {
 		return ErrInDuplicatedField("tap internal key")
 	}
 
@@ -596,7 +596,7 @@ func (u *Updater) AddInTapMerkleRoot(inIndex int, tapMerkleRoot []byte) error {
 		return ErrInputIndexOutOfRange
 	}
 
-	if u.Pset.Inputs[inIndex].TapMerkleRoot != nil {
+	if len(u.Pset.Inputs[inIndex].TapMerkleRoot) > 0 {
 		return ErrInDuplicatedField("tap merkle root")
 	}
 

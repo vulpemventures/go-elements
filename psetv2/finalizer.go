@@ -135,23 +135,21 @@ func isFinalizableWitnessInput(input *Input) bool {
 				return false
 			}
 		} else if txscript.IsPayToTaproot(pkScript) {
-			if input.TapKeySig != nil {
+			if len(input.TapKeySig) > 0 {
 				return true
 			}
 
-			if input.TapScriptSig != nil && len(input.TapScriptSig) > 0 {
-				for _, sig := range input.TapScriptSig {
-					hasTapLeafScript := false
-					for _, tapLeaf := range input.TapLeafScript {
-						h := tapLeaf.TapHash()
-						if bytes.Equal(sig.LeafHash, h[:]) {
-							hasTapLeafScript = true
-							break
-						}
+			for _, sig := range input.TapScriptSig {
+				hasTapLeafScript := false
+				for _, tapLeaf := range input.TapLeafScript {
+					h := tapLeaf.TapHash()
+					if bytes.Equal(sig.LeafHash, h[:]) {
+						hasTapLeafScript = true
+						break
 					}
-					if !hasTapLeafScript {
-						return false
-					}
+				}
+				if !hasTapLeafScript {
+					return false
 				}
 			}
 			return true
@@ -377,7 +375,7 @@ func finalizeTaprootInput(p *Pset, inIndex int) error {
 	input := p.Inputs[inIndex]
 
 	// keypath finalization
-	if input.TapKeySig != nil {
+	if len(input.TapKeySig) > 0 {
 		witness := make([][]byte, 1)
 		witness[0] = input.TapKeySig
 		serializer := bufferutil.NewSerializer(nil)
@@ -389,8 +387,8 @@ func finalizeTaprootInput(p *Pset, inIndex int) error {
 	}
 
 	// if scriptpath, we'll finalize the first tapScriptLeaf by default
-	if input.TapScriptSig != nil && len(input.TapScriptSig) > 0 {
-		if input.TapLeafScript == nil || len(input.TapLeafScript) == 0 {
+	if len(input.TapScriptSig) > 0 {
+		if len(input.TapLeafScript) == 0 {
 			return ErrFinalizerForbiddenFinalization
 		}
 

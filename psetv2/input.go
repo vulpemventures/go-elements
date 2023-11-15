@@ -288,7 +288,7 @@ func (i *Input) SanityCheck() error {
 		return ErrInInvalidExplicitAsset
 	}
 
-	if i.TapInternalKey != nil && len(i.TapInternalKey) != 32 {
+	if len(i.TapInternalKey) >0 && len(i.TapInternalKey) != 32 {
 		return ErrInInvalidTapInternalKey
 	}
 

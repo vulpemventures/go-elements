@@ -16,7 +16,9 @@ import (
 )
 
 var (
-	ErrSignerForbiddenSigning = fmt.Errorf("pset is not fully blinded")
+	ErrSignerForbiddenSigning                       = fmt.Errorf("pset is not fully blinded")
+	ErrSignerForbiddenTaprootKeySigHasTapscriptSigs = fmt.Errorf("pset input has tapscript signatures")
+	ErrSignerForbiddenTaprootScriptSigHasKeySig     = fmt.Errorf("pset input has taproot key signature")
 )
 
 type Signer = Updater
@@ -130,6 +132,68 @@ func (s *Signer) SignInput(
 	if err := s.addPartialSignature(inIndex, sig, pubKey); err != nil {
 		return fmt.Errorf("failed to add signature for input %d: %s", inIndex, err)
 	}
+
+	s.Pset.Global = p.Global
+	s.Pset.Inputs = p.Inputs
+	s.Pset.Outputs = p.Outputs
+	return s.Pset.SanityCheck()
+}
+
+// SignTaprootInputKeySig adds a taproot key-path signature to the input at inIndex
+// it returns an error if the input has tapscript signatures or if the input is already signed with key signature
+func (s *Signer) SignTaprootInputKeySig(
+	inIndex int, sig []byte,
+) error {
+	if inIndex < 0 || inIndex >= int(s.Pset.Global.InputCount) {
+		return ErrInputIndexOutOfRange
+	}
+
+	p := s.Pset.Copy()
+
+	if isFinalized(p, inIndex) {
+		return nil
+	}
+
+	if p.Inputs[inIndex].TapScriptSig != nil {
+		return ErrInDuplicatedField("tapscript sig")
+	}
+
+	if p.Inputs[inIndex].TapScriptSig != nil && len(p.Inputs[inIndex].TapScriptSig) > 0 {
+		return ErrSignerForbiddenTaprootKeySigHasTapscriptSigs
+	}
+
+	p.Inputs[inIndex].TapKeySig = sig
+
+	s.Pset.Global = p.Global
+	s.Pset.Inputs = p.Inputs
+	s.Pset.Outputs = p.Outputs
+	return s.Pset.SanityCheck()
+}
+
+// SignTaprootInputTapscriptSig adds a taproot tapscript signature to the input at inIndex
+// it returns an error if the input is signed with key-path signature
+func (s *Signer) SignTaprootInputTapscriptSig(
+	inIndex int, tapscriptSig TapScriptSig,
+) error {
+	if inIndex < 0 || inIndex >= int(s.Pset.Global.InputCount) {
+		return ErrInputIndexOutOfRange
+	}
+
+	p := s.Pset.Copy()
+
+	if isFinalized(p, inIndex) {
+		return nil
+	}
+
+	if p.Inputs[inIndex].TapKeySig != nil {
+		return ErrSignerForbiddenTaprootScriptSigHasKeySig
+	}
+
+	if p.Inputs[inIndex].TapScriptSig == nil {
+		p.Inputs[inIndex].TapScriptSig = make([]TapScriptSig, 0)
+	}
+
+	p.Inputs[inIndex].TapScriptSig = append(p.Inputs[inIndex].TapScriptSig, tapscriptSig)
 
 	s.Pset.Global = p.Global
 	s.Pset.Inputs = p.Inputs

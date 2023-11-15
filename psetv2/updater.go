@@ -574,6 +574,84 @@ func (u *Updater) AddInReissuance(inputIndex int, arg AddInReissuanceArgs) error
 	return u.Pset.SanityCheck()
 }
 
+// AddInTapInternalKey adds a taproot internal key to the input at index inIndex.
+// it returns an error if the input has already a TapInternalKey.
+func (u *Updater) AddInTapInternalKey(inIndex int, internalKey []byte) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
+		return ErrInputIndexOutOfRange
+	}
+
+	if u.Pset.Inputs[inIndex].TapInternalKey != nil {
+		return ErrInDuplicatedField("tap internal key")
+	}
+
+	u.Pset.Inputs[inIndex].TapInternalKey = internalKey
+	return u.Pset.SanityCheck()
+}
+
+// AddInTapMerkleRoot adds the taproot tree root to the input at index inIndex.
+// it returns an error if the input has already a TapMerkleRoot.
+func (u *Updater) AddInTapMerkleRoot(inIndex int, tapMerkleRoot []byte) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
+		return ErrInputIndexOutOfRange
+	}
+
+	if u.Pset.Inputs[inIndex].TapMerkleRoot != nil {
+		return ErrInDuplicatedField("tap merkle root")
+	}
+
+	u.Pset.Inputs[inIndex].TapMerkleRoot = tapMerkleRoot
+	return u.Pset.SanityCheck()
+}
+
+// AddInTapLeafScript adds TapLeafScript to the input at index inIndex.
+// It returns an error if the input has already a TapLeafScript with the same TapHash.
+func (u *Updater) AddInTapLeafScript(inIndex int, tapLeafScript TapLeafScript) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
+		return ErrInputIndexOutOfRange
+	}
+
+	p := u.Pset.Copy()
+	if p.Inputs[inIndex].TapLeafScript == nil {
+		p.Inputs[inIndex].TapLeafScript = make([]TapLeafScript, 0)
+	} else {
+		h := tapLeafScript.TapHash()
+		for _, tls := range p.Inputs[inIndex].TapLeafScript {
+			currentHash := tls.TapHash()
+
+			if bytes.Equal(currentHash[:], h[:]) {
+				return ErrInDuplicatedField("tap leaf script")
+			}
+		}
+	}
+
+	p.Inputs[inIndex].TapLeafScript = append(p.Inputs[inIndex].TapLeafScript, tapLeafScript)
+
+	u.Pset.Global = p.Global
+	u.Pset.Inputs = p.Inputs
+	u.Pset.Outputs = p.Outputs
+	return u.Pset.SanityCheck()
+}
+
+// AddInTapBip32Derivation adds TapBip32Derivation to the input at index inIndex.
+func (u *Updater) AddInTapBip32Derivation(inIndex int, tapBip32Derivation TapDerivationPathWithPubKey) error {
+	if inIndex > int(u.Pset.Global.InputCount)-1 {
+		return ErrInputIndexOutOfRange
+	}
+
+	p := u.Pset.Copy()
+	if p.Inputs[inIndex].TapBip32Derivation == nil {
+		p.Inputs[inIndex].TapBip32Derivation = make([]TapDerivationPathWithPubKey, 0)
+	}
+
+	p.Inputs[inIndex].TapBip32Derivation = append(p.Inputs[inIndex].TapBip32Derivation, tapBip32Derivation)
+
+	u.Pset.Global = p.Global
+	u.Pset.Inputs = p.Inputs
+	u.Pset.Outputs = p.Outputs
+	return u.Pset.SanityCheck()
+}
+
 // AddOutBip32Derivation takes a master key fingerprint as defined in BIP32, a
 // BIP32 path as a slice of uint32 values, and a serialized pubkey as a byte
 // slice, along with the integer index of the output, and inserts this data

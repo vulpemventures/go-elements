@@ -20,6 +20,25 @@ type DerivationPathWithPubKey struct {
 	Bip32Path []uint32
 }
 
+type TapDerivationPathWithPubKey struct {
+	DerivationPathWithPubKey
+	LeafHashes [][]byte
+}
+
+func (d *TapDerivationPathWithPubKey) sanityCheck() error {
+	if len(d.LeafHashes) == 0 {
+		return ErrInInvalidTapBip32Derivation
+	}
+
+	for _, leafHash := range d.LeafHashes {
+		if len(leafHash) != 32 {
+			return ErrInInvalidTapBip32Derivation
+		}
+	}
+
+	return nil
+}
+
 // Bip32Sorter implements sort.Interface for the DerivationPathWithPubKey struct.
 type Bip32Sorter []*DerivationPathWithPubKey
 

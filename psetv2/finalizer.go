@@ -12,9 +12,11 @@ package psetv2
 // multisig and no other custom script.
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/vulpemventures/go-elements/internal/bufferutil"
 )
 
 var (
@@ -56,6 +58,10 @@ func Finalize(p *Pset, inIndex int) error {
 	// witness or legacy UTXO.
 	switch {
 	case input.WitnessUtxo != nil:
+		if input.isTaproot() {
+			return finalizeTaprootInput(p, inIndex)
+		}
+
 		if err := finalizeWitnessInput(p, inIndex); err != nil {
 			return err
 		}
@@ -128,6 +134,27 @@ func isFinalizableWitnessInput(input *Input) bool {
 				len(input.RedeemScript) > 0 {
 				return false
 			}
+		} else if txscript.IsPayToTaproot(pkScript) {
+			if input.TapKeySig != nil {
+				return true
+			}
+
+			if input.TapScriptSig != nil && len(input.TapScriptSig) > 0 {
+				for _, sig := range input.TapScriptSig {
+					hasTapLeafScript := false
+					for _, tapLeaf := range input.TapLeafScript {
+						h := tapLeaf.TapHash()
+						if bytes.Equal(sig.LeafHash, h[:]) {
+							hasTapLeafScript = true
+							break
+						}
+					}
+					if !hasTapLeafScript {
+						return false
+					}
+				}
+			}
+			return true
 		} else {
 			// A P2WKH output on the other hand doesn't need
 			// neither a witnessScript or redeemScript.
@@ -336,6 +363,67 @@ func finalizeNonWitnessInput(p *Pset, inIndex int) error {
 	}
 
 	return nil
+}
+
+// finalizeTaprootInput attempts to finalize a taproot input
+// key-path taproot: the witness is just the key signature
+// script-path taproot: the witness is signatures of the first tapLeafScript, assuming it's a checksig tapscript
+// all other cases must be finalized with custom finalizer function
+func finalizeTaprootInput(p *Pset, inIndex int) error {
+	if checkFinalScriptSigWitness(p, inIndex) {
+		return ErrFinalizerAlreadyFinalized
+	}
+
+	input := p.Inputs[inIndex]
+
+	// keypath finalization
+	if input.TapKeySig != nil {
+		witness := make([][]byte, 1)
+		witness[0] = input.TapKeySig
+		serializer := bufferutil.NewSerializer(nil)
+		if err := serializer.WriteVector(witness); err != nil {
+			return err
+		}
+		p.Inputs[inIndex].FinalScriptWitness = serializer.Bytes()
+		return nil
+	}
+
+	// if scriptpath, we'll finalize the first tapScriptLeaf by default
+	if input.TapScriptSig != nil && len(input.TapScriptSig) > 0 {
+		if input.TapLeafScript == nil || len(input.TapLeafScript) == 0 {
+			return ErrFinalizerForbiddenFinalization
+		}
+
+		leafToFinalize := input.TapLeafScript[0]
+		leafToFinalizeHash := leafToFinalize.TapHash()
+		signatures := make([][]byte, 0)
+		for _, sig := range input.TapScriptSig {
+			if bytes.Equal(sig.LeafHash, leafToFinalizeHash[:]) {
+				signatures = append(signatures, sig.Signature)
+			}
+		}
+
+		controlBlock, err := leafToFinalize.ControlBlock.ToBytes()
+		if err != nil {
+			return err
+		}
+
+		// witness = [signatures, script, controlBlock]
+		witness := make([][]byte, 0, len(signatures)+2)
+		witness = append(witness, signatures...)
+		witness = append(witness, leafToFinalize.Script)
+		witness = append(witness, controlBlock)
+
+		serializer := bufferutil.NewSerializer(nil)
+		if err := serializer.WriteVector(witness); err != nil {
+			return err
+		}
+
+		p.Inputs[inIndex].FinalScriptWitness = serializer.Bytes()
+		return nil
+	}
+
+	return ErrFinalizerForbiddenFinalization
 }
 
 // finalizeWitnessInput attempts to create PsetInFinalScriptSig field and

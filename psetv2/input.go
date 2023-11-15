@@ -292,7 +292,7 @@ func (i *Input) SanityCheck() error {
 		return ErrInInvalidTapInternalKey
 	}
 
-	if i.TapMerkleRoot != nil && len(i.TapMerkleRoot) != 32 {
+	if ilen(.TapMerkleRoot) > 0 && len(i.TapMerkleRoot) != 32 {
 		return ErrInInvalidTapMerkleRoot
 	}
 

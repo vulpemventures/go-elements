@@ -1189,7 +1189,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			}
 			i.RequiredHeightLocktime = binary.LittleEndian.Uint32(kp.Value)
 		case InputTapKeySig:
-			if i.TapKeySig != nil {
+			if len(i.TapKeySig) > 0 {
 				return ErrInDuplicatedField("taproot key signature")
 			}
 			if len(kp.Value) != 64 || len(kp.Value) != 65 {
@@ -1280,7 +1280,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 				LeafHashes: hashes,
 			})
 		case InputTapInternalKey:
-			if i.TapInternalKey != nil {
+			if len(i.TapInternalKey) > 0 {
 				return ErrInDuplicatedField("taproot internal key")
 			}
 			if len(kp.Value) != 32 {

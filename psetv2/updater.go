@@ -614,14 +614,13 @@ func (u *Updater) AddInTapLeafScript(inIndex int, tapLeafScript TapLeafScript) e
 	p := u.Pset.Copy()
 	if p.Inputs[inIndex].TapLeafScript == nil {
 		p.Inputs[inIndex].TapLeafScript = make([]TapLeafScript, 0)
-	} else {
-		h := tapLeafScript.TapHash()
-		for _, tls := range p.Inputs[inIndex].TapLeafScript {
-			currentHash := tls.TapHash()
+	}
+	h := tapLeafScript.TapHash()
+	for _, tls := range p.Inputs[inIndex].TapLeafScript {
+		currentHash := tls.TapHash()
 
-			if bytes.Equal(currentHash[:], h[:]) {
-				return ErrInDuplicatedField("tap leaf script")
-			}
+		if bytes.Equal(currentHash[:], h[:]) {
+			return ErrInDuplicatedField("tap leaf script")
 		}
 	}
 

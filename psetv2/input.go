@@ -1288,7 +1288,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			}
 			i.TapInternalKey = kp.Value
 		case InputTapMerkleRoot:
-			if i.TapMerkleRoot != nil {
+			if len(i.TapMerkleRoot) > 0 {
 				return ErrInDuplicatedField("taproot merkle root")
 			}
 			if len(kp.Value) != 32 {

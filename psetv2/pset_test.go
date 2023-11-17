@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/vulpemventures/go-elements/network"
 	"github.com/vulpemventures/go-elements/payment"
 	"github.com/vulpemventures/go-elements/psetv2"
+	"github.com/vulpemventures/go-elements/taproot"
 	"github.com/vulpemventures/go-elements/transaction"
 )
 
@@ -1328,5 +1331,306 @@ func TestBroadcastBlindedSwapTx(t *testing.T) {
 
 	// ...and broadcast the confidential swap tx to the network.
 	_, err = broadcastTransaction(ptx)
+	require.NoError(t, err)
+}
+
+func TestBroadcastBlindedTaprootKeyTx(t *testing.T) {
+	blindingPrivateKey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	blindingPublicKey := blindingPrivateKey.PubKey()
+
+	privkey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	pubkey := privkey.PubKey()
+
+	taprootPay, err := payment.FromTaprootScriptTreeHash(pubkey, nil, &network.Regtest, blindingPublicKey)
+	require.NoError(t, err)
+
+	address, err := taprootPay.ConfidentialTaprootAddress()
+	require.NoError(t, err)
+
+	// Fund sender address.
+	_, err = faucet(address)
+	require.NoError(t, err)
+	time.Sleep(time.Second * 3)
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	require.NoError(t, err)
+
+	prevoutIndex := uint32(utxos[0]["vout"].(float64))
+	prevoutTxid := utxos[0]["txid"].(string)
+
+	inputArgs := []psetv2.InputArgs{
+		{
+			TxIndex: prevoutIndex,
+			Txid:    prevoutTxid,
+		},
+	}
+
+	outputArgs := []psetv2.OutputArgs{
+		{
+			Asset:  lbtc,
+			Amount: 60000000,
+			Script: h2b("76a914f5b9864394bb5bc62691750cb32c9cbe522f0c3f88ac"),
+		},
+		{
+			Asset:        lbtc,
+			Amount:       39999500,
+			Script:       taprootPay.Script,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
+		},
+	}
+
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
+	require.NoError(t, err)
+
+	updater, err := psetv2.NewUpdater(ptx)
+	require.NoError(t, err)
+
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	require.NoError(t, err)
+
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: taprootPay.Script,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
+	}
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
+	require.NoError(t, err)
+
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
+		[][]byte{blindingPrivateKey.Serialize()},
+		nil,
+	)
+
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
+	require.NoError(t, err)
+
+	blinder, err := psetv2.NewBlinder(
+		ptx, ownedInputs, zkpValidator, zkpGenerator,
+	)
+	require.NoError(t, err)
+
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{1})
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(nil, outBlindingArgs)
+	require.NoError(t, err)
+
+	err = updater.AddOutputs([]psetv2.OutputArgs{
+		{
+			Asset:  lbtc,
+			Amount: 500,
+		},
+	})
+	require.NoError(t, err)
+
+	tweakedPrivKey := taproot.TweakTaprootPrivKey(privkey, []byte{})
+
+	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
+	unsignedTx, err := ptx.UnsignedTx()
+	require.NoError(t, err)
+
+	utxo := prevTx.Outputs[prevoutIndex]
+	sighash := unsignedTx.HashForWitnessV1(
+		0,
+		[][]byte{
+			utxo.Script,
+		},
+		[][]byte{
+			utxo.Asset,
+		},
+		[][]byte{
+			utxo.Value,
+		},
+		txscript.SigHashDefault,
+		genesisBlockhash,
+		nil,
+		nil,
+	)
+
+	sig, err := schnorr.Sign(tweakedPrivKey, sighash[:])
+	require.NoError(t, err)
+
+	signer, err := psetv2.NewSigner(ptx)
+	require.NoError(t, err)
+
+	err = signer.SignTaprootInputKeySig(0, sig.Serialize())
+	require.NoError(t, err)
+
+	err = psetv2.Finalize(ptx, 0)
+	require.NoError(t, err)
+
+	_, err = extractAndBroadcast(ptx)
+	require.NoError(t, err)
+}
+
+func TestBroadcastBlindedTaprootTapscriptTx(t *testing.T) {
+	blindingPrivateKey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	blindingPublicKey := blindingPrivateKey.PubKey()
+
+	privkey, err := btcec.NewPrivateKey()
+	require.NoError(t, err)
+
+	pubkey := privkey.PubKey()
+
+	checksigSchnorrScript, err := txscript.NewScriptBuilder().AddData(schnorr.SerializePubKey(pubkey)).AddOp(txscript.OP_CHECKSIG).Script()
+	require.NoError(t, err)
+
+	tree := taproot.AssembleTaprootScriptTree(taproot.NewBaseTapElementsLeaf(checksigSchnorrScript))
+	leafProof := tree.LeafMerkleProofs[0] // we'll spend the coin using the first leaf
+
+	taprootPay, err := payment.FromTaprootScriptTree(pubkey, tree, &network.Regtest, blindingPublicKey)
+	require.NoError(t, err)
+
+	address, err := taprootPay.ConfidentialTaprootAddress()
+	require.NoError(t, err)
+
+	// Fund sender address.
+	_, err = faucet(address)
+	require.NoError(t, err)
+	time.Sleep(time.Second * 3)
+
+	// Retrieve sender utxos.
+	utxos, err := unspents(address)
+	require.NoError(t, err)
+
+	prevoutIndex := uint32(utxos[0]["vout"].(float64))
+	prevoutTxid := utxos[0]["txid"].(string)
+
+	inputArgs := []psetv2.InputArgs{
+		{
+			TxIndex: prevoutIndex,
+			Txid:    prevoutTxid,
+		},
+	}
+
+	outputArgs := []psetv2.OutputArgs{
+		{
+			Asset:  lbtc,
+			Amount: 60000000,
+			Script: h2b("76a914f5b9864394bb5bc62691750cb32c9cbe522f0c3f88ac"),
+		},
+		{
+			Asset:        lbtc,
+			Amount:       39999500,
+			Script:       taprootPay.Script,
+			BlindingKey:  blindingPublicKey.SerializeCompressed(),
+			BlinderIndex: 0,
+		},
+	}
+
+	ptx, err := psetv2.New(inputArgs, outputArgs, nil)
+	require.NoError(t, err)
+
+	updater, err := psetv2.NewUpdater(ptx)
+	require.NoError(t, err)
+
+	prevTxHex, err := fetchTx(utxos[0]["txid"].(string))
+	require.NoError(t, err)
+
+	prevTx, _ := transaction.NewTxFromHex(prevTxHex)
+	assetCommitment := h2b(utxos[0]["assetcommitment"].(string))
+	valueCommitment := h2b(utxos[0]["valuecommitment"].(string))
+	witnessUtxo := &transaction.TxOutput{
+		Asset:  assetCommitment,
+		Value:  valueCommitment,
+		Script: taprootPay.Script,
+		Nonce:  prevTx.Outputs[prevoutIndex].Nonce,
+	}
+	err = updater.AddInWitnessUtxo(0, witnessUtxo)
+	require.NoError(t, err)
+	err = updater.AddInUtxoRangeProof(0, prevTx.Outputs[prevoutIndex].RangeProof)
+	require.NoError(t, err)
+	tapLeafScript := psetv2.NewTapLeafScript(leafProof, pubkey)
+	err = updater.AddInTapLeafScript(0, tapLeafScript)
+	require.NoError(t, err)
+
+	zkpValidator := confidential.NewZKPValidator()
+	zkpGenerator := confidential.NewZKPGeneratorFromBlindingKeys(
+		[][]byte{blindingPrivateKey.Serialize()},
+		nil,
+	)
+
+	ownedInputs, err := zkpGenerator.UnblindInputs(ptx, nil)
+	require.NoError(t, err)
+
+	blinder, err := psetv2.NewBlinder(
+		ptx, ownedInputs, zkpValidator, zkpGenerator,
+	)
+	require.NoError(t, err)
+
+	outBlindingArgs, err := zkpGenerator.BlindOutputs(ptx, []uint32{1})
+	require.NoError(t, err)
+
+	err = blinder.BlindLast(nil, outBlindingArgs)
+	require.NoError(t, err)
+
+	err = updater.AddOutputs([]psetv2.OutputArgs{
+		{
+			Asset:  lbtc,
+			Amount: 500,
+		},
+	})
+	require.NoError(t, err)
+
+	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
+	unsignedTx, err := ptx.UnsignedTx()
+	require.NoError(t, err)
+
+	utxo := prevTx.Outputs[prevoutIndex]
+	leafHash := tapLeafScript.TapHash()
+
+	sighash := unsignedTx.HashForWitnessV1(
+		0,
+		[][]byte{
+			utxo.Script,
+		},
+		[][]byte{
+			utxo.Asset,
+		},
+		[][]byte{
+			utxo.Value,
+		},
+		txscript.SigHashDefault,
+		genesisBlockhash,
+		&leafHash,
+		nil,
+	)
+
+	sig, err := schnorr.Sign(privkey, sighash[:])
+	require.NoError(t, err)
+
+	tapScriptSig := psetv2.TapScriptSig{
+		PartialSig: psetv2.PartialSig{
+			PubKey:    schnorr.SerializePubKey(pubkey),
+			Signature: sig.Serialize(),
+		},
+		LeafHash: leafHash[:],
+	}
+
+	signer, err := psetv2.NewSigner(ptx)
+	require.NoError(t, err)
+
+	err = signer.SignTaprootInputTapscriptSig(0, tapScriptSig)
+	require.NoError(t, err)
+
+	err = psetv2.Finalize(ptx, 0)
+	require.NoError(t, err)
+
+	_, err = extractAndBroadcast(ptx)
 	require.NoError(t, err)
 }

@@ -308,6 +308,20 @@ func signInput(
 	return nil
 }
 
+func extractAndBroadcast(p *psetv2.Pset) (string, error) {
+	finalTx, err := psetv2.Extract(p)
+	if err != nil {
+		return "", err
+	}
+	// Serialize the transaction and try to broadcast.
+	txHex, err := finalTx.ToHex()
+	if err != nil {
+		return "", err
+	}
+
+	return broadcast(txHex)
+}
+
 func broadcastTransaction(p *psetv2.Pset) (string, error) {
 	if err := psetv2.FinalizeAll(p); err != nil {
 		return "", err

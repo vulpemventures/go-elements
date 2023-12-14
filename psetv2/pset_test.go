@@ -1438,7 +1438,7 @@ func TestBroadcastBlindedTaprootKeyTx(t *testing.T) {
 
 	tweakedPrivKey := taproot.TweakTaprootPrivKey(privkey, []byte{})
 
-	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
+	genesisBlockhash, _ := chainhash.NewHashFromStr(network.Regtest.GenesisBlockHash)
 	unsignedTx, err := ptx.UnsignedTx()
 	require.NoError(t, err)
 
@@ -1587,7 +1587,7 @@ func TestBroadcastBlindedTaprootTapscriptTx(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
+	genesisBlockhash, _ := chainhash.NewHashFromStr(network.Regtest.GenesisBlockHash)
 	unsignedTx, err := ptx.UnsignedTx()
 	require.NoError(t, err)
 

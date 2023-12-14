@@ -134,7 +134,7 @@ func TestKeyPathSpend(t *testing.T) {
 	unsignedTx := p.UnsignedTx
 	// Sign step
 
-	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
+	genesisBlockhash, _ := chainhash.NewHashFromStr(network.Regtest.GenesisBlockHash)
 
 	sighash := unsignedTx.HashForWitnessV1(
 		0,
@@ -286,7 +286,7 @@ func TestTapscriptSpend(t *testing.T) {
 	unsignedTx := p.UnsignedTx
 
 	// Sign step
-	genesisBlockhash, _ := chainhash.NewHashFromStr("00902a6b70c2ca83b5d9c815d96a0e2f4202179316970d14ea1847dae5b1ca21")
+	genesisBlockhash, _ := chainhash.NewHashFromStr(network.Regtest.GenesisBlockHash)
 
 	leafProof := tree.LeafMerkleProofs[0]
 	leafHash := leafProof.TapHash()

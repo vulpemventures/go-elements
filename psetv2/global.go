@@ -9,7 +9,6 @@ import (
 
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 
-	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 )
 
@@ -286,11 +285,6 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 		case GlobalXpub:
 			if len(kp.Key.KeyData) != pubKeyLength+1 {
 				return ErrGlobalInvalidXPubLen
-			}
-			// Parse xpub to make sure it's valid
-			xpubStr := base58.Encode(kp.Key.KeyData[1:])
-			if _, err := hdkeychain.NewKeyFromString(xpubStr); err != nil {
-				return err
 			}
 
 			if len(kp.Value) == 0 || len(kp.Value)%4 != 0 {

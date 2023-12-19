@@ -1210,7 +1210,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					return ErrInDuplicatedField("taproot script signature")
 				}
 			}
-			if len(kp.Value) != 64 || len(kp.Value) != 65 {
+			if len(kp.Value) != 64 && len(kp.Value) != 65 {
 				return ErrInInvalidTapScriptSigSignature
 			}
 			i.TapScriptSig = append(i.TapScriptSig, TapScriptSig{

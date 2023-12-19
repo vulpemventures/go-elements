@@ -297,7 +297,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 			}
 
 			g.Xpubs = append(g.Xpubs, Xpub{
-				ExtendedKey:       kp.Key.KeyData,
+				ExtendedKey:       kp.Key.KeyData[1:],
 				MasterFingerprint: master,
 				DerivationPath:    derivationPath,
 			})

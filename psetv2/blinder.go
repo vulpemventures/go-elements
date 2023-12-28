@@ -230,8 +230,11 @@ func (i OwnedInput) validate(p *Pset) error {
 	if int(i.Index) > int(p.Global.InputCount)-1 {
 		return ErrInputIndexOutOfRange
 	}
-	prevOut := p.Inputs[i.Index].GetUtxo()
-	if !prevOut.IsConfidential() {
+	prevout := p.Inputs[i.Index].GetUtxo()
+	if prevout == nil {
+		return fmt.Errorf("missing input prevout")
+	}
+	if !prevout.IsConfidential() {
 		return nil
 	}
 	if i.Value == 0 {
@@ -486,7 +489,11 @@ func (b *Blinder) validateBlindingArgs(
 			asset = buf[1:]
 			assetBlinder = ownedIn.AssetBlinder
 		} else {
-			asset = in.GetUtxo().Asset
+			prevout := in.GetUtxo()
+			if prevout == nil {
+				return fmt.Errorf("missing input prevout")
+			}
+			asset = prevout.Asset
 			assetBlinder = zeroBlinder
 		}
 		inAssets = append(inAssets, asset)

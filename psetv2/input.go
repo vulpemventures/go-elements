@@ -381,6 +381,9 @@ func (i *Input) GetIssuanceInflationKeysHash() []byte {
 }
 
 func (i *Input) GetUtxo() *transaction.TxOutput {
+	if i.WitnessUtxo == nil && i.NonWitnessUtxo == nil {
+		return nil
+	}
 	utxo := i.WitnessUtxo
 	if utxo == nil {
 		utxo = i.NonWitnessUtxo.Outputs[i.PreviousTxIndex]

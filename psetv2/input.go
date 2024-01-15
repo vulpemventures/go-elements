@@ -1195,7 +1195,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 			if len(i.TapKeySig) > 0 {
 				return ErrInDuplicatedField("taproot key signature")
 			}
-			if len(kp.Value) != 64 || len(kp.Value) != 65 {
+			if len(kp.Value) != 64 && len(kp.Value) != 65 {
 				return ErrInInvalidTapKeySig
 			}
 			i.TapKeySig = kp.Value
@@ -1213,7 +1213,7 @@ func (i *Input) deserialize(buf *bytes.Buffer) error {
 					return ErrInDuplicatedField("taproot script signature")
 				}
 			}
-			if len(kp.Value) != 64 || len(kp.Value) != 65 {
+			if len(kp.Value) != 64 && len(kp.Value) != 65 {
 				return ErrInInvalidTapScriptSigSignature
 			}
 			i.TapScriptSig = append(i.TapScriptSig, TapScriptSig{

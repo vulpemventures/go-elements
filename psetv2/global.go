@@ -9,7 +9,6 @@ import (
 
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
 
-	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 )
 
@@ -114,11 +113,10 @@ func (g *Global) getKeyPairs() ([]KeyPair, error) {
 	keyPairs := make([]KeyPair, 0)
 
 	for _, xpub := range g.Xpubs {
-		keyData := append([]byte{byte(len(xpub.ExtendedKey))}, xpub.ExtendedKey...)
 		xPubKeyPair := KeyPair{
 			Key: Key{
 				KeyType: GlobalXpub,
-				KeyData: keyData,
+				KeyData: xpub.ExtendedKey,
 			},
 			Value: SerializeBIP32Derivation(
 				xpub.MasterFingerprint,
@@ -284,13 +282,8 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 
 		switch kp.Key.KeyType {
 		case GlobalXpub:
-			if len(kp.Key.KeyData) != pubKeyLength+1 {
+			if len(kp.Key.KeyData) != pubKeyLength {
 				return ErrGlobalInvalidXPubLen
-			}
-			// Parse xpub to make sure it's valid
-			xpubStr := base58.Encode(kp.Key.KeyData[1:])
-			if _, err := hdkeychain.NewKeyFromString(xpubStr); err != nil {
-				return err
 			}
 
 			if len(kp.Value) == 0 || len(kp.Value)%4 != 0 {
@@ -312,7 +305,7 @@ func (g *Global) deserialize(buf *bytes.Buffer) error {
 				return ErrGlobalDuplicatedField("tx version")
 			}
 			if len(kp.Value) != 4 {
-				return ErrGlobalInvalidTxVersion
+				return ErrGlobalInvalidTxVersionLen
 			}
 			g.TxVersion = binary.LittleEndian.Uint32(kp.Value)
 		case GlobalFallbackLocktime:

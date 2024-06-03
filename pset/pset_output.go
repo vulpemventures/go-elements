@@ -71,7 +71,7 @@ func (po *POutput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 			po.RedeemScript = value
 
@@ -80,13 +80,13 @@ func (po *POutput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 			po.WitnessScript = value
 
 		case psbt.Bip32DerivationOutputType:
 			if !validatePubkey(keydata) {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 			master, derivationPath, err := readBip32Derivation(value)
 			if err != nil {

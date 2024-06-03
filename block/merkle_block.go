@@ -171,7 +171,8 @@ func (m *MerkleBlock) traverseAndExtract(
 			right = left
 		}
 
-		return blockchain.HashMerkleBranches(left, right), nil
+		hash := blockchain.HashMerkleBranches(left, right)
+		return &hash, nil
 	}
 }
 

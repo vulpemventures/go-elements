@@ -109,7 +109,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 
 			tx, err := transaction.NewTxFromBuffer(bytes.NewBuffer(value))
@@ -123,7 +123,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 			txout, err := readTxOut(value)
 			if err != nil {
@@ -155,13 +155,13 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 
 			// Bounds check on value here since the sighash type must be a
 			// 32-bit unsigned integer.
 			if len(value) != 4 {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 
 			shtype := txscript.SigHashType(
@@ -174,7 +174,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 			pi.RedeemScript = value
 
@@ -183,7 +183,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 			pi.WitnessScript = value
 
@@ -217,7 +217,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 
 			pi.FinalScriptSig = value
@@ -227,7 +227,7 @@ func (pi *PInput) deserialize(r io.Reader) error {
 				return psbt.ErrDuplicateKey
 			}
 			if keydata != nil {
-				return psbt.ErrInvalidKeydata
+				return psbt.ErrInvalidKeyData
 			}
 
 			pi.FinalScriptWitness = value

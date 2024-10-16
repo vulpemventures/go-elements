@@ -129,6 +129,46 @@ func TestSize(t *testing.T) {
 	}
 }
 
+func TestDiscountSize(t *testing.T) {
+	file, err := ioutil.ReadFile("data/discount_ct.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tests []interface{}
+	err = json.Unmarshal(file, &tests)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, v := range tests {
+		testVector := v.(map[string]interface{})
+		tx, err := NewTxFromHex(testVector["txHex"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expectedWeight := int(testVector["expectedWeight"].(float64))
+		if res := tx.Weight(); res != expectedWeight {
+			t.Fatalf("Got: %d, expected: %d", res, expectedWeight)
+		}
+
+		expectedVsize := int(testVector["expectedVsize"].(float64))
+		if res := tx.VirtualSize(); res != expectedVsize {
+			t.Fatalf("Got: %d, expected: %d", res, expectedVsize)
+		}
+
+		expectedDiscountWeight := int(testVector["expectedDiscountWeight"].(float64))
+		if res := tx.DiscountWeight(); res != expectedDiscountWeight {
+			t.Fatalf("Got: %d, expected: %d", res, expectedDiscountWeight)
+		}
+
+		expectedDiscountVsize := int(testVector["expectedDiscountVsize"].(float64))
+		if res := tx.DiscountVirtualSize(); res != expectedDiscountVsize {
+			t.Fatalf("Got: %d, expected: %d", res, expectedDiscountVsize)
+		}
+	}
+}
+
 func TestCopy(t *testing.T) {
 	file, err := ioutil.ReadFile("data/tx_valid.json")
 	if err != nil {

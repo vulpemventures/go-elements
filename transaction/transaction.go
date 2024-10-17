@@ -3,7 +3,6 @@ package transaction
 import (
 	"bytes"
 	"encoding/hex"
-
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/vulpemventures/go-elements/internal/bufferutil"
@@ -402,6 +401,36 @@ func (tx *Transaction) Weight() int {
 // VirtualSize returns the total weight of a transaction excluding witnesses
 func (tx *Transaction) VirtualSize() int {
 	return (tx.Weight() + WitnessScaleFactor - 1) / WitnessScaleFactor
+}
+
+func (tx *Transaction) DiscountWeight() int {
+	weight := tx.Weight()
+
+	for _, txOut := range tx.Outputs {
+		if !txOut.IsConfidential() {
+			continue
+		}
+
+		// Explicit transactions have 1 byte for each empty proof
+		witnessWeight := -2
+		witnessWeight += bufferutil.VarIntSerializeSize(uint64(len(txOut.RangeProof))) +
+			len(txOut.RangeProof)
+		witnessWeight += bufferutil.VarIntSerializeSize(uint64(len(txOut.SurjectionProof))) +
+			len(txOut.SurjectionProof)
+
+		if witnessWeight > 0 {
+			weight -= witnessWeight
+		}
+
+		weight -= (33 - 9) * 4
+		weight -= (33 - 1) * 4
+	}
+
+	return weight
+}
+
+func (tx *Transaction) DiscountVirtualSize() int {
+	return (tx.DiscountWeight() + WitnessScaleFactor - 1) / WitnessScaleFactor
 }
 
 // Copy creates a deep copy of a transaction so that the original does not get

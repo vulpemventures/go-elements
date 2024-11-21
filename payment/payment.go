@@ -373,3 +373,89 @@ func buildScript(hash []byte, scriptType string) []byte {
 	script, _ := builder.Script()
 	return script
 }
+
+func FromOutputScript(
+	net *network.Network,
+	outputScript []byte,
+	blindingKey *btcec.PublicKey,
+) (string, error) {
+	p, err := FromScript(outputScript, net, blindingKey)
+	if err != nil {
+		return "", err
+	}
+
+	switch address.GetScriptType(outputScript) {
+	case address.P2WpkhScript:
+		addr, err := p.WitnessPubKeyHash()
+		if err != nil {
+			return "", err
+		}
+
+		if blindingKey != nil {
+			addr, err = p.ConfidentialWitnessPubKeyHash()
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return addr, nil
+	case address.P2WshScript:
+		addr, err := p.WitnessScriptHash()
+		if err != nil {
+			return "", err
+		}
+
+		if blindingKey != nil {
+			addr, err = p.ConfidentialWitnessScriptHash()
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return addr, nil
+	case address.P2ShScript:
+		addr, err := p.ScriptHash()
+		if err != nil {
+			return "", err
+		}
+
+		if blindingKey != nil {
+			addr, err = p.ConfidentialScriptHash()
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return addr, nil
+	case address.P2PkhScript:
+		addr, err := p.PubKeyHash()
+		if err != nil {
+			return "", err
+		}
+
+		if blindingKey != nil {
+			addr, err = p.ConfidentialPubKeyHash()
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return addr, nil
+	case address.P2TRScript:
+		addr, err := p.TaprootAddress()
+		if err != nil {
+			return "", err
+		}
+
+		if blindingKey != nil {
+			addr, err = p.ConfidentialTaprootAddress()
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return addr, nil
+	default:
+		return "", errors.New("unsupported script type")
+	}
+}

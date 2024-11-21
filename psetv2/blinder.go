@@ -446,7 +446,11 @@ func (b *Blinder) blind(
 	}
 
 	if !isLastBlinder {
-		p.Global.Scalars = append(b.Pset.Global.Scalars, outputScalar)
+		outScalar, err := b.generator.SubtractScalars(outputScalar, inputScalar)
+		if err != nil {
+			return err
+		}
+		p.Global.Scalars = append(b.Pset.Global.Scalars, outScalar)
 	} else {
 		p.Global.Scalars = nil
 	}

@@ -1,3 +1,5 @@
+//go:build cgo
+
 package confidential
 
 type zkpValidator struct{}

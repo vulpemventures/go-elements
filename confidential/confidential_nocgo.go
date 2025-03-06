@@ -81,7 +81,7 @@ type VerifySurjectionProofArgs struct {
 
 // NonceHash method generates hashed secret based on ecdh.
 func NonceHash(pubKey, privKey []byte) ([32]byte, error) {
-	return nil, errNoCGO
+	return [32]byte{}, errNoCGO
 }
 
 // UnblindOutputWithKey method unblinds a confidential transaction output with
@@ -112,7 +112,7 @@ func UnblindIssuance(
 func FinalValueBlindingFactor(
 	args FinalValueBlindingFactorArgs,
 ) ([32]byte, error) {
-	return nil, errNoCGO
+	return [32]byte{}, errNoCGO
 }
 
 // AssetCommitment method creates an asset commitment.

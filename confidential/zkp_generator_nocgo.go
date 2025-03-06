@@ -3,13 +3,9 @@
 package confidential
 
 import (
-	"errors"
-
 	"github.com/vulpemventures/go-elements/psetv2"
 	"github.com/vulpemventures/go-elements/transaction"
 )
-
-var errNoCGO = errors.New("confidential transactions require CGO")
 
 // zkpGenerator is the type that provides methods to generate zero-knowledge proofs.
 type zkpGenerator struct {

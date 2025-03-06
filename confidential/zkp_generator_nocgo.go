@@ -30,7 +30,7 @@ func NewZKPGeneratorFromMasterBlindingKey(
 func NewZKPGeneratorFromBlindingKeys(
 	inBlindingKeys [][]byte, opts interface{},
 ) *zkpGenerator {
-	return nil
+	return &zkpGenerator{}
 }
 
 // ComputeAndAddToScalarOffset computes and adds to the scalar offset.
